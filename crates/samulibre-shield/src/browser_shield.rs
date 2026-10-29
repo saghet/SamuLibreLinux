@@ -128,7 +128,28 @@ pub fn audit_extension_manifest(
     let has_cookies = risky_permissions.iter().any(|p| p.eq_ignore_ascii_case("cookies"));
     let has_native_messaging = risky_permissions.iter().any(|p| p.eq_ignore_ascii_case("nativeMessaging"));
 
-    let (is_suspicious, risk_level, risk_summary) = if has_cookies && has_native_messaging {
+    // Lista de extensiones oficiales de alta confianza conocidas por ID de Chrome Web Store
+    const TRUSTED_EXTENSIONS: &[(&str, &str)] = &[
+        ("ghbmnnjooekpmoecnnnilnnbdlolhkhi", "Google Docs Offline (Oficial de Google)"),
+        ("bkbeeeffjjeopflfhgeknacdieedcoml", "Microsoft Defender Browser Protection (Oficial de Microsoft)"),
+        ("efbjojhplkelaegfbieplglfidafgoka", "Google Network Speech (Oficial de Google)"),
+        ("aapbdbdomjkkjkaonfhkkikfgjllcleb", "Google Translate (Oficial de Google)"),
+        ("onngajpichpjonocncpkmagdpijlhkok", "VT4Browsers (Oficial de VirusTotal)"),
+        ("ecanpcehffngcegjmadlcijfolapggal", "IPvFoo (Monitor de IPs y Red Open Source)"),
+    ];
+
+    let trusted_desc = TRUSTED_EXTENSIONS
+        .iter()
+        .find(|&&(tid, _)| tid.eq_ignore_ascii_case(&id))
+        .map(|&(_, desc)| desc);
+
+    let (is_suspicious, risk_level, risk_summary) = if let Some(desc) = trusted_desc {
+        (
+            false,
+            "Inocua".to_string(),
+            Some(format!("Extensión verificada de alta confianza: {}", desc)),
+        )
+    } else if has_cookies && has_native_messaging {
         (
             true,
             "Crítica".to_string(),
@@ -147,14 +168,24 @@ pub fn audit_extension_manifest(
                 risky_permissions.join(", ")
             )),
         )
-    } else if !risky_permissions.is_empty() || !host_permissions.is_empty() {
+    } else if has_all_urls || risky_permissions.len() >= 2 {
         (
             false,
             "Media".to_string(),
+            Some(format!("Extensión con permisos amplios ({})", risky_permissions.join(", "))),
+        )
+    } else if !risky_permissions.is_empty() {
+        (
+            false,
+            "Baja".to_string(),
             Some(format!("Extensión con permisos estándar ({})", risky_permissions.join(", "))),
         )
     } else {
-        (false, "Inocua".to_string(), None)
+        (
+            false,
+            "Inocua".to_string(),
+            Some("Extensión segura sin permisos de riesgo ni interceptación global".to_string()),
+        )
     };
 
     Some(ExtensionAuditReport {

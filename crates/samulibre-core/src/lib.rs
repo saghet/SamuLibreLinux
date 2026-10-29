@@ -900,12 +900,18 @@ fn audit_extensions_in_dir(dir: &Path, browser_name: &str, profile_name: &str, r
             let p = entry.path();
             if p.is_dir() {
                 if let Ok(sub_entries) = std::fs::read_dir(&p) {
-                    for sub in sub_entries.flatten() {
-                        let manifest = sub.path().join("manifest.json");
-                        if manifest.exists() {
-                            if let Some(r) = samulibre_shield::audit_extension_manifest(&manifest, browser_name, profile_name) {
-                                reports.push(r);
-                            }
+                    let mut version_dirs: Vec<PathBuf> = sub_entries
+                        .flatten()
+                        .map(|e| e.path())
+                        .filter(|sub| sub.is_dir() && sub.join("manifest.json").exists())
+                        .collect();
+
+                    // Ordenar por versión descendente para auditar únicamente la versión activa más reciente
+                    version_dirs.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+                    if let Some(latest) = version_dirs.first() {
+                        let manifest = latest.join("manifest.json");
+                        if let Some(r) = samulibre_shield::audit_extension_manifest(&manifest, browser_name, profile_name) {
+                            reports.push(r);
                         }
                     }
                 }

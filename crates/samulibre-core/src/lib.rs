@@ -96,10 +96,19 @@ impl SamuLibreCore {
             #[cfg(not(target_os = "windows"))]
             if let Ok(home) = std::env::var("HOME") {
                 let p = PathBuf::from(home);
-                w.add_watch_dir(p.join("Downloads"));
-                w.add_watch_dir(p.join("Desktop"));
-                w.add_watch_dir(p.join("Documents"));
+                for user_dir in ["Downloads", "Descargas", "Desktop", "Escritorio", "Documents", "Documentos"] {
+                    let dir_path = p.join(user_dir);
+                    if dir_path.exists() {
+                        w.add_watch_dir(dir_path);
+                    }
+                }
                 w.add_watch_dir(PathBuf::from("/tmp"));
+                if Path::new("/var/tmp").exists() {
+                    w.add_watch_dir(PathBuf::from("/var/tmp"));
+                }
+                if Path::new("/dev/shm").exists() {
+                    w.add_watch_dir(PathBuf::from("/dev/shm"));
+                }
             }
 
             let alerts_hist_clone = Arc::clone(&self.alerts_history);

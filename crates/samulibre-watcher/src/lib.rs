@@ -216,23 +216,25 @@ impl RealTimeWatcher {
 
         match scan_result.status {
             FileScanStatus::Clean => {
-                // Guardar en la caché de archivos limpios con límite acotado (máximo 10.000 entradas)
-                if let Ok(mut cache) = self.clean_cache.lock() {
-                    if cache.len() >= 10_000 {
-                        // Desalojar 2.000 entradas para mantener la huella de memoria < 2 MB
-                        let to_remove: Vec<_> = cache.keys().take(2000).cloned().collect();
-                        for k in to_remove {
-                            cache.remove(&k);
+                // Guardar en la caché de archivos limpios solo si el archivo ya fue escrito (tamaño > 0)
+                if file_size > 0 {
+                    if let Ok(mut cache) = self.clean_cache.lock() {
+                        if cache.len() >= 10_000 {
+                            // Desalojar 2.000 entradas para mantener la huella de memoria < 2 MB
+                            let to_remove: Vec<_> = cache.keys().take(2000).cloned().collect();
+                            for k in to_remove {
+                                cache.remove(&k);
+                            }
                         }
+                        cache.insert(
+                            file_path.to_path_buf(),
+                            CacheEntry {
+                                sha256: scan_result.sha256,
+                                size: file_size,
+                                modified: modified_time,
+                            },
+                        );
                     }
-                    cache.insert(
-                        file_path.to_path_buf(),
-                        CacheEntry {
-                            sha256: scan_result.sha256,
-                            size: file_size,
-                            modified: modified_time,
-                        },
-                    );
                 }
                 None
             }

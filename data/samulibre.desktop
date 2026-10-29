@@ -10,7 +10,7 @@ Terminal=false
 Categories=Utility;Security;System;
 Keywords=antivirus;security;vpn;edr;malware;privacy;
 StartupNotify=true
-StartupWMClass=samulibre-gui
+StartupWMClass=org.samulibre.samulibre
 Actions=QuickScan;UpdateSignatures;ShowStatus;
 
 [Desktop Action QuickScan]

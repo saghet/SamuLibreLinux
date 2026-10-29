@@ -66,23 +66,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "==> Instalando binarios ejecutables..."
 if [ -f "${SCRIPT_DIR}/samulibre-gui" ]; then
-    cp "${SCRIPT_DIR}/samulibre-gui" "${INSTALL_PREFIX}/bin/samulibre-gui"
-    chmod 755 "${INSTALL_PREFIX}/bin/samulibre-gui"
+    install -Dm755 "${SCRIPT_DIR}/samulibre-gui" "${INSTALL_PREFIX}/bin/samulibre-gui"
 elif [ -f "${SCRIPT_DIR}/../../target/release/samulibre-gui" ]; then
-    cp "${SCRIPT_DIR}/../../target/release/samulibre-gui" "${INSTALL_PREFIX}/bin/samulibre-gui"
-    chmod 755 "${INSTALL_PREFIX}/bin/samulibre-gui"
+    install -Dm755 "${SCRIPT_DIR}/../../target/release/samulibre-gui" "${INSTALL_PREFIX}/bin/samulibre-gui"
 else
     echo "❌ Error: No se encontró el binario 'samulibre-gui'."
     exit 1
 fi
 
 if [ -f "${SCRIPT_DIR}/samulibre-cli" ]; then
-    cp "${SCRIPT_DIR}/samulibre-cli" "${INSTALL_PREFIX}/bin/samulibre-cli"
-    chmod 755 "${INSTALL_PREFIX}/bin/samulibre-cli"
+    install -Dm755 "${SCRIPT_DIR}/samulibre-cli" "${INSTALL_PREFIX}/bin/samulibre-cli"
 elif [ -f "${SCRIPT_DIR}/../../target/release/samulibre-cli" ]; then
-    cp "${SCRIPT_DIR}/../../target/release/samulibre-cli" "${INSTALL_PREFIX}/bin/samulibre-cli"
-    chmod 755 "${INSTALL_PREFIX}/bin/samulibre-cli"
+    install -Dm755 "${SCRIPT_DIR}/../../target/release/samulibre-cli" "${INSTALL_PREFIX}/bin/samulibre-cli"
 fi
+
+ln -sf "${INSTALL_PREFIX}/bin/samulibre-cli" "${INSTALL_PREFIX}/bin/samulibre" || true
 
 echo "==> Instalando recursos web, firmas y configuración..."
 if [ -d "${SCRIPT_DIR}/data" ]; then
@@ -103,20 +101,41 @@ fi
 if [ "${IS_ROOT}" = false ]; then
     sed -i "s|/usr/bin/samulibre-gui|${INSTALL_PREFIX}/bin/samulibre-gui|g" "${DESKTOP_DIR}/samulibre.desktop" || true
 fi
+ln -sf "${DESKTOP_DIR}/samulibre.desktop" "${DESKTOP_DIR}/org.samulibre.samulibre.desktop" || true
 
+# Multi-resolución de iconos para compatibilidad total con KDE Plasma, GNOME y XFCE
+ICON_SRC=""
 if [ -f "${SCRIPT_DIR}/icon.png" ]; then
-    cp "${SCRIPT_DIR}/icon.png" "${ICON_DIR}/samulibre.png"
+    ICON_SRC="${SCRIPT_DIR}/icon.png"
 elif [ -f "${SCRIPT_DIR}/../../assets/icon.png" ]; then
-    cp "${SCRIPT_DIR}/../../assets/icon.png" "${ICON_DIR}/samulibre.png"
+    ICON_SRC="${SCRIPT_DIR}/../../assets/icon.png"
 fi
 
-# Actualizar base de datos de escritorio si existe la utilidad
+if [ -n "${ICON_SRC}" ]; then
+    SHARE_BASE="$(dirname "${DESKTOP_DIR}")"
+    mkdir -p "${SHARE_BASE}/pixmaps"
+    cp "${ICON_SRC}" "${SHARE_BASE}/pixmaps/samulibre.png"
+
+    for size in 16x16 32x32 48x48 64x64 128x128 256x256 512x512 scalable; do
+        target_dir="${SHARE_BASE}/icons/hicolor/${size}/apps"
+        mkdir -p "${target_dir}"
+        cp "${ICON_SRC}" "${target_dir}/samulibre.png"
+    done
+fi
+
+# Actualizar base de datos de escritorio y cachés de KDE Plasma y GTK
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "${DESKTOP_DIR}" || true
 fi
 
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-    gtk-update-icon-cache -f -t "$(dirname "${ICON_DIR}")/.." || true
+    gtk-update-icon-cache -f -t "${SHARE_BASE}/icons/hicolor" 2>/dev/null || true
+fi
+
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 2>/dev/null || true
+elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+    kbuildsycoca5 2>/dev/null || true
 fi
 
 echo "=========================================================="

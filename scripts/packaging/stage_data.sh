@@ -17,6 +17,14 @@ for d in ui signatures kbs cve_rules sandbox canaries; do
     fi
 done
 
+# Asegurar que los señuelos canario estén limpios con sus tokens originales de fábrica
+if [ -d "${DEST}/canaries" ]; then
+    echo -n "CANARY_TOKEN_CREDENTIALS_TRIPWIRE_ALERT_IMMEDIATE" > "${DEST}/canaries/passwords_backup_vault.txt"
+    echo -n "CANARY_TOKEN_EXCEL_FINANCE_CONFIDENTIAL_SAMULIBRE" > "${DEST}/canaries/claves_bancarias_2026.xlsx"
+    echo -n "CANARY_TOKEN_TAX_RETURN_DOCUMENT_ENCRYPTION_BAIT" > "${DEST}/canaries/declaracion_renta_privada.docx"
+    echo -n "CANARY_TOKEN_PRIVATE_KEY_SECURE_VAULT_DONOTTOUCH" > "${DEST}/canaries/recuperacion_billetera_crypto.key"
+fi
+
 # VPN: copiar configs y listas, omitiendo binarios Windows (.exe, .dll) y logs
 mkdir -p "${DEST}/vpn"
 if [ -d "data/vpn" ]; then

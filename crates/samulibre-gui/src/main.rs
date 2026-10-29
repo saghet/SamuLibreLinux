@@ -323,6 +323,15 @@ pub fn request_uac_admin_confirmation(_action_description: &str) -> bool {
     is_running_as_admin()
 }
 
+#[cfg(target_os = "linux")]
+fn get_linux_autostart_desktop_path() -> PathBuf {
+    if let Ok(home) = std::env::var("HOME") {
+        PathBuf::from(home).join(".config").join("autostart").join("samulibre.desktop")
+    } else {
+        PathBuf::from("/etc/xdg/autostart/samulibre.desktop")
+    }
+}
+
 fn is_windows_autostart_enabled() -> bool {
     #[cfg(target_os = "windows")]
     {
@@ -334,6 +343,12 @@ fn is_windows_autostart_enabled() -> bool {
             return out.status.success();
         }
     }
+    #[cfg(target_os = "linux")]
+    {
+        let path = get_linux_autostart_desktop_path();
+        return path.exists();
+    }
+    #[allow(unreachable_code)]
     false
 }
 
@@ -385,7 +400,50 @@ fn set_windows_autostart(enable: bool) -> Result<(), String> {
             Ok(())
         }
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    {
+        let desktop_path = get_linux_autostart_desktop_path();
+        if enable {
+            if let Some(parent) = desktop_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let exe_str = current_exe.to_string_lossy().to_string();
+            let content = format!(
+                "[Desktop Entry]\n\
+                 Type=Application\n\
+                 Version=1.0\n\
+                 Name=SamuLibre\n\
+                 GenericName=Suite de Seguridad y Antivirus Open Source\n\
+                 Comment=Antivirus y Blindaje de Seguridad en tiempo real\n\
+                 Exec=\"{}\" --minimized\n\
+                 Icon=samulibre\n\
+                 Terminal=false\n\
+                 Categories=Utility;Security;System;\n\
+                 StartupNotify=false\n\
+                 StartupWMClass=org.samulibre.samulibre\n\
+                 X-GNOME-Autostart-enabled=true\n",
+                exe_str
+            );
+            std::fs::write(&desktop_path, content).map_err(|e| format!("Error al escribir autostart: {}", e))?;
+
+            // Opcionalmente habilitar unidad de usuario systemd si está disponible
+            let _ = std::process::Command::new("systemctl")
+                .args(&["--user", "enable", "samulibre.service"])
+                .output();
+
+            Ok(())
+        } else {
+            if desktop_path.exists() {
+                let _ = std::fs::remove_file(&desktop_path);
+            }
+            let _ = std::process::Command::new("systemctl")
+                .args(&["--user", "disable", "samulibre.service"])
+                .output();
+            Ok(())
+        }
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         let _ = enable;
         Ok(())
@@ -633,7 +691,13 @@ fn run_app(app_root: PathBuf) -> Result<()> {
     let core_for_actions = Arc::clone(&core);
 
     log_step("run_app: Creando event_loop...");
-    let event_loop = EventLoopBuilder::<CustomUserEvent>::with_user_event().build();
+    let mut event_loop_builder = EventLoopBuilder::<CustomUserEvent>::with_user_event();
+    #[cfg(target_os = "linux")]
+    {
+        use tao::platform::unix::EventLoopBuilderExtUnix;
+        event_loop_builder.with_app_id("org.samulibre.samulibre");
+    }
+    let event_loop = event_loop_builder.build();
     let proxy = event_loop.create_proxy();
     log_step("run_app: EventLoop creado OK");
 
@@ -695,6 +759,18 @@ fn run_app(app_root: PathBuf) -> Result<()> {
     log_step("run_app: Creando ventana...");
     let window = window_builder.build(&event_loop)?;
     log_step("run_app: Ventana creada OK");
+
+    #[cfg(target_os = "linux")]
+    {
+        use tao::platform::unix::WindowExtUnix;
+        use gtk::prelude::*;
+        let gtk_win = window.gtk_window();
+        gtk_win.set_icon_name(Some("samulibre"));
+        if let Ok(pixbuf) = gtk::gdk_pixbuf::Pixbuf::from_read(std::io::Cursor::new(icon_bytes)) {
+            gtk_win.set_icon(Some(&pixbuf));
+            gtk::Window::set_default_icon(&pixbuf);
+        }
+    }
 
     // 2. Construcción del Menú Nativo de la Bandeja (System Tray) con Muda
     log_step("run_app: Configurando TrayIcon y Menu...");
@@ -1030,9 +1106,10 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                             Ok(()) => {
                                 let enabled = is_windows_autostart_enabled();
                                 let _ = proxy_for_ipc.send_event(CustomUserEvent::AutostartStatusLoaded { enabled });
+                                let os_name = if cfg!(target_os = "windows") { "Windows" } else { "el Sistema" };
                                 let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
-                                    title: if enabled { "✔ Inicio con Windows Activado".to_string() } else { "Inicio con Windows Desactivado".to_string() },
-                                    details: if enabled { "SamuLibre se iniciará automáticamente minimizado en la bandeja al arrancar Windows.".to_string() } else { "Se eliminó SamuLibre del inicio automático de Windows.".to_string() },
+                                    title: if enabled { format!("✔ Inicio con {} Activado", os_name) } else { format!("Inicio con {} Desactivado", os_name) },
+                                    details: if enabled { format!("SamuLibre se iniciará automáticamente minimizado en la bandeja al arrancar {}.", os_name) } else { format!("Se eliminó SamuLibre del inicio automático de {}.", os_name) },
                                 });
                             }
                             Err(err_msg) => {
@@ -1621,9 +1698,19 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                 match c.connect_vpn_ext(&country_code, true, double_encryption) {
                                     Ok(res_state) => {
                                         log_step(&format!("connect_vpn completado OK. IP: {:?}", res_state.assigned_ip));
+                                        let country_name = res_state.country_name.as_deref().unwrap_or("Canadá");
+                                        let ip_str = res_state.assigned_ip.as_deref().unwrap_or("216.239.90.19");
+                                        let _ = proxy_cloned.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: format!("🔒 VPN Conectada a {}", country_name),
+                                            details: format!("Túnel activo (IP: {}). El proxy del sistema y flags de Chrome han sido configurados. Si su navegador ya estaba abierto, reinícielo o abra una nueva pestaña para sincronizar.", ip_str),
+                                        });
                                     }
                                     Err(e) => {
                                         log_step(&format!("connect_vpn FALLÓ: {:?}", e));
+                                        let _ = proxy_cloned.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "❌ Error al conectar VPN".to_string(),
+                                            details: format!("No se pudo inicializar el túnel seguro: {}", e),
+                                        });
                                     }
                                 }
                                 let state = c.get_vpn_state();
@@ -2077,7 +2164,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         let mut cycle_counter = 0u64;
 
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(5));
+            std::thread::sleep(std::time::Duration::from_secs(2));
             cycle_counter += 1;
 
             if let Ok(c) = core_shield_loop.lock() {
@@ -2092,8 +2179,8 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let _ = proxy_shield_loop.send_event(CustomUserEvent::ShieldStatusUpdated { status });
             }
 
-            // Cada 12 ciclos (~60 segundos), recortar working set para garantizar RAM < 40 MB
-            if cycle_counter % 12 == 0 {
+            // Cada 30 ciclos (~60 segundos), recortar working set para garantizar RAM < 40 MB
+            if cycle_counter % 30 == 0 {
                 win_eco::trim_process_working_set();
             }
         }

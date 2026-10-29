@@ -839,6 +839,10 @@ async fn run_live_demonstration(canary_dir: &Path, vpn_dir: &Path) -> Result<()>
         println!("       Acción inmediata: {}", alert.action_taken.bold().yellow());
     }
 
+    // 3.4 Restauración de seguridad: Restaurar canarios a estado original limpio tras la simulación
+    let _ = shield.deploy_canaries();
+    println!("3.4 Trampas canario restauradas e intactas tras la prueba de simulación.");
+
     // 4. Demostración de Navegación Libre y VPN
     println!("\n{}", "[PASO 4] NAVEGACIÓN LIBRE, VPN WIREGUARD Y DNS SEGURO...".bold().cyan());
     let vpn = VpnManager::new(vpn_dir);

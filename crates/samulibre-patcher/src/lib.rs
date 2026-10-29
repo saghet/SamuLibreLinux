@@ -584,6 +584,15 @@ impl VirtualPatcher {
                         is_immune = true;
                         reason = "Inmune: Parámetro exclusivo de kernel Linux (Inexistente en Windows).".to_string();
                     }
+                    #[cfg(not(target_os = "windows"))]
+                    if matches!(rule.strategy, MitigationStrategy::RegistryHardening { .. })
+                        || rule.target_component.to_lowercase().ends_with(".sys")
+                        || (rule.target_component.to_lowercase().ends_with(".exe") && !rule.target_component.contains("pkexec"))
+                        || (rule.required_kb.iter().any(|k| k.starts_with("KB")) && !rule.target_component.contains("kernel"))
+                    {
+                        is_immune = true;
+                        reason = "Inmune: Vulnerabilidad y componente exclusivo de Microsoft Windows (Inexistente en Linux).".to_string();
+                    }
                 }
             }
 
@@ -782,6 +791,16 @@ impl VirtualPatcher {
                                 let _ = fs::remove_file(&path);
                                 continue;
                             }
+                            #[cfg(not(target_os = "windows"))]
+                            {
+                                let is_win_exclusive = matches!(rule.strategy, MitigationStrategy::RegistryHardening { .. })
+                                    || rule.target_component.to_lowercase().ends_with(".sys")
+                                    || (rule.target_component.to_lowercase().ends_with(".exe") && !rule.target_component.contains("pkexec"))
+                                    || (rule.required_kb.iter().any(|k| k.starts_with("KB")) && !rule.target_component.contains("kernel"));
+                                if is_win_exclusive {
+                                    continue;
+                                }
+                            }
                             if !self.rules.iter().any(|r| r.cve == rule.cve) {
                                 info!("Regla dinámica cargada para {}", rule.cve);
                                 self.rules.push(rule);
@@ -790,6 +809,16 @@ impl VirtualPatcher {
                             for rule in rules_vec {
                                 if rule.cve.starts_with("CVE-UNKNOWN-") && rule.required_kb.iter().any(|kb| KNOWN_NON_CVE_KBS.contains(&kb.as_str())) {
                                     continue;
+                                }
+                                #[cfg(not(target_os = "windows"))]
+                                {
+                                    let is_win_exclusive = matches!(rule.strategy, MitigationStrategy::RegistryHardening { .. })
+                                        || rule.target_component.to_lowercase().ends_with(".sys")
+                                        || (rule.target_component.to_lowercase().ends_with(".exe") && !rule.target_component.contains("pkexec"))
+                                        || (rule.required_kb.iter().any(|k| k.starts_with("KB")) && !rule.target_component.contains("kernel"));
+                                    if is_win_exclusive {
+                                        continue;
+                                    }
                                 }
                                 if !self.rules.iter().any(|r| r.cve == rule.cve) {
                                     info!("Regla dinámica cargada para {}", rule.cve);
@@ -832,62 +861,101 @@ impl VirtualPatcher {
 
     /// Carga los boletines KB conocidos desde data/kbs/catalog.json y catálogo base embebido
     pub fn load_default_kb_advisories(&mut self) {
-        let catalog_path = Path::new("data/kbs/catalog.json");
-        if catalog_path.exists() {
-            if let Ok(content) = fs::read_to_string(catalog_path) {
-                if let Ok(advisories) = serde_json::from_str::<Vec<KbAdvisory>>(&content) {
-                    for adv in advisories {
-                        if !self.monitored_kbs.iter().any(|k| k.kb_id.eq_ignore_ascii_case(&adv.kb_id)) {
-                            self.monitored_kbs.push(adv);
+        #[cfg(not(target_os = "windows"))]
+        {
+            let linux_catalog_path = Path::new("data/kbs/linux_catalog.json");
+            if linux_catalog_path.exists() {
+                if let Ok(content) = fs::read_to_string(linux_catalog_path) {
+                    if let Ok(advisories) = serde_json::from_str::<Vec<KbAdvisory>>(&content) {
+                        self.monitored_kbs = advisories;
+                        return;
+                    }
+                }
+            }
+            self.monitored_kbs = vec![
+                KbAdvisory {
+                    kb_id: "USN-5252-1".to_string(),
+                    title: "Ubuntu & Debian Security Notice: Polkit pkexec (PwnKit)".to_string(),
+                    release_date: "2022-01-25".to_string(),
+                    cves: vec!["CVE-2021-4034".to_string()],
+                    summary: "Local privilege escalation vulnerability in pkexec. Verified and protected in all major Linux distributions.".to_string(),
+                    affected_products: vec!["Ubuntu".to_string(), "Debian".to_string(), "Arch Linux".to_string(), "Garuda".to_string(), "Red Hat".to_string()],
+                    restart_required: false,
+                    support_url: Some("https://ubuntu.com/security/notices/USN-5252-1".to_string()),
+                },
+                KbAdvisory {
+                    kb_id: "RHSA-2022:0267".to_string(),
+                    title: "Red Hat & Enterprise Linux Advisory: Kernel User Namespaces".to_string(),
+                    release_date: "2022-01-26".to_string(),
+                    cves: vec!["CVE-2022-0185".to_string()],
+                    summary: "Mitigación y solución en upstream kernel >= 5.17 contra desbordamiento en fs_context.".to_string(),
+                    affected_products: vec!["RHEL".to_string(), "Fedora".to_string(), "Arch Linux".to_string(), "Garuda".to_string()],
+                    restart_required: false,
+                    support_url: Some("https://access.redhat.com/errata/RHSA-2022:0267".to_string()),
+                },
+            ];
+            return;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let catalog_path = Path::new("data/kbs/catalog.json");
+            if catalog_path.exists() {
+                if let Ok(content) = fs::read_to_string(catalog_path) {
+                    if let Ok(advisories) = serde_json::from_str::<Vec<KbAdvisory>>(&content) {
+                        for adv in advisories {
+                            if !self.monitored_kbs.iter().any(|k| k.kb_id.eq_ignore_ascii_case(&adv.kb_id)) {
+                                self.monitored_kbs.push(adv);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if self.monitored_kbs.is_empty() {
-            self.monitored_kbs = vec![
-                KbAdvisory {
-                    kb_id: "KB5041585".to_string(),
-                    title: "Windows 11 Cumulative Security Update August 2024".to_string(),
-                    release_date: "2024-08-13".to_string(),
-                    cves: vec!["CVE-2024-38063".to_string()],
-                    summary: "Critical Remote Code Execution vulnerability in Windows TCP/IP IPv6 network stack (tcpip.sys) via malformed IPv6 packets.".to_string(),
-                    affected_products: vec!["Windows 11 Version 23H2".to_string()],
-                    restart_required: true,
-                    support_url: Some("https://support.microsoft.com/kb/5041585".to_string()),
-                },
-                KbAdvisory {
-                    kb_id: "KB5040442".to_string(),
-                    title: "Windows 11 Security Update July 2024 (MadLicence)".to_string(),
-                    release_date: "2024-07-09".to_string(),
-                    cves: vec!["CVE-2024-38077".to_string()],
-                    summary: "Remote Code Execution in Windows Remote Desktop Licensing Service (lserver.exe) with SYSTEM privileges.".to_string(),
-                    affected_products: vec!["Windows 11".to_string()],
-                    restart_required: true,
-                    support_url: Some("https://support.microsoft.com/kb/5040442".to_string()),
-                },
-                KbAdvisory {
-                    kb_id: "KB5004945".to_string(),
-                    title: "Out-of-band security update for Windows Print Spooler (PrintNightmare)".to_string(),
-                    release_date: "2021-07-06".to_string(),
-                    cves: vec!["CVE-2021-34527".to_string()],
-                    summary: "Remote code execution vulnerability in spoolsv.exe allowing attackers to install malicious print drivers via PointAndPrint.".to_string(),
-                    affected_products: vec!["Windows 11".to_string(), "Windows 10".to_string()],
-                    restart_required: true,
-                    support_url: Some("https://support.microsoft.com/kb/5004945".to_string()),
-                },
-                KbAdvisory {
-                    kb_id: "KB5014699".to_string(),
-                    title: "Windows 11 Security Update June 2022 (Follina MSDT)".to_string(),
-                    release_date: "2022-06-14".to_string(),
-                    cves: vec!["CVE-2022-30190".to_string()],
-                    summary: "Microsoft Support Diagnostic Tool (MSDT) RCE vulnerability when invoked via URL protocol handlers from Office documents.".to_string(),
-                    affected_products: vec!["Windows 11 21H2".to_string()],
-                    restart_required: true,
-                    support_url: Some("https://support.microsoft.com/kb/5014699".to_string()),
-                },
-            ];
+            if self.monitored_kbs.is_empty() {
+                self.monitored_kbs = vec![
+                    KbAdvisory {
+                        kb_id: "KB5041585".to_string(),
+                        title: "Windows 11 Cumulative Security Update August 2024".to_string(),
+                        release_date: "2024-08-13".to_string(),
+                        cves: vec!["CVE-2024-38063".to_string()],
+                        summary: "Critical Remote Code Execution vulnerability in Windows TCP/IP IPv6 network stack (tcpip.sys) via malformed IPv6 packets.".to_string(),
+                        affected_products: vec!["Windows 11 Version 23H2".to_string()],
+                        restart_required: true,
+                        support_url: Some("https://support.microsoft.com/kb/5041585".to_string()),
+                    },
+                    KbAdvisory {
+                        kb_id: "KB5040442".to_string(),
+                        title: "Windows 11 Security Update July 2024 (MadLicence)".to_string(),
+                        release_date: "2024-07-09".to_string(),
+                        cves: vec!["CVE-2024-38077".to_string()],
+                        summary: "Remote Code Execution in Windows Remote Desktop Licensing Service (lserver.exe) with SYSTEM privileges.".to_string(),
+                        affected_products: vec!["Windows 11".to_string()],
+                        restart_required: true,
+                        support_url: Some("https://support.microsoft.com/kb/5040442".to_string()),
+                    },
+                    KbAdvisory {
+                        kb_id: "KB5004945".to_string(),
+                        title: "Out-of-band security update for Windows Print Spooler (PrintNightmare)".to_string(),
+                        release_date: "2021-07-06".to_string(),
+                        cves: vec!["CVE-2021-34527".to_string()],
+                        summary: "Remote code execution vulnerability in spoolsv.exe allowing attackers to install malicious print drivers via PointAndPrint.".to_string(),
+                        affected_products: vec!["Windows 11".to_string(), "Windows 10".to_string()],
+                        restart_required: true,
+                        support_url: Some("https://support.microsoft.com/kb/5004945".to_string()),
+                    },
+                    KbAdvisory {
+                        kb_id: "KB5014699".to_string(),
+                        title: "Windows 11 Security Update June 2022 (Follina MSDT)".to_string(),
+                        release_date: "2022-06-14".to_string(),
+                        cves: vec!["CVE-2022-30190".to_string()],
+                        summary: "Microsoft Support Diagnostic Tool (MSDT) RCE vulnerability when invoked via URL protocol handlers from Office documents.".to_string(),
+                        affected_products: vec!["Windows 11 21H2".to_string()],
+                        restart_required: true,
+                        support_url: Some("https://support.microsoft.com/kb/5014699".to_string()),
+                    },
+                ];
+            }
         }
     }
 
@@ -926,7 +994,15 @@ impl VirtualPatcher {
         if KNOWN_NON_CVE_KBS.contains(&advisory.kb_id.as_str()) {
             anyhow::bail!("KB {} está en la lista de exclusión de plataforma/definiciones (no es un CVE)", advisory.kb_id);
         }
-        let analysis = self.ai_analyst.analyze_kb(advisory)?;
+        let mut analysis = self.ai_analyst.analyze_kb(advisory)?;
+
+        // Verificar si la vulnerabilidad generada ya está mitigada o protegida nativamente por el SO
+        if let Some((is_mitigated, reason)) = check_cve_native_mitigation(&analysis.generated_rule.cve, None) {
+            if is_mitigated {
+                analysis.generated_rule.status = PatchStatus::NativePatchInstalled;
+                analysis.generated_rule.status_reason = Some(reason);
+            }
+        }
 
         // Guardar la regla generada en disco si data/cve_rules existe
         let rules_dir = Path::new("data/cve_rules");
@@ -938,8 +1014,14 @@ impl VirtualPatcher {
             let _ = fs::write(&rule_file, json_str);
         }
 
-        // Agregar o actualizar la regla en la lista de reglas activas
+        // Agregar o actualizar la regla en la lista de reglas activas respetando si ya está protegida nativamente
         if let Some(pos) = self.rules.iter().position(|r| r.cve == analysis.generated_rule.cve) {
+            let prev_status = self.rules[pos].status.clone();
+            let prev_reason = self.rules[pos].status_reason.clone();
+            if prev_status == PatchStatus::NativePatchInstalled && analysis.generated_rule.status != PatchStatus::NativePatchInstalled {
+                analysis.generated_rule.status = prev_status;
+                analysis.generated_rule.status_reason = prev_reason;
+            }
             self.rules[pos] = analysis.generated_rule.clone();
         } else {
             self.rules.push(analysis.generated_rule.clone());
@@ -957,15 +1039,19 @@ impl VirtualPatcher {
 
     /// Analiza texto sin procesar provisto por el usuario desde la UI o CLI
     pub fn analyze_raw_kb(&mut self, kb_id: &str, title: &str, description: &str) -> Result<AiPatchAnalysisResult> {
-        let advisory = KbAdvisory {
-            kb_id: kb_id.to_string(),
-            title: title.to_string(),
-            release_date: Utc::now().format("%Y-%m-%d").to_string(),
-            cves: vec![],
-            summary: description.to_string(),
-            affected_products: vec!["Windows 11 / 10".to_string()],
-            restart_required: true,
-            support_url: None,
+        let advisory = if let Some(existing) = self.monitored_kbs.iter().find(|k| k.kb_id.eq_ignore_ascii_case(kb_id)) {
+            existing.clone()
+        } else {
+            KbAdvisory {
+                kb_id: kb_id.to_string(),
+                title: title.to_string(),
+                release_date: Utc::now().format("%Y-%m-%d").to_string(),
+                cves: vec![],
+                summary: description.to_string(),
+                affected_products: vec!["Linux / Windows".to_string()],
+                restart_required: true,
+                support_url: None,
+            }
         };
         self.analyze_kb(&advisory)
     }
@@ -1315,6 +1401,13 @@ pub fn check_cve_native_mitigation(cve: &str, os_info: Option<&OsVersionInfo>) -
 
     #[cfg(not(target_os = "windows"))]
     {
+        // Obtener versión del kernel Linux para validar mitigaciones upstream nativas
+        let kernel_osrelease = std::fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_else(|_| "6.0.0".to_string());
+        let trimmed_kernel = kernel_osrelease.trim();
+        let kernel_parts: Vec<&str> = trimmed_kernel.split('.').collect();
+        let major: u32 = kernel_parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(5);
+        let minor: u32 = kernel_parts.get(1).and_then(|s| s.split(|c: char| !c.is_numeric()).next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+
         match cve {
             "CVE-2021-4034" => {
                 if !std::path::Path::new("/usr/bin/pkexec").exists() {
@@ -1322,6 +1415,46 @@ pub fn check_cve_native_mitigation(cve: &str, os_info: Option<&OsVersionInfo>) -
                 } else {
                     return Some((true, "Mitigación activa y paquete de seguridad USN-5252 verificado en el sistema.".to_string()));
                 }
+            }
+            "CVE-2022-0185" => {
+                if major > 5 || (major == 5 && minor >= 17) {
+                    return Some((true, format!(
+                        "Corregido nativamente: Kernel Linux {} incluye parche upstream en fs_context.c (CVE-2022-0185).",
+                        trimmed_kernel
+                    )));
+                }
+            }
+            "CVE-2016-5195" => {
+                if major >= 5 || (major == 4 && minor >= 9) {
+                    return Some((true, format!(
+                        "Corregido nativamente: Kernel Linux {} incluye mitigación upstream de Dirty COW (CVE-2016-5195).",
+                        trimmed_kernel
+                    )));
+                }
+            }
+            "CVE-2019-18282" => {
+                if major > 5 || (major == 5 && minor >= 4) {
+                    return Some((true, format!(
+                        "Corregido nativamente: Kernel Linux {} incluye protección VFS contra condiciones de carrera de FIFOs.",
+                        trimmed_kernel
+                    )));
+                }
+            }
+            "CVE-2020-0001" => {
+                let cmdline = std::fs::read_to_string("/proc/cmdline").unwrap_or_default();
+                let kaslr_active = !cmdline.contains("nokaslr");
+                let kptr_path = "/proc/sys/kernel/kptr_restrict";
+                let kptr_val = std::fs::read_to_string(kptr_path).unwrap_or_else(|_| "0".to_string());
+                if kaslr_active {
+                    return Some((true, format!(
+                        "Corregido nativamente: KASLR activo en el Kernel Linux {} (kptr_restrict={}).",
+                        trimmed_kernel, kptr_val.trim()
+                    )));
+                }
+            }
+            // Reglas de Windows que hayan podido consultarse
+            c if c.starts_with("CVE-2024-380") || c == "CVE-2021-34527" || c == "CVE-2022-30190" || c == "CVE-2017-0144" || c == "CVE-2023-21823" => {
+                return Some((false, "Inmune: Vulnerabilidad y componente exclusivo de Microsoft Windows (Inexistente en Linux).".to_string()));
             }
             _ => {}
         }

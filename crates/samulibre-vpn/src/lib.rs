@@ -125,7 +125,7 @@ pub fn set_system_proxy(enable: bool, proxy_server: &str) -> Result<()> {
 
 /// Modifica la configuración de proxy en distribuciones Linux (GNOME/Ubuntu/RHEL, KDE/Garuda/Arch y variables de sesión)
 pub fn set_linux_system_proxy(enable: bool, host: &str, http_port: u16, socks_port: u16) -> Result<()> {
-    // 1. En entornos GNOME (Ubuntu, Red Hat, Fedora, Debian):
+    // 1. En entornos GNOME (Ubuntu, Red Hat, Fedora, Debian) y aplicaciones compatibles con GSettings:
     let mode = if enable { "manual" } else { "none" };
     let _ = Command::new("gsettings").args(["set", "org.gnome.system.proxy", "mode", mode]).output();
     if enable {
@@ -138,16 +138,102 @@ pub fn set_linux_system_proxy(enable: bool, host: &str, http_port: u16, socks_po
     }
 
     // 2. En entornos KDE Plasma 5 y 6 (Garuda Linux, Kubuntu, openSUSE):
+    // ProxyType: 0 = No Proxy, 1 = Manual Proxy Configuration
     let kde_mode = if enable { "1" } else { "0" };
-    let _ = Command::new("kwriteconfig5").args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "ProxyType", kde_mode]).output();
-    let _ = Command::new("kwriteconfig6").args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "ProxyType", kde_mode]).output();
-    if enable {
-        let http_proxy_url = format!("http://{}:{}", host, http_port);
-        let _ = Command::new("kwriteconfig5").args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "httpProxy", &http_proxy_url]).output();
-        let _ = Command::new("kwriteconfig6").args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "httpProxy", &http_proxy_url]).output();
+    let http_proxy_url = format!("http://{}:{}", host, http_port);
+    let socks_proxy_url = format!("socks://{}:{}", host, socks_port);
+
+    for bin in ["kwriteconfig6", "kwriteconfig5"] {
+        let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "ProxyType", kde_mode]).output();
+        if enable {
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "httpProxy", &http_proxy_url]).output();
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "httpsProxy", &http_proxy_url]).output();
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "ftpProxy", &http_proxy_url]).output();
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "socksProxy", &socks_proxy_url]).output();
+        } else {
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "httpProxy", ""]).output();
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "httpsProxy", ""]).output();
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "ftpProxy", ""]).output();
+            let _ = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "socksProxy", ""]).output();
+        }
     }
 
-    // 3. Variables de entorno estándar de sesión para CLI, navegadores universales y XFCE/LXQt/i3
+    // Notificar a KDE KIO y kded para recargar la configuración del proxy en vivo sin reiniciar navegadores
+    let _ = Command::new("qdbus6").args(["org.kde.kded6", "/kded", "org.kde.kded6.reconfigure"]).output();
+    let _ = Command::new("qdbus").args(["org.kde.kded5", "/kded", "org.kde.kded5.reconfigure"]).output();
+    let _ = Command::new("dbus-send").args([
+        "--type=signal",
+        "/KIO/Scheduler",
+        "org.kde.KIO.Scheduler.reparseSlaveConfiguration",
+        "string:''"
+    ]).output();
+
+    // 3. Variables de entorno de sesión de usuario ~/.config/environment.d/ (Systemd user session para Wayland/X11)
+    if let Ok(home) = std::env::var("HOME") {
+        let env_dir = PathBuf::from(&home).join(".config").join("environment.d");
+        let env_file = env_dir.join("99-samulibre-proxy.conf");
+        if enable {
+            let _ = fs::create_dir_all(&env_dir);
+            let env_content = format!(
+                "http_proxy=http://{}:{}\n\
+                 https_proxy=http://{}:{}\n\
+                 HTTP_PROXY=http://{}:{}\n\
+                 HTTPS_PROXY=http://{}:{}\n\
+                 all_proxy=socks5h://{}:{}\n\
+                 ALL_PROXY=socks5h://{}:{}\n\
+                 no_proxy=localhost,127.0.0.1,::1\n\
+                 NO_PROXY=localhost,127.0.0.1,::1\n",
+                host, http_port, host, http_port, host, http_port, host, http_port, host, socks_port, host, socks_port
+            );
+            let _ = fs::write(&env_file, env_content);
+        } else {
+            if env_file.exists() {
+                let _ = fs::remove_file(&env_file);
+            }
+        }
+
+        // 4. Configurar flags de navegadores basados en Chromium en Linux (~/.config/*-flags.conf)
+        // Usado por Google Chrome, Chromium, Vivaldi, Brave en Arch/Garuda/Fedora
+        let config_dir = PathBuf::from(&home).join(".config");
+        let browser_flag_files = [
+            config_dir.join("chrome-flags.conf"),
+            config_dir.join("chromium-flags.conf"),
+            config_dir.join("vivaldi-flags.conf"),
+            config_dir.join("brave-flags.conf"),
+        ];
+        let proxy_flag = format!("--proxy-server=http://{}:{}", host, http_port);
+        for flag_file in &browser_flag_files {
+            if enable {
+                let existing = fs::read_to_string(flag_file).unwrap_or_default();
+                let filtered: Vec<&str> = existing
+                    .lines()
+                    .filter(|l| !l.starts_with("--proxy-server=") && !l.trim().is_empty())
+                    .collect();
+                let mut new_content = filtered.join("\n");
+                if !new_content.is_empty() {
+                    new_content.push('\n');
+                }
+                new_content.push_str(&proxy_flag);
+                new_content.push('\n');
+                let _ = fs::write(flag_file, new_content);
+            } else if flag_file.exists() {
+                let existing = fs::read_to_string(flag_file).unwrap_or_default();
+                let filtered: Vec<&str> = existing
+                    .lines()
+                    .filter(|l| !l.starts_with("--proxy-server=") && !l.trim().is_empty())
+                    .collect();
+                if filtered.is_empty() {
+                    let _ = fs::remove_file(flag_file);
+                } else {
+                    let mut clean_content = filtered.join("\n");
+                    clean_content.push('\n');
+                    let _ = fs::write(flag_file, clean_content);
+                }
+            }
+        }
+    }
+
+    // 4. Variables de entorno del proceso actual
     if enable {
         let proxy_val = format!("http://{}:{}", host, http_port);
         std::env::set_var("http_proxy", &proxy_val);
@@ -213,6 +299,16 @@ pub fn is_system_proxy_enabled() -> bool {
     }
     #[cfg(target_os = "linux")]
     {
+        // 1. Comprobar KDE kioslaverc (Garuda / KDE Plasma 6 y 5)
+        for bin in ["kreadconfig6", "kreadconfig5"] {
+            if let Ok(output) = Command::new(bin).args(["--file", "kioslaverc", "--group", "Proxy Settings", "--key", "ProxyType"]).output() {
+                let text = String::from_utf8_lossy(&output.stdout);
+                if text.trim() == "1" {
+                    return true;
+                }
+            }
+        }
+        // 2. Comprobar GNOME
         if let Ok(output) = Command::new("gsettings").args(["get", "org.gnome.system.proxy", "mode"]).output() {
             let text = String::from_utf8_lossy(&output.stdout);
             if text.contains("manual") {
@@ -699,13 +795,13 @@ impl VpnManager {
         let geoip6_str = geoip6.to_string_lossy().replace('\\', "/").replace("//?/", "");
 
         let entry_guards_directive = if double_encryption {
-            "EntryNodes {ch},{is}\nStrictNodes 0\n"
+            "EntryNodes {ch},{is}\n"
         } else {
             ""
         };
 
         let torrc_content = format!(
-            "SocksPort 127.0.0.1:49722\nHTTPTunnelPort 127.0.0.1:49723\nDNSPort 127.0.0.1:49724\nDataDirectory {}\nGeoIPFile {}\nGeoIPv6File {}\n{}ExitNodes {}\nStrictNodes 0\nClientOnly 1\nAvoidDiskWrites 1\nLog notice stdout\n",
+            "SocksPort 127.0.0.1:49722\nHTTPTunnelPort 127.0.0.1:49723\nDNSPort 127.0.0.1:49724\nDataDirectory {}\nGeoIPFile {}\nGeoIPv6File {}\n{}ExitNodes {}\nStrictNodes 1\nMaxCircuitDirtiness 3600\nClientOnly 1\nAvoidDiskWrites 1\nLog notice stdout\n",
             tor_data_str, geoip_str, geoip6_str, entry_guards_directive, exit_nodes
         );
 

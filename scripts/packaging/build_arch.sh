@@ -9,6 +9,8 @@ set -euo pipefail
 VERSION="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)"
 WORK_DIR="target/archpkg"
 
+[ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+
 echo "==> [Garuda/Arch] Compilando binarios de SamuLibre ${VERSION} en release..."
 cargo build --release -p samulibre-gui -p samulibre-cli
 

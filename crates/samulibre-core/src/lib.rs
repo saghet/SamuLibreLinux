@@ -102,6 +102,14 @@ impl SamuLibreCore {
                         w.add_watch_dir(dir_path);
                     }
                 }
+                let autostart_dir = p.join(".config").join("autostart");
+                if autostart_dir.exists() {
+                    w.add_watch_dir(autostart_dir);
+                }
+                let local_bin = p.join(".local").join("bin");
+                if local_bin.exists() {
+                    w.add_watch_dir(local_bin);
+                }
                 w.add_watch_dir(PathBuf::from("/tmp"));
                 if Path::new("/var/tmp").exists() {
                     w.add_watch_dir(PathBuf::from("/var/tmp"));

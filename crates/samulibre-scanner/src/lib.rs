@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 pub mod polymorphic;
@@ -27,6 +27,22 @@ pub struct PatternRule {
 pub struct MultiEngineScanner {
     known_signatures: HashMap<String, String>, // Hash (SHA256) -> ThreatName
     pattern_rules: Vec<PatternRule>,
+}
+
+pub fn get_signatures_storage_dir() -> PathBuf {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            let user_dir = PathBuf::from(home).join(".local").join("share").join("samulibre").join("data").join("signatures");
+            if user_dir.exists() {
+                return user_dir;
+            }
+        }
+        if Path::new("/usr/share/samulibre/data/signatures").exists() {
+            return PathBuf::from("/usr/share/samulibre/data/signatures");
+        }
+    }
+    Path::new("data").join("signatures")
 }
 
 impl MultiEngineScanner {
@@ -544,7 +560,8 @@ impl MultiEngineScanner {
             self.known_signatures.insert(hash.to_lowercase(), name.to_string());
         }
 
-        let sig_path = Path::new("data").join("signatures").join("malware_hashes.db");
+        let sig_dir = get_signatures_storage_dir();
+        let sig_path = sig_dir.join("malware_hashes.db");
         if let Ok(content) = fs::read_to_string(&sig_path) {
             for line in content.lines() {
                 let trimmed = line.trim();
@@ -571,7 +588,7 @@ impl MultiEngineScanner {
             "Patrones heurísticos de neutralización de robo de credenciales LSASS y DPAPI".to_string(),
         ];
 
-        let history_file = Path::new("data").join("signatures").join("update_history.json");
+        let history_file = sig_dir.join("update_history.json");
         let mut history: Vec<UpdateHistoryEntry> = if let Ok(data) = fs::read_to_string(&history_file) {
             serde_json::from_str(&data).unwrap_or_default()
         } else {
@@ -618,7 +635,7 @@ impl MultiEngineScanner {
     }
 
     pub fn get_update_history(&self) -> Vec<UpdateHistoryEntry> {
-        let history_file = Path::new("data").join("signatures").join("update_history.json");
+        let history_file = get_signatures_storage_dir().join("update_history.json");
         if let Ok(data) = fs::read_to_string(&history_file) {
             serde_json::from_str(&data).unwrap_or_default()
         } else {

@@ -167,11 +167,11 @@
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
           <span>0% Anuncios | Cero Telemetría</span>
         </div>
-        <!-- Toggle Autostart Windows -->
+        <!-- Toggle Autostart Multiplataforma -->
         <div class="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between">
           <div class="flex items-center gap-1.5 text-[10px] text-gray-300">
             <span>⚡</span>
-            <span>Inicio con Windows</span>
+            <span id="autostartLabel">Inicio con Linux</span>
           </div>
           <label class="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" id="autostartToggle" onchange="toggleAutostart(this.checked)" class="sr-only peer">
@@ -2619,10 +2619,18 @@
       sendIpc('set_autostart', enable ? 'true' : 'false');
     }
 
-    window.onAutostartStatusLoaded = function(enabled) {
+    window.onAutostartStatusLoaded = function(enabled, osName) {
       const toggle = document.getElementById('autostartToggle');
       if (toggle) {
         toggle.checked = !!enabled;
+      }
+      const label = document.getElementById('autostartLabel');
+      if (label) {
+        if (osName === 'windows') {
+          label.textContent = 'Inicio con Windows';
+        } else if (osName === 'linux' || navigator.userAgent.toLowerCase().includes('linux')) {
+          label.textContent = 'Inicio con Linux';
+        }
       }
     };
 

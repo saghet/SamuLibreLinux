@@ -306,8 +306,16 @@ impl RealTimeWatcher {
                     match event.kind {
                         EventKind::Create(_) | EventKind::Modify(_) => {
                             for path in event.paths {
-                                let path_str = path.to_string_lossy();
-                                if path_str.contains(".git") || path_str.contains("node_modules") || path_str.contains("target") || path_str.contains("$Recycle.Bin") {
+                                let path_str = path.to_string_lossy().to_lowercase();
+                                if path_str.contains(".git")
+                                    || path_str.contains("node_modules")
+                                    || path_str.contains("target")
+                                    || path_str.contains("$recycle.bin")
+                                    || path_str.contains("quarantine")
+                                    || path_str.contains(".quarantine")
+                                    || path_str.contains(".cargo")
+                                    || path_str.contains(".rustup")
+                                {
                                     continue;
                                 }
                                 if path.is_file() && is_high_risk_extension(&path) {

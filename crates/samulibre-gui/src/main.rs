@@ -324,6 +324,83 @@ pub fn request_uac_admin_confirmation(_action_description: &str) -> bool {
 }
 
 #[cfg(target_os = "linux")]
+pub fn request_linux_admin_confirmation(action_description: &str) -> bool {
+    if is_running_as_admin() {
+        return true;
+    }
+
+    log_step(&format!("Solicitando elevación de administrador (root/sudo) para: {}", action_description));
+
+    // 1. Intentar PolicyKit (pkexec) que abre el diálogo nativo del entorno de escritorio (polkit-kde, polkit-gnome, etc.)
+    let pk_res = std::process::Command::new("pkexec")
+        .args(&["true"])
+        .status();
+
+    if let Ok(st) = pk_res {
+        if st.success() {
+            log_step("Autorización de administrador confirmada exitosamente mediante PolicyKit (pkexec).");
+            return true;
+        }
+    }
+
+    // 2. Fallback a diálogo gráfico con kdialog (KDE) o zenity (GNOME/GTK)
+    let prompt_msg = format!("SamuLibre - Autoprotección:\nSe requieren privilegios de Administrador para {}", action_description);
+
+    if let Ok(out) = std::process::Command::new("kdialog")
+        .args(&["--password", &prompt_msg])
+        .output()
+    {
+        if out.status.success() {
+            let pass = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !pass.is_empty() && verify_sudo_password(&pass) {
+                log_step("Autorización concedida exitosamente mediante kdialog/sudo.");
+                return true;
+            }
+        }
+    }
+
+    if let Ok(out) = std::process::Command::new("zenity")
+        .args(&["--password", &format!("--title={}", prompt_msg)])
+        .output()
+    {
+        if out.status.success() {
+            let pass = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !pass.is_empty() && verify_sudo_password(&pass) {
+                log_step("Autorización concedida exitosamente mediante zenity/sudo.");
+                return true;
+            }
+        }
+    }
+
+    log_step("Autorización de administrador denegada o cancelada.");
+    false
+}
+
+#[cfg(target_os = "linux")]
+fn verify_sudo_password(password: &str) -> bool {
+    use std::io::Write;
+    let mut child = match std::process::Command::new("sudo")
+        .args(&["-S", "-v"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = writeln!(stdin, "{}", password);
+    }
+
+    match child.wait() {
+        Ok(st) => st.success(),
+        Err(_) => false,
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn get_linux_autostart_desktop_path() -> PathBuf {
     if let Ok(home) = std::env::var("HOME") {
         PathBuf::from(home).join(".config").join("autostart").join("samulibre.desktop")
@@ -678,6 +755,14 @@ fn run_app(app_root: PathBuf) -> Result<()> {
     let _ = fs::create_dir_all(&signatures_dir);
 
     log_step("run_app: Creando e inicializando Core...");
+    #[cfg(target_os = "linux")]
+    {
+        let desktop_path = get_linux_autostart_desktop_path();
+        if !desktop_path.exists() {
+            let _ = set_windows_autostart(true);
+            log_step("Autoinicio con Linux garantizado y activado.");
+        }
+    }
     let core = Arc::new(Mutex::new(SamuLibreCore::new(&canary_dir, &vpn_dir, true)));
     {
         if let Ok(c) = core.lock() {
@@ -2206,13 +2291,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         }
     });
 
-    // Hilo de actualización horaria periódica (cada 1 hora = 3600 segundos) con EcoQoS
+    // Hilo de mantenimiento preventivo: Actualización horaria de firmas (cada 3600s) y escaneo cada 8 días con EcoQoS
     let proxy_hourly = proxy.clone();
     let core_hourly = Arc::clone(&core);
     std::thread::spawn(move || {
         win_eco::set_current_thread_eco_qos();
+        // Espera inicial de 20 segundos para permitir que la interfaz gráfica inicie fluidamente
+        std::thread::sleep(std::time::Duration::from_secs(20));
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(3600));
+            // 1. Actualización horaria de firmas comunitarias
             if let Ok(c) = core_hourly.lock() {
                 if let Ok(mut s) = c.scanner.lock() {
                     if let Ok(report) = s.update_signatures() {
@@ -2227,6 +2314,12 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let entries = c.get_signature_update_history();
                 let _ = proxy_hourly.send_event(CustomUserEvent::UpdateHistoryLoaded { entries });
             }
+
+            // 2. Verificación de escaneo preventivo automático programado cada 8 días
+            check_and_trigger_scheduled_8day_scan(&proxy_hourly);
+
+            // Intervalo: 1 hora (3600 segundos)
+            std::thread::sleep(std::time::Duration::from_secs(3600));
         }
     });
 
@@ -2604,9 +2697,10 @@ fn run_app(app_root: PathBuf) -> Result<()> {
             }
 
             Event::UserEvent(CustomUserEvent::AutostartStatusLoaded { enabled }) => {
+                let os_name = if cfg!(target_os = "windows") { "windows" } else { "linux" };
                 let script = format!(
-                    "if (window.onAutostartStatusLoaded) {{ window.onAutostartStatusLoaded({}); }}",
-                    enabled
+                    "if (window.onAutostartStatusLoaded) {{ window.onAutostartStatusLoaded({}, '{}'); }}",
+                    enabled, os_name
                 );
                 let _ = webview.evaluate_script(&script);
             }
@@ -2621,6 +2715,20 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                             let _ = proxy.send_event(CustomUserEvent::RealTimeAlert {
                                 title: "🛡️ Protección contra Manipulación".to_string(),
                                 details: "Se bloqueó el cierre de SamuLibre. Solo un Administrador del equipo puede detener la protección en tiempo real.".to_string(),
+                            });
+                            return;
+                        }
+                    }
+                }
+                #[cfg(target_os = "linux")]
+                {
+                    if !is_running_as_admin() {
+                        let confirmed = request_linux_admin_confirmation("detener la protección de SamuLibre y salir");
+                        if !confirmed {
+                            log_step("Intento de salida bloqueado en Linux: Permisos de Administrador denegados.");
+                            let _ = proxy.send_event(CustomUserEvent::RealTimeAlert {
+                                title: "🛡️ Autoprotección Activa (Linux)".to_string(),
+                                details: "Se bloqueó el cierre de SamuLibre. Solo el administrador (root) puede detener la protección en tiempo real.".to_string(),
                             });
                             return;
                         }
@@ -2758,6 +2866,52 @@ fn scan_paths_parallel(
     (final_scanned, final_threats, infected)
 }
 
+fn check_and_trigger_scheduled_8day_scan(proxy: &EventLoopProxy<CustomUserEvent>) {
+    let now = chrono::Utc::now().timestamp();
+    let scheduled_file = get_project_root().join("data").join("scheduled_scan.json");
+
+    let mut last_scan_ts: i64 = 0;
+    if scheduled_file.exists() {
+        if let Ok(content) = fs::read_to_string(&scheduled_file) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(ts) = val.get("last_scan_timestamp").and_then(|v| v.as_i64()) {
+                    last_scan_ts = ts;
+                }
+            }
+        }
+    }
+
+    // 8 días = 8 * 86,400 = 691,200 segundos
+    let eight_days: i64 = 691_200;
+    if last_scan_ts == 0 || (now.saturating_sub(last_scan_ts)) >= eight_days {
+        if !IS_SCAN_IN_PROGRESS.load(Ordering::SeqCst) {
+            log_step("Horario cumplido: Iniciando escaneo periódico automático programado (cada 8 días)...");
+            let _ = proxy.send_event(CustomUserEvent::RealTimeAlert {
+                title: "🔄 Escaneo Periódico Automático".to_string(),
+                details: "Iniciando análisis preventivo programado cada 8 días con motor en segundo plano.".to_string(),
+            });
+
+            update_scheduled_scan_timestamp();
+            let _ = proxy.send_event(CustomUserEvent::TriggerScan);
+        }
+    }
+}
+
+fn update_scheduled_scan_timestamp() {
+    let now = chrono::Utc::now().timestamp();
+    let scheduled_file = get_project_root().join("data").join("scheduled_scan.json");
+    let new_data = serde_json::json!({
+        "last_scan_timestamp": now,
+        "last_scan_date": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        "next_scheduled_scan": now + 691_200,
+        "interval_days": 8
+    });
+    if let Some(parent) = scheduled_file.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(&scheduled_file, serde_json::to_string_pretty(&new_data).unwrap_or_default());
+}
+
 fn execute_scan_loop(
     proxy: EventLoopProxy<CustomUserEvent>,
     scanner_mutex: Arc<Mutex<samulibre_scanner::MultiEngineScanner>>,
@@ -2881,6 +3035,7 @@ fn execute_scan_loop(
         let _ = proxy.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
     }
 
+    update_scheduled_scan_timestamp();
     IS_SCAN_IN_PROGRESS.store(false, Ordering::SeqCst);
 
     let _ = proxy.send_event(CustomUserEvent::ScanCompleted {

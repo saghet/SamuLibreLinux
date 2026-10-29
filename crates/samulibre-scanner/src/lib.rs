@@ -112,7 +112,7 @@ impl MultiEngineScanner {
         }
 
         // Regla 6: Secuestro de cargador dinámico LD_PRELOAD (Linux Rootkit Hook)
-        if let Ok(re) = Regex::new(r#"(?i)(/etc/ld\.so\.preload|LD_PRELOAD.*?\.so|dlsym\s*\(\s*RTLD_NEXT)"#) {
+        if let Ok(re) = Regex::new(r#"(?i)(/etc/ld\.so\.preload|\bLD_PRELOAD\s*=.*?\.so)"#) {
             self.pattern_rules.push(PatternRule {
                 name: "Rootkit.Linux.LdPreloadHook".to_string(),
                 description: "Inyección o secuestro de librerías compartidas mediante LD_PRELOAD".to_string(),
@@ -162,7 +162,7 @@ impl MultiEngineScanner {
         }
 
         // Regla 11: Robo de credenciales y extracción de LSASS (Mimikatz / Procdump)
-        if let Ok(re) = Regex::new(r"(?i)(sekurlsa::logonpasswords|lsadump::sam|privilege::debug|mimikatz|procdump(\.exe)?.*?-ma.*?lsass)") {
+        if let Ok(re) = Regex::new(r"(?i)(sekurlsa::logonpasswords|lsadump::sam|privilege::debug|\bmimikatz\.exe\b|procdump(\.exe)?.*?-ma.*?lsass)") {
             self.pattern_rules.push(PatternRule {
                 name: "HackTool.Win32.MimikatzCredentialDump".to_string(),
                 description: "Herramienta o script para extracción de credenciales en memoria LSASS y hashes SAM".to_string(),
@@ -302,8 +302,19 @@ impl MultiEngineScanner {
         }
 
         // 2. Verificación por reglas heurísticas y YARA-X con Fast-Path Substring Pre-Filter
-        // Si el archivo no contiene secuencias mínimas sospechosas, descartamos la evaluación pesada de regex.
-        if has_suspicious_indicators(&content) {
+        // Regla estricta anti-falsos positivos: Documentación y código fuente en texto plano que no sea ejecutable
+        // no debe evaluarse con heurísticas de LOLBins o Mimikatz a menos que contenga EICAR o binarios PE/ELF embebidos.
+        let ext = path_ref.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+        let is_plain_doc_or_source = matches!(
+            ext.as_str(),
+            "md" | "txt" | "rst" | "json" | "toml" | "yaml" | "yml" | "xml" | "css" | "svg"
+                | "png" | "jpg" | "jpeg" | "webp" | "ico" | "ttf" | "woff" | "woff2" | "lock"
+                | "rs" | "c" | "cpp" | "h" | "hpp" | "ts" | "java" | "go" | "html" | "htm"
+        ) && !content.starts_with(b"MZ") && !content.starts_with(b"\x7FELF") && !content.starts_with(b"#!");
+
+        let is_eicar = contains_case_insensitive(&content, b"eicar-standard-antivirus-test-file");
+
+        if (is_eicar || !is_plain_doc_or_source) && has_suspicious_indicators(&content) {
             for rule in &self.pattern_rules {
                 if rule.pattern.is_match(&content) {
                     return Ok(ScanResult {

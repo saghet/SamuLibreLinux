@@ -933,10 +933,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     .filter_entry(|e| {
                                         let name = e.file_name().to_string_lossy();
                                         let path_str = e.path().to_string_lossy();
+                                        let lower_p = path_str.to_lowercase();
                                         !name.starts_with('.') 
                                             && name != "node_modules" 
                                             && name != "target"
                                             && name != "$Recycle.Bin"
+                                            && !lower_p.contains("samulibre")
+                                            && !lower_p.contains("steam")
+                                            && !lower_p.contains(".steam")
+                                            && !lower_p.contains("flatpak")
                                             && !path_str.contains("Antivitus-SamuLibre")
                                             && !path_str.contains("quarantine")
                                             && !path_str.contains("threat_history.json")
@@ -949,7 +954,12 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     }
                                     if entry.file_type().is_file() {
                                         let p_str = entry.path().to_string_lossy();
-                                        if p_str.contains("Antivitus-SamuLibre") 
+                                        let lower_p = p_str.to_lowercase();
+                                        if lower_p.contains("samulibre")
+                                            || lower_p.contains("steam")
+                                            || lower_p.contains(".steam")
+                                            || lower_p.contains("flatpak")
+                                            || p_str.contains("Antivitus-SamuLibre") 
                                             || p_str.contains("quarantine") 
                                             || p_str.contains("threat_history.json") 
                                             || p_str.ends_with(".quarantine") {
@@ -1025,10 +1035,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                             .filter_entry(|e| {
                                                 let name = e.file_name().to_string_lossy();
                                                 let path_str = e.path().to_string_lossy();
+                                                let lower_p = path_str.to_lowercase();
                                                 !name.starts_with('.') 
                                                     && name != "node_modules" 
                                                     && name != "target"
                                                     && name != "$Recycle.Bin"
+                                                    && !lower_p.contains("samulibre")
+                                                    && !lower_p.contains("steam")
+                                                    && !lower_p.contains(".steam")
+                                                    && !lower_p.contains("flatpak")
                                                     && !path_str.contains("Antivitus-SamuLibre")
                                                     && !path_str.contains("quarantine")
                                                     && !path_str.contains("threat_history.json")
@@ -1041,7 +1056,12 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                             }
                                             if entry.file_type().is_file() {
                                                 let p_str = entry.path().to_string_lossy();
-                                                if p_str.contains("Antivitus-SamuLibre") 
+                                                let lower_p = p_str.to_lowercase();
+                                                if lower_p.contains("samulibre")
+                                                    || lower_p.contains("steam")
+                                                    || lower_p.contains(".steam")
+                                                    || lower_p.contains("flatpak")
+                                                    || p_str.contains("Antivitus-SamuLibre") 
                                                     || p_str.contains("quarantine") 
                                                     || p_str.contains("threat_history.json") 
                                                     || p_str.ends_with(".quarantine") {
@@ -2763,16 +2783,21 @@ fn execute_scan_loop(
         if let Ok(home) = std::env::var("HOME") {
             let p = PathBuf::from(home);
             dirs.push(p.join("Downloads"));
+            dirs.push(p.join("Descargas"));
             dirs.push(p.join("Desktop"));
+            dirs.push(p.join("Escritorio"));
             dirs.push(p.join("Documents"));
-            dirs.push(p.join(".local/share"));
+            dirs.push(p.join("Documentos"));
         }
         dirs.push(PathBuf::from("/tmp"));
         dirs.push(PathBuf::from("/var/tmp"));
         dirs.push(PathBuf::from("/dev/shm"));
     }
     if let Ok(cwd) = std::env::current_dir() {
-        dirs.push(cwd);
+        let cwd_str = cwd.to_string_lossy().to_lowercase();
+        if !cwd_str.contains("samulibre") {
+            dirs.push(cwd);
+        }
     }
 
     let num_cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8);
@@ -2797,10 +2822,15 @@ fn execute_scan_loop(
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 let path_str = e.path().to_string_lossy();
+                let lower_p = path_str.to_lowercase();
                 !name.starts_with('.') 
                     && name != "node_modules" 
                     && name != "target" 
                     && name != "$Recycle.Bin"
+                    && !lower_p.contains("samulibre")
+                    && !lower_p.contains("steam")
+                    && !lower_p.contains(".steam")
+                    && !lower_p.contains("flatpak")
                     && !path_str.contains("Antivitus-SamuLibre")
                     && !path_str.contains("quarantine")
                     && !path_str.contains("threat_history.json")
@@ -2820,7 +2850,12 @@ fn execute_scan_loop(
             }
             if entry.file_type().is_file() {
                 let p_str = entry.path().to_string_lossy();
-                if p_str.contains("Antivitus-SamuLibre") 
+                let lower_p = p_str.to_lowercase();
+                if lower_p.contains("samulibre")
+                    || lower_p.contains("steam")
+                    || lower_p.contains(".steam")
+                    || lower_p.contains("flatpak")
+                    || p_str.contains("Antivitus-SamuLibre") 
                     || p_str.contains("quarantine") 
                     || p_str.contains("threat_history.json") 
                     || p_str.ends_with(".quarantine") {

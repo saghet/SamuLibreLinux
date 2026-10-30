@@ -17,7 +17,7 @@ use tao::{
     window::WindowBuilder,
 };
 use tracing::info;
-use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tray_icon::{Icon, MouseButton, TrayIconBuilder, TrayIconEvent};
 use walkdir::WalkDir;
 use wry::WebViewBuilder;
 
@@ -725,7 +725,9 @@ fn main() {
 }
 
 fn run_app(app_root: PathBuf) -> Result<()> {
-    log_step("run_app: Paso 1 - comprobando single instance");
+    let args: Vec<String> = std::env::args().collect();
+    let start_hidden = args.iter().any(|a| a == "--minimized" || a == "--tray" || a == "--background");
+    log_step(&format!("run_app: Paso 1 - comprobando single instance (start_hidden={})", start_hidden));
     const SINGLE_INSTANCE_PORT: u16 = 49721;
     let single_instance_listener = match TcpListener::bind(("127.0.0.1", SINGLE_INSTANCE_PORT)) {
         Ok(l) => {
@@ -794,6 +796,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
             if let Ok(mut s) = stream {
                 let mut buf = [0u8; 16];
                 let _ = s.read(&mut buf);
+                log_step("single_instance_listener: Recibida señal SHOW de otra instancia");
                 let _ = proxy_single_instance.send_event(CustomUserEvent::ShowWindow);
             }
         }
@@ -835,7 +838,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         .with_title("SamuLibre - Suite de Seguridad Open Source")
         .with_inner_size(tao::dpi::LogicalSize::new(1060.0, 690.0))
         .with_min_inner_size(tao::dpi::LogicalSize::new(840.0, 560.0))
-        .with_visible(false)
+        .with_visible(!start_hidden)
         .with_decorations(true);
 
     if let Some(w_icon) = window_icon {
@@ -898,7 +901,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         loop {
             // Eventos del Menú Contextual (Clic derecho)
             if let Ok(event) = menu_channel.try_recv() {
+                log_step(&format!("menu_channel evento recibido: id={:?}", event.id));
                 if event.id == show_id {
+                    log_step("menu_channel: Click en 'Mostrar SamuLibre'");
                     let _ = proxy_tray.send_event(CustomUserEvent::ShowWindow);
                 } else if event.id == scan_id {
                     let _ = proxy_tray.send_event(CustomUserEvent::TriggerScan);
@@ -911,16 +916,17 @@ fn run_app(app_root: PathBuf) -> Result<()> {
 
             // Eventos de interacción directa con el icono (Solo Clic Izquierdo abre ventana; Clic Derecho mantiene el menú abierto)
             if let Ok(event) = tray_channel.try_recv() {
+                log_step(&format!("tray_channel evento recibido: {:?}", event));
                 match event {
                     TrayIconEvent::Click {
                         button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
                         ..
                     }
                     | TrayIconEvent::DoubleClick {
                         button: MouseButton::Left,
                         ..
                     } => {
+                        log_step("tray_channel: Click en icono de bandeja");
                         let _ = proxy_tray.send_event(CustomUserEvent::ShowWindow);
                     }
                     _ => (),
@@ -2396,6 +2402,20 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         match event {
             Event::NewEvents(StartCause::Init) => {
                 info!("SamuLibre Apple-Style GUI inicializado con éxito.");
+                if !start_hidden {
+                    window.set_visible(true);
+                    window.set_minimized(false);
+                    window.set_focus();
+                    #[cfg(target_os = "linux")]
+                    {
+                        use tao::platform::unix::WindowExtUnix;
+                        use gtk::prelude::*;
+                        let gtk_win = window.gtk_window();
+                        gtk_win.show_all();
+                        gtk_win.deiconify();
+                        gtk_win.present();
+                    }
+                }
             }
 
             Event::UserEvent(CustomUserEvent::UpdatePatchRules { rules, os_info, sentinel_status, kb_monitor_status }) => {
@@ -2420,9 +2440,19 @@ fn run_app(app_root: PathBuf) -> Result<()> {
             }
 
             Event::UserEvent(CustomUserEvent::ShowWindow) => {
+                log_step("Event::UserEvent(CustomUserEvent::ShowWindow): Mostrando y presentando ventana");
                 window.set_visible(true);
                 window.set_minimized(false);
                 window.set_focus();
+                #[cfg(target_os = "linux")]
+                {
+                    use tao::platform::unix::WindowExtUnix;
+                    use gtk::prelude::*;
+                    let gtk_win = window.gtk_window();
+                    gtk_win.show_all();
+                    gtk_win.deiconify();
+                    gtk_win.present();
+                }
             }
 
             Event::UserEvent(CustomUserEvent::TriggerScan) => {
@@ -2430,6 +2460,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                     window.set_visible(true);
                     window.set_minimized(false);
                     window.set_focus();
+                    #[cfg(target_os = "linux")]
+                    {
+                        use tao::platform::unix::WindowExtUnix;
+                        use gtk::prelude::*;
+                        let gtk_win = window.gtk_window();
+                        gtk_win.show_all();
+                        gtk_win.deiconify();
+                        gtk_win.present();
+                    }
                     let _ = webview.evaluate_script("if (window.showScanProgressUI) { window.showScanProgressUI(); }");
                     return;
                 }
@@ -2438,6 +2477,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 window.set_visible(true);
                 window.set_minimized(false);
                 window.set_focus();
+                #[cfg(target_os = "linux")]
+                {
+                    use tao::platform::unix::WindowExtUnix;
+                    use gtk::prelude::*;
+                    let gtk_win = window.gtk_window();
+                    gtk_win.show_all();
+                    gtk_win.deiconify();
+                    gtk_win.present();
+                }
                 let _ = webview.evaluate_script("if (window.showScanProgressUI) { window.showScanProgressUI(); }");
 
                 let proxy_scan = proxy.clone();

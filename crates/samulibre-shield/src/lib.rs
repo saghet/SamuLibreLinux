@@ -414,12 +414,42 @@ impl EndpointShield {
                                 title: "Ejecución anómala de LOLBin desde aplicación cliente (MITRE T1059)".to_string(),
                                 details: format!("Aplicación cliente '{}' (PID {}) intentó ejecutar consola oculta '{}' con sintaxis evasiva: '{}'", parent_name, parent_pid.as_u32(), proc_name, cmd_line),
                                 process_id: Some(pid_u32),
-                                process_name: Some(proc_name),
-                                target_path: Some(cmd_line),
+                                process_name: Some(proc_name.clone()),
+                                target_path: Some(cmd_line.clone()),
                                 action_taken: "Consola hija terminada inmediatamente por EDR Sentinel".to_string(),
                             });
                         }
                     }
+                }
+            }
+
+            // 5. Detección de LOLBins, Reverse Shells e In-Memory Pipe en Linux (MITRE T1059.004)
+            #[cfg(not(target_os = "windows"))]
+            {
+                let is_pipe_shell = (cmd_line.contains("curl ") || cmd_line.contains("wget "))
+                    && (cmd_line.contains(" | bash") || cmd_line.contains(" | sh") || cmd_line.contains(" | python") || cmd_line.contains(" | perl"));
+                let is_suspicious_pty = cmd_line.contains("pty.spawn") && (cmd_line.contains("/bin/sh") || cmd_line.contains("/bin/bash"));
+                let is_bash_dev_tcp = cmd_line.contains("/dev/tcp/") && (cmd_line.contains(">&") || cmd_line.contains("exec "));
+
+                // Web servers ejecutando shells interactivas hijas
+                let is_webserver = proc_name.contains("apache") || proc_name.contains("nginx") || proc_name.contains("httpd") || proc_name.contains("php-fpm");
+                let is_web_shell = is_webserver && (cmd_line.contains("/bin/bash") || cmd_line.contains("/bin/sh"));
+
+                if is_pipe_shell || is_suspicious_pty || is_bash_dev_tcp || is_web_shell {
+                    warn!("Detectada ejecución anómala de LOLBin / Reverse Shell en Linux: PID {} ({}) - '{}'.", pid_u32, proc_name, cmd_line);
+                    let _ = process.kill();
+                    alerts.push(ThreatAlert {
+                        id: Uuid::new_v4(),
+                        timestamp: Utc::now(),
+                        severity: Severity::Critical,
+                        category: ThreatCategory::LinuxPrivilegeEscalation,
+                        title: "Inyección de Shell / Ejecución Anómala de LOLBin en Linux Neutralizada".to_string(),
+                        details: format!("Proceso interactivo anómalo '{}' (PID {}) fue terminado de inmediato por EDR Sentinel: '{}'", proc_name, pid_u32, cmd_line),
+                        process_id: Some(pid_u32),
+                        process_name: Some(proc_name),
+                        target_path: Some("/bin/sh (In-Memory Pipe / Web Shell)".to_string()),
+                        action_taken: "Proceso terminado inmediatamente por EDR Sentinel (Zero-Tolerance Response)".to_string(),
+                    });
                 }
             }
         }

@@ -1846,6 +1846,18 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         });
                     }
 
+                    "reload_browsers_vpn" => {
+                        log_step("IPC: reload_browsers_vpn recibido");
+                        #[cfg(target_os = "linux")]
+                        {
+                            samulibre_vpn::reload_running_browsers();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                title: "🔄 Navegadores Sincronizados con la VPN".to_string(),
+                                details: "Google Chrome ha sido recargado preservando todas las pestañas para navegar a través del túnel VPN.".to_string(),
+                            });
+                        }
+                    }
+
                     "reset_network" => {
                         log_step("IPC: reset_network recibido");
                         let core_cloned = Arc::clone(&core_for_ipc);

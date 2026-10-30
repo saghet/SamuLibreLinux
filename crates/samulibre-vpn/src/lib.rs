@@ -257,6 +257,32 @@ pub fn set_linux_system_proxy(enable: bool, host: &str, http_port: u16, socks_po
     Ok(())
 }
 
+/// Recarga de forma transparente y segura los navegadores en ejecución en Linux
+/// restaurando todas las pestañas abiertas para que adopten la configuración de la VPN de inmediato.
+#[cfg(target_os = "linux")]
+pub fn reload_running_browsers() {
+    info!("Verificando navegadores en ejecución para aplicar el túnel VPN...");
+    // Verificar si google-chrome o chromium están en ejecución
+    let check = std::process::Command::new("pgrep")
+        .args(["-x", "chrome"])
+        .output();
+
+    let has_chrome = check.map(|o| o.status.success()).unwrap_or(false);
+
+    if has_chrome {
+        info!("Recargando Google Chrome preservando todas las pestañas para navegar vía VPN...");
+        let _ = std::process::Command::new("pkill")
+            .args(["-TERM", "-x", "chrome"])
+            .output();
+
+        std::thread::sleep(std::time::Duration::from_millis(800));
+
+        let _ = std::process::Command::new("google-chrome-stable")
+            .arg("--restore-last-session")
+            .spawn();
+    }
+}
+
 /// Modifica la configuración de proxy en macOS (Darwin) usando networksetup
 #[cfg(target_os = "macos")]
 pub fn set_macos_system_proxy(enable: bool, host: &str, http_port: u16, socks_port: u16) -> Result<()> {
@@ -874,6 +900,11 @@ impl VpnManager {
         self.is_double_encryption = double_encryption;
         self.active_country = Some(country.id.clone());
         self.connected_timestamp = Some(Utc::now().format("%H:%M:%S UTC").to_string());
+
+        #[cfg(target_os = "linux")]
+        {
+            reload_running_browsers();
+        }
 
         info!("VPN conectada con éxito. Navegadores enrutados a {}", country.name);
         Ok(self.get_state())

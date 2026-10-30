@@ -43,16 +43,42 @@ impl QuarantineVault {
     pub fn new(dir: impl AsRef<Path>) -> Self {
         let p = dir.as_ref().to_path_buf();
         let _ = fs::create_dir_all(&p);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&p, fs::Permissions::from_mode(0o700));
+        }
         Self { quarantine_dir: p }
+    }
+
+    /// Deriva una máscara de cifrado determinista y única por elemento para neutralizar el payload
+    fn derive_quarantine_mask(id: &Uuid, len: usize) -> Vec<u8> {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(b"SamuLibre_Vault_Isolated_Payload_Key_v2");
+        hasher.update(id.as_bytes());
+        let seed = hasher.finalize();
+
+        let mut mask = Vec::with_capacity(len);
+        let mut counter = 0u64;
+        while mask.len() < len {
+            let mut round_hasher = Sha256::new();
+            round_hasher.update(&seed);
+            round_hasher.update(&counter.to_le_bytes());
+            let block = round_hasher.finalize();
+            mask.extend_from_slice(&block);
+            counter += 1;
+        }
+        mask.truncate(len);
+        mask
     }
 
     /// Aísla y cifra un archivo malicioso para que no pueda ejecutarse en el SO
     pub fn isolate_file(&self, source_path: &Path, threat: &str, engine: &str, sha256: &str) -> Result<QuarantineRecord> {
         // Blindaje Anti-Symlink / Anti-LPE: Verificar que el archivo no sea un junction o symlink
-        if let Ok(sym_meta) = fs::symlink_metadata(source_path) {
-            if sym_meta.file_type().is_symlink() {
-                anyhow::bail!("Intento de manipulación LPE detectado: '{}' es un enlace simbólico / junction. Operación cancelada.", source_path.display());
-            }
+        let sym_meta = fs::symlink_metadata(source_path)?;
+        if sym_meta.file_type().is_symlink() {
+            anyhow::bail!("Intento de manipulación LPE detectado: '{}' es un enlace simbólico / junction. Operación cancelada.", source_path.display());
         }
 
         let id = Uuid::new_v4();
@@ -60,10 +86,15 @@ impl QuarantineVault {
         let isolated_path = self.quarantine_dir.join(&isolated_name);
 
         let original_bytes = fs::read(source_path)?;
-        // Ofuscación reversible básica (XOR con clave fija de cuarentena) para anular headers PE ejecutables
-        let xor_key = 0xAA;
-        let obfuscated_bytes: Vec<u8> = original_bytes.iter().map(|b| b ^ xor_key).collect();
+        let mask = Self::derive_quarantine_mask(&id, original_bytes.len());
+        let obfuscated_bytes: Vec<u8> = original_bytes.iter().zip(mask.iter()).map(|(b, m)| b ^ m).collect();
         fs::write(&isolated_path, obfuscated_bytes)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&isolated_path, fs::Permissions::from_mode(0o600));
+        }
 
         // Eliminar o neutralizar el archivo original del disco
         let _ = fs::remove_file(source_path);
@@ -81,6 +112,12 @@ impl QuarantineVault {
         // Guardar metadatos en JSON
         let meta_path = self.quarantine_dir.join(format!("{}.meta.json", id));
         fs::write(&meta_path, serde_json::to_string_pretty(&record)?)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o600));
+        }
 
         warn!("¡AMENAZA AISLADA EN CUARENTENA! Archivo: {} -> Bóveda: {:?}", source_path.display(), isolated_path);
         Ok(record)
@@ -123,8 +160,8 @@ impl QuarantineVault {
         let meta_content = fs::read_to_string(&meta_path)?;
         let record = serde_json::from_str::<QuarantineRecord>(&meta_content)?;
         let obfuscated_bytes = fs::read(&isolated_path)?;
-        let xor_key = 0xAA;
-        let restored_bytes: Vec<u8> = obfuscated_bytes.iter().map(|b| b ^ xor_key).collect();
+        let mask = Self::derive_quarantine_mask(&id, obfuscated_bytes.len());
+        let restored_bytes: Vec<u8> = obfuscated_bytes.iter().zip(mask.iter()).map(|(b, m)| b ^ m).collect();
         let target_path = PathBuf::from(&record.original_path);
         if let Some(parent) = target_path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -467,6 +504,14 @@ mod tests {
         let list = vault.list_quarantined();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, record.id);
+
+        // Test de restauración y reversibilidad criptográfica
+        let sample_file2 = temp_dir.join("payload2.exe");
+        fs::write(&sample_file2, original_data).unwrap();
+        let record2 = vault.isolate_file(&sample_file2, "Trojan.Win32.Test2", "MultiEngine", "dummyhash456").unwrap();
+        vault.restore_file(record2.id).unwrap();
+        assert!(sample_file2.exists());
+        assert_eq!(fs::read(&sample_file2).unwrap(), original_data);
 
         // Purgar definitivamente
         let purged = vault.purge_file(record.id).unwrap();

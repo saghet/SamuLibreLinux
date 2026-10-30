@@ -933,6 +933,9 @@
               <button onclick="triggerLiveIpCheck()" id="btnCheckLiveIp" class="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 hover:text-white rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer">
                 <span>🔍</span> <span>Comprobar IP en Vivo</span>
               </button>
+              <button onclick="syncBrowserVpn()" id="btnSyncBrowser" class="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer" title="Aplica el túnel a Google Chrome en ejecución restaurando todas las pestañas">
+                <span>🌐</span> <span>Aplicar a Navegador</span>
+              </button>
             </div>
           </div>
 
@@ -3260,6 +3263,11 @@
         sendIpc('get_vpn_info');
       }
     };
+
+    function syncBrowserVpn() {
+      showToast('Sincronizando Navegador', 'Aplicando el túnel VPN a Google Chrome y restaurando pestañas...');
+      sendIpc('reload_browsers_vpn');
+    }
 
     window.onLiveIpChecked = function(data) {
       const ipEl = document.getElementById('vpnMetricIp');

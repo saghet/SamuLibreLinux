@@ -101,9 +101,11 @@ fi
 if [ "${IS_ROOT}" = false ]; then
     sed -i "s|/usr/bin/samulibre-gui|${INSTALL_PREFIX}/bin/samulibre-gui|g" "${DESKTOP_DIR}/samulibre.desktop" || true
 fi
-ln -sf "${DESKTOP_DIR}/samulibre.desktop" "${DESKTOP_DIR}/org.samulibre.samulibre.desktop" || true
+rm -f "${DESKTOP_DIR}/org.samulibre.samulibre.desktop"
+cp "${DESKTOP_DIR}/samulibre.desktop" "${DESKTOP_DIR}/org.samulibre.samulibre.desktop"
+sed -i "s|StartupWMClass=samulibre|StartupWMClass=org.samulibre.samulibre|g" "${DESKTOP_DIR}/org.samulibre.samulibre.desktop" || true
 
-# Multi-resolución de iconos para compatibilidad total con KDE Plasma, GNOME y XFCE
+# Multi-resolución de iconos para compatibilidad total con KDE Plasma (Wayland), GNOME y XFCE
 ICON_SRC=""
 if [ -f "${SCRIPT_DIR}/icon.png" ]; then
     ICON_SRC="${SCRIPT_DIR}/icon.png"
@@ -111,16 +113,45 @@ elif [ -f "${SCRIPT_DIR}/../../assets/icon.png" ]; then
     ICON_SRC="${SCRIPT_DIR}/../../assets/icon.png"
 fi
 
+SVG_SRC=""
+if [ -f "${SCRIPT_DIR}/../../assets/icon.svg" ]; then
+    SVG_SRC="${SCRIPT_DIR}/../../assets/icon.svg"
+fi
+
 if [ -n "${ICON_SRC}" ]; then
     SHARE_BASE="$(dirname "${DESKTOP_DIR}")"
     mkdir -p "${SHARE_BASE}/pixmaps"
     cp "${ICON_SRC}" "${SHARE_BASE}/pixmaps/samulibre.png"
+    cp "${ICON_SRC}" "${SHARE_BASE}/pixmaps/org.samulibre.samulibre.png"
 
-    for size in 16x16 32x32 48x48 64x64 128x128 256x256 512x512 scalable; do
+    # Resoluciones estándar Freedesktop
+    for size in 16x16 22x22 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
         target_dir="${SHARE_BASE}/icons/hicolor/${size}/apps"
         mkdir -p "${target_dir}"
-        cp "${ICON_SRC}" "${target_dir}/samulibre.png"
+        if command -v magick >/dev/null 2>&1; then
+            magick "${ICON_SRC}" -resize "${size}" "${target_dir}/samulibre.png"
+        else
+            cp "${ICON_SRC}" "${target_dir}/samulibre.png"
+        fi
+        cp "${target_dir}/samulibre.png" "${target_dir}/org.samulibre.samulibre.png"
     done
+
+    # Icono vectorial escalable SVG (estándar Freedesktop para HiDPI y Wayland)
+    target_scalable="${SHARE_BASE}/icons/hicolor/scalable/apps"
+    mkdir -p "${target_scalable}"
+    rm -f "${target_scalable}/samulibre.png" "${target_scalable}/org.samulibre.samulibre.png"
+    if [ -n "${SVG_SRC}" ]; then
+        cp "${SVG_SRC}" "${target_scalable}/samulibre.svg"
+        cp "${SVG_SRC}" "${target_scalable}/org.samulibre.samulibre.svg"
+    fi
+
+    # Soporte directo para Breeze Dark (tema activo KDE Plasma)
+    breeze_apps="${SHARE_BASE}/icons/breeze-dark/apps/48"
+    mkdir -p "${breeze_apps}"
+    if [ -n "${SVG_SRC}" ]; then
+        cp "${SVG_SRC}" "${breeze_apps}/samulibre.svg"
+        cp "${SVG_SRC}" "${breeze_apps}/org.samulibre.samulibre.svg"
+    fi
 fi
 
 # Actualizar base de datos de escritorio y cachés de KDE Plasma y GTK
@@ -133,9 +164,9 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 
 if command -v kbuildsycoca6 >/dev/null 2>&1; then
-    kbuildsycoca6 2>/dev/null || true
+    kbuildsycoca6 --noincremental 2>/dev/null || true
 elif command -v kbuildsycoca5 >/dev/null 2>&1; then
-    kbuildsycoca5 2>/dev/null || true
+    kbuildsycoca5 --noincremental 2>/dev/null || true
 fi
 
 echo "=========================================================="

@@ -780,7 +780,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
         use tao::platform::unix::EventLoopBuilderExtUnix;
-        event_loop_builder.with_app_id("org.samulibre.samulibre");
+        event_loop_builder.with_app_id("samulibre");
     }
     let event_loop = event_loop_builder.build();
     let proxy = event_loop.create_proxy();

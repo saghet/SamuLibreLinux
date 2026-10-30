@@ -780,7 +780,8 @@ fn run_app(app_root: PathBuf) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
         use tao::platform::unix::EventLoopBuilderExtUnix;
-        event_loop_builder.with_app_id("samulibre");
+        // Identificador canónico Freedesktop y D-Bus con formato reverse-DNS válido
+        event_loop_builder.with_app_id("org.samulibre.samulibre");
     }
     let event_loop = event_loop_builder.build();
     let proxy = event_loop.create_proxy();
@@ -850,7 +851,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         use tao::platform::unix::WindowExtUnix;
         use gtk::prelude::*;
         let gtk_win = window.gtk_window();
-        gtk_win.set_icon_name(Some("samulibre"));
+        gtk_win.set_icon_name(Some("org.samulibre.samulibre"));
         if let Ok(pixbuf) = gtk::gdk_pixbuf::Pixbuf::from_read(std::io::Cursor::new(icon_bytes)) {
             gtk_win.set_icon(Some(&pixbuf));
             gtk::Window::set_default_icon(&pixbuf);

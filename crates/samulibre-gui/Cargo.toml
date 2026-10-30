@@ -39,3 +39,26 @@ libc = "0.2"
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = { version = "0.18", default-features = false }
 gdk-pixbuf = { version = "0.18", default-features = false }
+
+[package.metadata.generate-rpm]
+name = "samulibre"
+summary = "Suite de Seguridad y Antivirus Open Source"
+description = "Antivirus Open Source con EDR, Parches Virtuales y VPN de Doble Cifrado para Red Hat, Fedora, Rocky y CentOS"
+license = "GPL-3.0"
+assets = [
+    { source = "../../target/release/samulibre-gui", dest = "/usr/bin/samulibre-gui", mode = "755" },
+    { source = "../../target/release/samulibre-cli", dest = "/usr/bin/samulibre-cli", mode = "755" },
+    { source = "../../data/samulibre.desktop", dest = "/usr/share/applications/samulibre.desktop", mode = "644" },
+    { source = "../../data/samulibre.desktop", dest = "/usr/share/applications/org.samulibre.samulibre.desktop", mode = "644" },
+    { source = "../../assets/icon.png", dest = "/usr/share/pixmaps/samulibre.png", mode = "644" },
+    { source = "../../assets/icon.png", dest = "/usr/share/pixmaps/org.samulibre.samulibre.png", mode = "644" },
+    { source = "../../assets/icon.svg", dest = "/usr/share/icons/hicolor/scalable/apps/samulibre.svg", mode = "644" },
+    { source = "../../assets/icon.svg", dest = "/usr/share/icons/hicolor/scalable/apps/org.samulibre.samulibre.svg", mode = "644" },
+    { source = "../../data/samulibre.service", dest = "/usr/lib/systemd/user/samulibre.service", mode = "644" },
+]
+
+[package.metadata.generate-rpm.requires]
+gtk3 = "*"
+tor = "*"
+iptables = "*"
+zenity = "*"

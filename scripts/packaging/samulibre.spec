@@ -1,5 +1,5 @@
 Name:           samulibre
-Version:        2.0.30
+Version:        2.0.31
 Release:        1%{?dist}
 Summary:        Suite de Seguridad y Antivirus Open Source
 

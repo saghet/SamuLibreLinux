@@ -5,9 +5,10 @@ After=graphical-session.target network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/samulibre-gui
+ExecStart=/usr/bin/samulibre-gui --minimized
 Restart=on-failure
 RestartSec=5s
+SuccessExitStatus=0
 Environment=RUST_LOG=info
 StandardOutput=journal
 StandardError=journal

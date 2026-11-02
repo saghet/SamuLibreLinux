@@ -254,14 +254,33 @@ impl QuarantineVault {
         let mask = Self::derive_quarantine_mask(&id, obfuscated_bytes.len());
         let restored_bytes: Vec<u8> = obfuscated_bytes.iter().zip(mask.iter()).map(|(b, m)| b ^ m).collect();
 
-        // Escribir el archivo restaurado de forma segura
-        fs::write(&target_path, restored_bytes)?;
-
+        // SEC-03.3: Escritura atómica blindada contra TOCTOU Symlink Attacks
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            // Asegurar que el archivo restaurado tenga permisos estándar seguros (no ejecutables por omisión)
-            let _ = fs::set_permissions(&target_path, fs::Permissions::from_mode(0o644));
+            use std::os::unix::fs::OpenOptionsExt;
+            use std::io::Write;
+            let mut opts = fs::OpenOptions::new();
+            opts.write(true).create(true).truncate(true);
+            opts.custom_flags(libc::O_NOFOLLOW);
+            opts.mode(0o644);
+
+            let mut out_file = opts.open(&target_path).map_err(|e| {
+                anyhow::anyhow!(
+                    "ALERTA TOCTOU: Apertura segura abortada en '{}' (posible symlink o conflicto de concurrencia): {}",
+                    target_path.display(),
+                    e
+                )
+            })?;
+            let fd_meta = out_file.metadata()?;
+            if fd_meta.file_type().is_symlink() {
+                anyhow::bail!("ALERTA DE SEGURIDAD: Descriptor de archivo es un symlink. Operación abortada.");
+            }
+            out_file.write_all(&restored_bytes)?;
+            out_file.flush()?;
+        }
+        #[cfg(not(unix))]
+        {
+            fs::write(&target_path, restored_bytes)?;
         }
 
         let _ = fs::remove_file(&isolated_path);
@@ -723,6 +742,32 @@ mod tests {
         assert!(restore_res.is_err(), "Restoration must fail when metadata is tampered");
         let err_msg = restore_res.unwrap_err().to_string();
         assert!(err_msg.contains("manipulados externamente") || err_msg.contains("HMAC"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_quarantine_toctou_symlink_rejection() {
+        let temp_dir = std::env::temp_dir().join(format!("samu_quarantine_sym_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let vault = QuarantineVault::new(&temp_dir);
+
+        let target_file = temp_dir.join("payload.bin");
+        fs::write(&target_file, b"DANGEROUS_PAYLOAD").unwrap();
+        let record = vault.isolate_file(&target_file, "Trojan.Fake", "TestEngine", "hash999").unwrap();
+
+        // Crear un enlace simbólico malicioso en target_file apuntando a otro archivo
+        let decoy_secret = temp_dir.join("decoy_secret.txt");
+        fs::write(&decoy_secret, b"CRITICAL_SYSTEM_DATA").unwrap();
+
+        #[cfg(unix)]
+        {
+            let _ = std::os::unix::fs::symlink(&decoy_secret, &target_file);
+            let restore_res = vault.restore_file(record.id);
+            assert!(restore_res.is_err(), "Restoration must abort when destination is a symlink");
+            let secret_content = fs::read(&decoy_secret).unwrap();
+            assert_eq!(secret_content, b"CRITICAL_SYSTEM_DATA", "Decoy target must NOT be overwritten through symlink");
+        }
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

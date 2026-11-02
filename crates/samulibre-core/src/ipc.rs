@@ -167,8 +167,10 @@ impl UnixSocketServer {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            // Permisos 0666 para socket de usuario o 0660 para grupo samulibre
-            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o666));
+            // SEC-01: Permisos restrictivos (0o660 para root/grupo samulibre, 0o600 para usuario regular)
+            let is_root = unsafe { libc::geteuid() == 0 };
+            let perm_mode = if is_root { 0o660 } else { 0o600 };
+            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(perm_mode));
         }
 
         info!("Servidor IPC UNIX Domain Socket escuchando en: {}", path.display());
@@ -212,6 +214,30 @@ impl UnixSocketServer {
         F: Fn(IpcRequest) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = IpcResponse> + Send + 'static,
     {
+        // SEC-02: Verificación de Identidad Local (SO_PEERCRED)
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(cred) = stream.peer_cred() {
+                let peer_uid = cred.uid();
+                let current_uid = unsafe { libc::getuid() };
+                let current_euid = unsafe { libc::geteuid() };
+                let is_authorized = peer_uid == 0 || peer_uid == current_uid || peer_uid == current_euid;
+                if !is_authorized {
+                    warn!(
+                        "IPC Auth: Rechazada conexión no autorizada de peer UID {} (servidor UID {})",
+                        peer_uid, current_uid
+                    );
+                    let (_reader, mut writer) = stream.into_split();
+                    let resp = IpcResponse::err("auth_error", format!("Acceso denegado: UID {} no autorizado", peer_uid));
+                    let mut resp_str = serde_json::to_string(&resp)?;
+                    resp_str.push('\n');
+                    let _ = writer.write_all(resp_str.as_bytes()).await;
+                    let _ = writer.flush().await;
+                    return Ok(());
+                }
+            }
+        }
+
         let (reader, mut writer) = stream.into_split();
         let mut buf_reader = BufReader::new(reader);
         let mut line = String::new();
@@ -291,6 +317,15 @@ mod tests {
         let resp2 = client.send_request(&req2).await.expect("IPC request failed");
         assert!(resp2.success);
         assert_eq!(resp2.data.unwrap()["version"], "2.0.32");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let meta = fs::metadata(&sock_path).expect("Failed to get sock metadata");
+            let mode = meta.permissions().mode() & 0o777;
+            // Verificar que no sea 0o666 (no accesible a cualquier usuario sin privilegios)
+            assert_ne!(mode, 0o666, "El socket no debe crearse con permisos 0666 inseguros");
+        }
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

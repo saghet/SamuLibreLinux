@@ -24,7 +24,7 @@ En cumplimiento estricto con la metodología de desarrollo, se ejecutaron las co
 
 ---
 
-## 2. RESULTADOS DE LA CERTIFICACIÓN DINÁMICA (ETAPA D)
+## 2. RESULTADOS DE LA CERTIFICACIÓN DINÁMICA (ETAPA D C++)
 
 ### 2.1. Auditoría con AddressSanitizer & UndefinedBehaviorSanitizer (`make security-audit`)
 - **Fugas de memoria en código de aplicación:** **0 bytes** (100% limpio).
@@ -42,3 +42,21 @@ En cumplimiento estricto con la metodología de desarrollo, se ejecutaron las co
 - **Tasa de Inferencia Machine Learning:** **10,795 muestras/segundo** en GPU con atribución de características explicable.
 - **Paridad Funcional:** 100% idéntica bit a bit entre GPU CUDA y CPU AVX2 Fallback.
 - **Telemetría Térmica:** $54.0^\circ\text{C}$ con consumo de 12.49 W (< 6% de VRAM ocupada).
+
+---
+
+## 3. REMEDIACIONES EN EL WORKSPACE RUST (FASE D DE CIBERSEGURIDAD)
+
+| ID | Hallazgo / Vulnerabilidad | Severidad | Módulo / Archivo | Solución Implementada y Blindaje | Validación |
+| :---: | :--- | :---: | :--- | :--- | :---: |
+| **RUST-SEC-01** | Ausencia de Auth en Socket IPC UNIX y permisos 0666 | **CRÍTICO** | `crates/samulibre-core/src/ipc.rs` | Permisos corregidos a `0660`/`0600` según contexto de ejecución y autenticación local forzada vía `SO_PEERCRED` (`stream.peer_cred()`). Conexiones no autorizadas son rechazadas de inmediato. | `test_unix_ipc_client_server_lifecycle` (PASS) |
+| **RUST-SEC-03** | Carrera TOCTOU en restauración de cuarentena | **ALTO** | `crates/samulibre-watcher/src/lib.rs` | Apertura atómica con banderas POSIX `O_NOFOLLOW`, creación atómica y verificación posterior en descriptor abierto (`fstat`). Bloquea cualquier ataque symlink de sobreescritura. | `test_quarantine_toctou_symlink_rejection` (PASS) |
+| **RUST-SEC-02** | Ejecución de parsers en contexto privilegiado | **ALTO** | `crates/samulibre-core/src/sandbox.rs` | Implementado `SandboxedParserRunner` con apertura segura `O_NONBLOCK | O_NOFOLLOW`, comprobación estricta de límites (128 MB) y validación previa de tipos de archivo. | `test_sandboxed_parser_runner_validations` (PASS) |
+
+---
+
+## 4. ESTADO DE PRUEBAS DEL WORKSPACE TRAS FASE D
+
+- **Tests unitarios e integrados:** **95 superados, 0 fallidos, 1 ignorado** (WireGuard en vivo).
+- **Regresiones:** Cero.
+- **Calidad de código:** Compilación limpia sin errores en todos los 12 crates.

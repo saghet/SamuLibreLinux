@@ -293,19 +293,33 @@
           </div>
         </div>
 
-        <!-- Tarjeta de Progreso de Escaneo Real en Vivo -->
+        <!-- Tarjeta de Progreso de Escaneo Real en Vivo con Cronómetro HH:MM:SS -->
         <div id="realScanProgressCard" class="glass-card p-6 rounded-3xl relative overflow-hidden hidden space-y-4 border border-blue-500/25 bg-blue-500/[0.04] transition-all duration-300">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div id="scanStatusIcon" class="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-sm font-bold animate-pulse">⚡</div>
               <div>
-                <h4 id="scanStatusTitle" class="text-sm font-semibold text-white">Escaneo Profundo en Ejecución</h4>
+                <div class="flex items-center gap-2">
+                  <h4 id="scanStatusTitle" class="text-sm font-semibold text-white">Escaneo Profundo en Ejecución</h4>
+                  <span id="scanActiveBadge" class="text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30">ACTIVO</span>
+                </div>
                 <p id="scanStatusSubtitle" class="text-xs text-gray-400">Analizando archivos reales en memoria, Downloads, Desktop, Temp...</p>
               </div>
             </div>
-            <div class="text-right">
-              <span id="scanCountText" class="text-xl font-bold font-mono text-emerald-400">0</span>
-              <span class="text-[11px] text-gray-400 block">archivos analizados</span>
+            <div class="flex items-center gap-4 text-right">
+              <!-- Cronómetro en Vivo (HH:MM:SS) -->
+              <div class="bg-black/30 border border-white/10 px-3 py-1.5 rounded-xl font-mono text-right">
+                <div class="flex items-center justify-end gap-1.5 text-xs text-cyan-300 font-bold">
+                  <span id="scanTimerDot" class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                  <span id="scanStopwatchText">00:00:00</span>
+                </div>
+                <span id="scanSpeedMetric" class="text-[10px] text-gray-400 block">Tiempo transcurrido</span>
+              </div>
+              <div>
+                <span id="scanCountText" class="text-xl font-bold font-mono text-emerald-400">0</span>
+                <span class="text-[11px] text-gray-400 block">archivos analizados</span>
+              </div>
+              <button onclick="hideScanProgressUI()" class="p-1 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-1" title="Cerrar panel">✕</button>
             </div>
           </div>
 
@@ -2267,6 +2281,63 @@
     }
 
     let isRealScanActive = false;
+    let scanStartTimeMs = 0;
+    let scanTimerInterval = null;
+
+    function formatTimeHHMMSS(ms) {
+      const totalSec = Math.floor(Math.max(0, ms) / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    function startScanStopwatch() {
+      if (scanTimerInterval) {
+        clearInterval(scanTimerInterval);
+        scanTimerInterval = null;
+      }
+      scanStartTimeMs = Date.now();
+      const timerEl = document.getElementById('scanStopwatchText');
+      if (timerEl) timerEl.textContent = '00:00:00';
+      const timerDot = document.getElementById('scanTimerDot');
+      if (timerDot) {
+        timerDot.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-ping';
+      }
+      const speedMetric = document.getElementById('scanSpeedMetric');
+      if (speedMetric) speedMetric.textContent = 'Iniciando cronómetro...';
+
+      scanTimerInterval = setInterval(() => {
+        if (!isRealScanActive) {
+          clearInterval(scanTimerInterval);
+          scanTimerInterval = null;
+          return;
+        }
+        const elapsed = Date.now() - scanStartTimeMs;
+        const formatted = formatTimeHHMMSS(elapsed);
+        const timer = document.getElementById('scanStopwatchText');
+        if (timer) timer.textContent = formatted;
+      }, 200);
+    }
+
+    function stopScanStopwatch(finalElapsedMs) {
+      if (scanTimerInterval) {
+        clearInterval(scanTimerInterval);
+        scanTimerInterval = null;
+      }
+      const timerEl = document.getElementById('scanStopwatchText');
+      if (timerEl) {
+        const ms = (typeof finalElapsedMs === 'number' && finalElapsedMs > 0)
+          ? finalElapsedMs
+          : (Date.now() - (scanStartTimeMs || Date.now()));
+        timerEl.textContent = formatTimeHHMMSS(ms);
+      }
+      const timerDot = document.getElementById('scanTimerDot');
+      if (timerDot) {
+        timerDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      }
+    }
 
     function showScanProgressUI() {
       isRealScanActive = true;
@@ -2279,6 +2350,11 @@
       if (icon) {
         icon.className = 'w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-sm font-bold animate-pulse';
         icon.textContent = '⚡';
+      }
+      const badge = document.getElementById('scanActiveBadge');
+      if (badge) {
+        badge.className = 'text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30';
+        badge.textContent = 'ACTIVO';
       }
       const title = document.getElementById('scanStatusTitle');
       if (title) title.textContent = 'Escaneo Profundo en Ejecución';
@@ -2294,7 +2370,7 @@
       const pbar = document.getElementById('scanProgressBar');
       if (pbar) {
         pbar.className = 'h-full bg-gradient-to-r from-blue-500 via-teal-400 to-emerald-400 rounded-full transition-all duration-150';
-        pbar.style.width = '8%';
+        pbar.style.width = '6%';
       }
       const dot = document.getElementById('scanProgressDot');
       if (dot) {
@@ -2310,6 +2386,8 @@
       }
       const hint = document.getElementById('scanStatusHint');
       if (hint) hint.textContent = 'Interrupción segura e inmediata';
+
+      startScanStopwatch();
     }
     window.showScanProgressUI = showScanProgressUI;
 
@@ -2319,6 +2397,10 @@
         card.classList.add('hidden');
       }
       isRealScanActive = false;
+      if (scanTimerInterval) {
+        clearInterval(scanTimerInterval);
+        scanTimerInterval = null;
+      }
     }
     window.hideScanProgressUI = hideScanProgressUI;
 
@@ -2342,6 +2424,11 @@
         btn.disabled = true;
         btn.className = 'px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm';
         btn.innerHTML = '<span>⏳</span> <span>Deteniendo...</span>';
+      }
+      const badge = document.getElementById('scanActiveBadge');
+      if (badge) {
+        badge.className = 'text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30';
+        badge.textContent = 'DETENIENDO...';
       }
       const title = document.getElementById('scanStatusTitle');
       if (title) title.textContent = '⏹️ Deteniendo Análisis...';
@@ -2381,16 +2468,24 @@
       if (pbar) pbar.style.width = progressPercent + '%';
 
       const icon = document.getElementById('scanStatusIcon');
+      const badge = document.getElementById('scanActiveBadge');
       const title = document.getElementById('scanStatusTitle');
       const sub = document.getElementById('scanStatusSubtitle');
       const dot = document.getElementById('scanProgressDot');
       const btn = document.getElementById('btnCancelScan');
       const hint = document.getElementById('scanStatusHint');
+      const speedMetric = document.getElementById('scanSpeedMetric');
 
       if (!isDone) {
         isRealScanActive = true;
+        const elapsedSec = (Date.now() - (scanStartTimeMs || Date.now())) / 1000;
+        if (elapsedSec > 0.4 && speedMetric) {
+          const speed = Math.round(filesScanned / elapsedSec);
+          speedMetric.textContent = `${speed.toLocaleString()} arch/s`;
+        }
       } else {
         isRealScanActive = false;
+        stopScanStopwatch();
         if (dot) dot.classList.remove('animate-pulse');
 
         const isCancelled = currentFile.includes('detenido') || currentFile.includes('Cancelado') || currentFile.includes('Detenido');
@@ -2400,8 +2495,13 @@
             icon.className = 'w-9 h-9 rounded-xl bg-gray-500/15 text-gray-300 flex items-center justify-center text-sm font-bold';
             icon.textContent = '⏹️';
           }
+          if (badge) {
+            badge.className = 'text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-gray-500/20 text-gray-300 font-semibold border border-gray-500/30';
+            badge.textContent = 'DETENIDO';
+          }
           if (title) title.textContent = '⏹️ Escaneo Detenido por el Usuario';
-          if (sub) sub.textContent = 'El análisis fue interrumpido. No se detectaron fallos en el motor.';
+          if (sub) sub.textContent = `Análisis interrumpido. ${filesScanned.toLocaleString()} archivos verificados hasta la detención.`;
+          if (speedMetric) speedMetric.textContent = 'Tiempo detenido';
           if (btn) {
             btn.disabled = false;
             btn.className = 'px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
@@ -2413,9 +2513,14 @@
             icon.className = 'w-9 h-9 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center text-sm font-bold';
             icon.textContent = '⚠️';
           }
+          if (badge) {
+            badge.className = 'text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-red-500/20 text-red-400 font-semibold border border-red-500/30';
+            badge.textContent = 'AMENAZAS';
+          }
           if (title) title.textContent = '⚠️ Escaneo Finalizado: Amenazas Detectadas';
-          if (sub) sub.textContent = `${threatsFound} amenaza(s) encontradas. Revise el historial para actuar.`;
+          if (sub) sub.textContent = `${threatsFound} amenaza(s) encontradas en ${filesScanned.toLocaleString()} archivos. Revise el historial para actuar.`;
           if (pbar) pbar.className = 'h-full bg-gradient-to-r from-amber-500 to-red-500 rounded-full transition-all duration-150';
+          if (speedMetric) speedMetric.textContent = 'Duración final';
           if (btn) {
             btn.disabled = false;
             btn.className = 'px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
@@ -2427,9 +2532,14 @@
             icon.className = 'w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-sm font-bold';
             icon.textContent = '✓';
           }
+          if (badge) {
+            badge.className = 'text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30';
+            badge.textContent = 'COMPLETADO';
+          }
           if (title) title.textContent = '✓ Escaneo Finalizado: Sistema Limpio';
-          if (sub) sub.textContent = 'Todos los archivos seleccionados verificados sin malware ni anomalías.';
+          if (sub) sub.textContent = `Todos los ${filesScanned.toLocaleString()} archivos seleccionados verificados sin malware ni anomalías.`;
           if (pbar) pbar.className = 'h-full bg-emerald-500 rounded-full transition-all duration-150';
+          if (speedMetric) speedMetric.textContent = 'Duración total';
           if (btn) {
             btn.disabled = false;
             btn.className = 'px-3.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';

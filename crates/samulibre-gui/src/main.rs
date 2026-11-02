@@ -1051,12 +1051,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
     });
     log_step("run_app: Hilo de tray spawneado OK");
 
-    let raw_html = if let Ok(disk_html) = fs::read_to_string("data/ui/index.html") {
-        log_step("run_app: Cargando data/ui/index.html desde disco local");
-        disk_html
-    } else {
-        include_str!("../../../data/ui/index.html").to_string()
-    };
+    let raw_html = include_str!("../../../data/ui/index.html").to_string();
     const TAILWIND_JS: &str = include_str!("../../../data/ui/tailwindcss.min.js");
     let html_content = raw_html
         .replace(
@@ -3379,8 +3374,21 @@ fn scan_paths_parallel(
                 std::thread::sleep(std::time::Duration::from_micros(100));
 
                 let curr_scanned = scanned_count.fetch_add(1, Ordering::Relaxed) + 1;
+                let file_start = std::time::Instant::now();
 
                 if let Ok(res) = scanner_arc.scan_file(path) {
+                    let file_dur = file_start.elapsed();
+                    if file_dur >= std::time::Duration::from_millis(500) {
+                        let file_size_mb = std::fs::metadata(path).map(|m| m.len() as f64 / 1_048_576.0).unwrap_or(0.0);
+                        let fname = path.file_name().unwrap_or_default().to_string_lossy();
+                        let _ = proxy.send_event(CustomUserEvent::ScanProgress {
+                            files_scanned: curr_scanned,
+                            current_file: format!("🔍 Analizando archivo pesado: {} ({:.1} MB | {:.1}s)", fname, file_size_mb, file_dur.as_secs_f64()),
+                            threats_found: threats_count.load(Ordering::Relaxed),
+                            is_done: false,
+                        });
+                    }
+
                     if res.status == samulibre_types::FileScanStatus::Infected || res.status == samulibre_types::FileScanStatus::Suspicious {
                         threats_count.fetch_add(1, Ordering::Relaxed);
                         let threat_name = res.detection_name.clone().unwrap_or_else(|| "Amenaza.Desconocida".to_string());

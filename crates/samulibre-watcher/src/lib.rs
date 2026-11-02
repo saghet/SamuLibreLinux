@@ -480,6 +480,7 @@ impl RealTimeWatcher {
                                     || path_str.contains(".quarantine")
                                     || path_str.contains(".cargo")
                                     || path_str.contains(".rustup")
+                                    || path_str.contains("samulibre")
                                 {
                                     continue;
                                 }

@@ -6,7 +6,9 @@ SRCS_CORE = src/core/gpu_detector.cpp \
             src/core/compute_engine.cpp \
             src/backends/cuda_backend.cpp \
             src/backends/cpu_backend.cpp \
-            src/scanner/signature_scanner.cpp
+            src/scanner/signature_scanner.cpp \
+            src/ml/elf_feature_extractor.cpp \
+            src/ml/ml_classifier.cpp
 
 OBJS_CORE = $(SRCS_CORE:.cpp=.o)
 
@@ -14,8 +16,9 @@ LIB_TARGET = libsamulibre_gpu.so
 TEST_DETECTOR = bin/test_gpu_detector
 TEST_COMPUTE = bin/test_compute_engine
 TEST_SCANNER = bin/test_pattern_scanner
+TEST_ML = bin/test_ml_classifier
 
-all: $(LIB_TARGET) $(TEST_DETECTOR) $(TEST_COMPUTE) $(TEST_SCANNER)
+all: $(LIB_TARGET) $(TEST_DETECTOR) $(TEST_COMPUTE) $(TEST_SCANNER) $(TEST_ML)
 
 $(LIB_TARGET): $(OBJS_CORE)
 	@mkdir -p lib
@@ -40,6 +43,11 @@ $(TEST_SCANNER): tests/test_pattern_scanner.cpp $(OBJS_CORE)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 	@echo "✓ Binario de prueba $@ compilado."
 
+$(TEST_ML): tests/test_ml_classifier.cpp $(OBJS_CORE)
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+	@echo "✓ Binario de prueba $@ compilado."
+
 test: all
 	@echo "=== Ejecutando Test 1: Detector de Hardware GPU ==="
 	./$(TEST_DETECTOR)
@@ -49,9 +57,12 @@ test: all
 	@echo ""
 	@echo "=== Ejecutando Test 3: Escáner de Firmas y Cálculo de Entropía ==="
 	./$(TEST_SCANNER)
+	@echo ""
+	@echo "=== Ejecutando Test 4: Clasificador Machine Learning e Inferencia ONNX ==="
+	./$(TEST_ML)
 	@echo "✓ Todos los tests del motor GPU pasaron al 100%."
 
 clean:
-	rm -f src/core/*.o src/backends/*.o src/scanner/*.o bin/* lib/*
+	rm -f src/core/*.o src/backends/*.o src/scanner/*.o src/ml/*.o bin/* lib/*
 
 .PHONY: all test clean

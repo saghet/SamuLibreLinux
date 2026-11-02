@@ -153,6 +153,9 @@ enum CustomUserEvent {
     AuditReportLoaded {
         report: samulibre_core::SecurityAuditReport,
     },
+    SecurityScoreUpdated {
+        score: samulibre_core::SecurityScoreBreakdown,
+    },
     ShieldStatusUpdated {
         status: samulibre_shield::ShieldLiveStatus,
     },
@@ -2133,6 +2136,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                 let state = c.get_vpn_state();
                                 let countries = c.get_vpn_countries();
                                 let _ = proxy_cloned.send_event(CustomUserEvent::VpnStateUpdated { state, countries });
+
+                                let score = c.calculate_endpoint_security_score();
+                                let _ = proxy_cloned.send_event(CustomUserEvent::SecurityScoreUpdated { score });
                             } else {
                                 log_step("connect_vpn: No se pudo obtener lock de Core");
                             }
@@ -2152,6 +2158,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                 let state = c.get_vpn_state();
                                 let countries = c.get_vpn_countries();
                                 let _ = proxy_cloned.send_event(CustomUserEvent::VpnStateUpdated { state, countries });
+
+                                let score = c.calculate_endpoint_security_score();
+                                let _ = proxy_cloned.send_event(CustomUserEvent::SecurityScoreUpdated { score });
                             } else {
                                 log_step("disconnect_vpn: No se pudo obtener lock de Core");
                             }
@@ -2323,6 +2332,13 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         if let Ok(c) = core_for_ipc.lock() {
                             let report = c.run_internal_security_audit();
                             let _ = proxy_for_ipc.send_event(CustomUserEvent::AuditReportLoaded { report });
+                        }
+                    }
+
+                    "get_security_score" => {
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let score = c.calculate_endpoint_security_score();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::SecurityScoreUpdated { score });
                         }
                     }
 
@@ -2656,6 +2672,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
 
             let audit = c.run_internal_security_audit();
             let _ = proxy_init.send_event(CustomUserEvent::AuditReportLoaded { report: audit });
+
+            let score = c.calculate_endpoint_security_score();
+            let _ = proxy_init.send_event(CustomUserEvent::SecurityScoreUpdated { score });
 
             let shield_status = c.get_shield_status();
             let _ = proxy_init.send_event(CustomUserEvent::ShieldStatusUpdated { status: shield_status });
@@ -3024,6 +3043,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let _ = webview.evaluate_script(&script);
             }
 
+            Event::UserEvent(CustomUserEvent::SecurityScoreUpdated { score }) => {
+                let score_json = serde_json::to_string(&score).unwrap_or_else(|_| "{}".to_string());
+                let script = format!(
+                    "if (window.onSecurityScoreUpdated) {{ window.onSecurityScoreUpdated({}); }}",
+                    score_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
             Event::UserEvent(CustomUserEvent::EdrStatusUpdated { status }) => {
                 let status_json = serde_json::to_string(&status).unwrap_or_else(|_| "{}".to_string());
                 let script = format!(
@@ -3226,6 +3254,18 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                     files_scanned, threats_found, elapsed_ms, list_json
                 );
                 let _ = webview.evaluate_script(&script);
+
+                if let Ok(c) = core.lock() {
+                    c.mark_scan_completed();
+                    let score = c.calculate_endpoint_security_score();
+                    if let Ok(score_json) = serde_json::to_string(&score) {
+                        let score_script = format!(
+                            "if (window.onSecurityScoreUpdated) {{ window.onSecurityScoreUpdated({}); }}",
+                            score_json
+                        );
+                        let _ = webview.evaluate_script(&score_script);
+                    }
+                }
             }
 
             Event::UserEvent(CustomUserEvent::RealTimeAlert { title, details }) => {

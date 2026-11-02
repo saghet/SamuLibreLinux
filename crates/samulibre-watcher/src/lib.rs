@@ -105,6 +105,16 @@ impl QuarantineVault {
 
     /// Aísla y cifra un archivo malicioso para que no pueda ejecutarse en el SO
     pub fn isolate_file(&self, source_path: &Path, threat: &str, engine: &str, sha256: &str) -> Result<QuarantineRecord> {
+        let path_str = source_path.to_string_lossy().to_lowercase();
+        if path_str.contains("samulibre")
+            || path_str.contains("target")
+            || path_str.contains(".cargo")
+            || path_str.contains(".rustup")
+            || path_str.contains(".git")
+        {
+            anyhow::bail!("Ruta de código fuente/repositorio excluida de aislamiento automático: {}", source_path.display());
+        }
+
         // Blindaje Anti-Symlink / Anti-LPE: Verificar que el archivo no sea un junction o symlink
         let sym_meta = fs::symlink_metadata(source_path)?;
         if sym_meta.file_type().is_symlink() {

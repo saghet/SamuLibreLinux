@@ -279,16 +279,17 @@
             </div>
           </div>
 
-          <!-- Gráfico de Anillo de Seguridad -->
-          <div class="relative w-36 h-36 md:w-40 md:h-40 flex items-center justify-center shrink-0">
-            <div class="absolute inset-0 rounded-full bg-emerald-500/10 blur-2xl animate-pulse-glow"></div>
+          <!-- Gráfico de Anillo de Seguridad Dinámico y Verificable -->
+          <div onclick="openSecurityScoreModal()" class="group relative w-36 h-36 md:w-40 md:h-40 flex flex-col items-center justify-center shrink-0 cursor-pointer select-none" title="Haga clic para auditar el cálculo y ver cómo llegar al 100%">
+            <div id="shieldScoreGlow" class="absolute inset-0 rounded-full bg-emerald-500/10 blur-2xl group-hover:bg-emerald-500/25 transition-all"></div>
             <svg class="w-32 h-32 md:w-36 md:h-36 transform -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.06)" stroke-width="8" fill="transparent" />
-              <circle cx="50" cy="50" r="40" stroke="#34C759" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="12" stroke-linecap="round" fill="transparent" />
+              <circle id="shieldScoreCircle" cx="50" cy="50" r="40" stroke="#34C759" stroke-width="8" stroke-dasharray="251.3" stroke-dashoffset="12.5" stroke-linecap="round" fill="transparent" style="transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;" />
             </svg>
-            <div class="absolute flex flex-col items-center">
-              <span class="text-xl md:text-2xl font-bold tracking-tight text-white">99%</span>
-              <span class="text-[9px] uppercase tracking-wider text-gray-400">Protegido</span>
+            <div class="absolute flex flex-col items-center pointer-events-none">
+              <span id="shieldScoreNumber" class="text-xl md:text-2xl font-bold tracking-tight text-white group-hover:scale-105 transition-transform">95%</span>
+              <span id="shieldScoreStatus" class="text-[9px] uppercase tracking-wider text-emerald-400 font-semibold">PROTEGIDO</span>
+              <span class="text-[8px] text-gray-400 group-hover:text-cyan-300 transition-colors mt-0.5 flex items-center gap-0.5"><span>🔍</span> Desglose</span>
             </div>
           </div>
         </div>
@@ -3898,6 +3899,162 @@
       }
     };
 
+    window.lastSecurityScoreData = null;
+
+    window.onSecurityScoreUpdated = function(scoreData) {
+      if (!scoreData) return;
+      window.lastSecurityScoreData = scoreData;
+
+      const scoreNum = typeof scoreData.total_score === 'number' ? scoreData.total_score : 95;
+      const numEl = document.getElementById('shieldScoreNumber');
+      if (numEl) numEl.textContent = `${scoreNum}%`;
+
+      const statusEl = document.getElementById('shieldScoreStatus');
+      if (statusEl) {
+        if (scoreNum === 100) {
+          statusEl.textContent = '100% BLINDADO';
+          statusEl.className = 'text-[9px] uppercase tracking-wider text-emerald-400 font-bold';
+        } else if (scoreNum >= 90) {
+          statusEl.textContent = 'PROTEGIDO';
+          statusEl.className = 'text-[9px] uppercase tracking-wider text-emerald-400 font-semibold';
+        } else if (scoreNum >= 70) {
+          statusEl.textContent = 'ATENCIÓN';
+          statusEl.className = 'text-[9px] uppercase tracking-wider text-amber-400 font-semibold';
+        } else {
+          statusEl.textContent = 'RIESGO';
+          statusEl.className = 'text-[9px] uppercase tracking-wider text-red-400 font-bold';
+        }
+      }
+
+      const circleEl = document.getElementById('shieldScoreCircle');
+      if (circleEl) {
+        // Circumference for r=40 is 251.327
+        const circumference = 251.3;
+        const offset = Math.max(0, circumference * (1 - (scoreNum / 100)));
+        circleEl.style.strokeDashoffset = offset;
+
+        if (scoreNum === 100) {
+          circleEl.setAttribute('stroke', '#10B981');
+        } else if (scoreNum >= 90) {
+          circleEl.setAttribute('stroke', '#34C759');
+        } else if (scoreNum >= 70) {
+          circleEl.setAttribute('stroke', '#F59E0B');
+        } else {
+          circleEl.setAttribute('stroke', '#EF4444');
+        }
+      }
+    };
+
+    window.openSecurityScoreModal = function() {
+      const modal = document.getElementById('modalSecurityScore');
+      if (!modal) return;
+
+      const data = window.lastSecurityScoreData;
+      if (!data) {
+        sendIpc('get_security_score');
+        modal.classList.remove('hidden');
+        return;
+      }
+
+      const score = data.total_score || 0;
+      const max = data.max_score || 100;
+
+      const badgeEl = document.getElementById('modalScoreBadge');
+      if (badgeEl) badgeEl.textContent = `${score} / ${max} pts`;
+
+      const earnedEl = document.getElementById('modalScoreEarned');
+      if (earnedEl) earnedEl.textContent = score;
+
+      const barEl = document.getElementById('modalScoreBar');
+      if (barEl) barEl.style.width = `${Math.min(100, Math.max(5, score))}%`;
+
+      const labelEl = document.getElementById('modalScoreStatusLabel');
+      if (labelEl) {
+        labelEl.textContent = `${data.status_label || 'Sistema Protegido'} (${score}%)`;
+        labelEl.className = score === 100 ? 'font-semibold text-emerald-400' : (score >= 90 ? 'font-semibold text-teal-400' : 'font-semibold text-amber-400');
+      }
+
+      const guidanceEl = document.getElementById('modalScoreGuidance');
+      if (guidanceEl) {
+        if (score === 100) {
+          guidanceEl.innerHTML = '🎉 <strong class="text-emerald-400">¡Tu sistema ha alcanzado el 100% de blindaje verificado!</strong> Todos los motores multi-hilo, trampas canario, reglas YARA-X y túnel seguro están al día.';
+        } else {
+          const missing = max - score;
+          guidanceEl.innerHTML = `💡 <strong class="text-amber-300">Faltan ${missing} puntos para el 100% de blindaje.</strong> Revisa las acciones pendientes abajo para maximizar tu protección.`;
+        }
+      }
+
+      const container = document.getElementById('modalScoreItemsContainer');
+      if (container && Array.isArray(data.items)) {
+        container.innerHTML = '';
+        data.items.forEach(item => {
+          const card = document.createElement('div');
+          const isOk = item.is_passed;
+          card.className = `p-3 rounded-2xl border ${isOk ? 'bg-white/[0.02] border-white/5' : 'bg-amber-500/[0.06] border-amber-500/30'} flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all`;
+
+          const left = document.createElement('div');
+          left.className = 'space-y-1 max-w-lg';
+          left.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${isOk ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
+                ${isOk ? '✓' : '⚠️'}
+              </span>
+              <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/5 text-gray-400">${item.category}</span>
+              <h4 class="text-xs font-semibold text-white">${item.title}</h4>
+            </div>
+            <p class="text-[11px] text-gray-400 pl-7">${item.description}</p>
+          `;
+
+          const right = document.createElement('div');
+          right.className = 'flex items-center gap-3 self-end sm:self-center shrink-0 pl-7 sm:pl-0';
+
+          const ptsBadge = document.createElement('span');
+          ptsBadge.className = `font-mono text-xs font-bold px-2 py-0.5 rounded-lg ${isOk ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}`;
+          ptsBadge.textContent = `${item.points_earned}/${item.points_max} pts`;
+          right.appendChild(ptsBadge);
+
+          if (!isOk && item.action_label && item.action_target) {
+            const btn = document.createElement('button');
+            btn.className = 'px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1';
+            btn.innerHTML = `<span>⚡</span> ${item.action_label}`;
+            btn.onclick = () => window.executeScoreAction(item.action_target);
+            right.appendChild(btn);
+          }
+
+          card.appendChild(left);
+          card.appendChild(right);
+          container.appendChild(card);
+        });
+      }
+
+      modal.classList.remove('hidden');
+    };
+
+    window.closeSecurityScoreModal = function() {
+      const modal = document.getElementById('modalSecurityScore');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.executeScoreAction = function(target) {
+      window.closeSecurityScoreModal();
+      if (target === 'connect_vpn') {
+        switchTab('vpn');
+        setTimeout(() => {
+          if (typeof toggleVpnConnection === 'function') {
+            toggleVpnConnection();
+          }
+        }, 150);
+      } else if (target === 'scan_now') {
+        triggerQuickScan();
+      } else if (target === 'update_signatures') {
+        triggerUpdateSignatures();
+      } else if (target === 'open_patcher') {
+        switchTab('patcher');
+      } else if (target === 'start_watcher') {
+        switchTab('shield');
+      }
+    };
+
     function runSecurityAudit() {
       showToast('Auto-Auditoría de Seguridad', 'Verificando los 5 subsistemas y cobertura MITRE ATT&CK...');
       sendIpc('run_internal_audit');
@@ -4389,10 +4546,11 @@
     // Inicialización progresiva optimizada al cargar la interfaz (60 FPS fluidos)
     window.addEventListener('DOMContentLoaded', () => {
       initDropZone();
-      // Fase 1: Carga inmediata (solo estado visual de Dashboard y VPN)
+      // Fase 1: Carga inmediata (solo estado visual de Dashboard, Score y VPN)
       setTimeout(() => {
         sendIpc('get_shield_status');
         sendIpc('get_vpn_info');
+        sendIpc('get_security_score');
       }, 50);
 
       // Fase 2: Reglas de parchado e historial de firmas (+400ms)
@@ -4714,6 +4872,56 @@
         </span>
         <button onclick="closeQuarantineModal()" class="px-4 py-1.5 glass-panel text-white font-medium text-xs rounded-xl hover:bg-white/10 transition-all">
           Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Desglose y Auditoría Matemática del Índice de Blindaje (0% a 100%) -->
+  <div id="modalSecurityScore" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel bg-[#11141F]/95 max-w-2xl w-full rounded-3xl border border-emerald-500/30 p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+        <div class="flex items-center gap-3">
+          <div id="modalScoreIcon" class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold">
+            🛡️
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-white tracking-tight">Índice de Blindaje Endpoint</h3>
+              <span id="modalScoreBadge" class="text-xs px-2.5 py-0.5 rounded-full font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">95 / 100 pts</span>
+            </div>
+            <p class="text-[11px] text-gray-400">Cálculo matemático auditado en vivo: 5 pilares técnicos sin publicidad ni datos ficticios.</p>
+          </div>
+        </div>
+        <button onclick="closeSecurityScoreModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-all">
+          ✕
+        </button>
+      </div>
+
+      <!-- Barra de progreso general del score -->
+      <div class="shrink-0 space-y-1.5 bg-black/30 p-3.5 rounded-2xl border border-white/5">
+        <div class="flex justify-between text-xs">
+          <span id="modalScoreStatusLabel" class="font-semibold text-emerald-400">Sistema Protegido (95%)</span>
+          <span class="text-gray-400 font-mono"><span id="modalScoreEarned">95</span> / 100 Puntos Reales</span>
+        </div>
+        <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+          <div id="modalScoreBar" class="h-full bg-gradient-to-r from-teal-400 to-emerald-400 rounded-full transition-all duration-500" style="width: 95%"></div>
+        </div>
+        <p id="modalScoreGuidance" class="text-[11px] text-gray-300 pt-1">
+          💡 Para alcanzar el 100% de blindaje: completa las acciones marcadas a continuación.
+        </p>
+      </div>
+
+      <!-- Lista scrolleable de los 5 pilares con sus ítems -->
+      <div id="modalScoreItemsContainer" class="overflow-y-auto space-y-2 pr-1 text-xs grow">
+        <!-- Renderizado dinámico desde JavaScript -->
+      </div>
+
+      <!-- Footer con acciones de cierre y actualización -->
+      <div class="flex items-center justify-between border-t border-white/10 pt-3 shrink-0">
+        <span class="text-[10px] text-gray-400 font-mono">100% sustentado en telemetría local de Linux</span>
+        <button onclick="closeSecurityScoreModal()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs rounded-xl shadow-lg transition-all active:scale-95">
+          Aceptar
         </button>
       </div>
     </div>

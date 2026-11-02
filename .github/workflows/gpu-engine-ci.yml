@@ -1,0 +1,46 @@
+name: GPU Engine C++20 & Security Sanitizers
+
+on:
+  push:
+    paths:
+      - 'gpu-engine/**'
+      - '.github/workflows/gpu-engine-ci.yml'
+  pull_request:
+    paths:
+      - 'gpu-engine/**'
+
+jobs:
+  build-and-test:
+    name: C++20 Build, Sanitizers & Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Compiler & System Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ make ocl-icd-opencl-dev
+
+      - name: Build C++20 Release with Hardening Flags
+        run: |
+          cd gpu-engine
+          make clean
+          make all
+
+      - name: Run Unit Tests (Release Mode)
+        run: |
+          cd gpu-engine
+          make test
+
+      - name: Run Security Audit under AddressSanitizer & UndefinedBehaviorSanitizer
+        run: |
+          cd gpu-engine
+          make security-audit
+
+      - name: Run ThreadSanitizer Concurrency Tests
+        run: |
+          cd gpu-engine
+          make debug-tsan
+          export TSAN_OPTIONS="suppressions=tsan.supp"
+          ./bin/test_batch_scheduler

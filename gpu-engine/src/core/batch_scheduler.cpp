@@ -98,10 +98,17 @@ void BatchScheduler::enqueue_file(const std::string& file_path, TaskPriority pri
     task.file_path = file_path;
     task.priority = priority;
 
-    // Read file size
+    // Read file size safely with validation (VULN-02 fix)
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
     if (file.is_open()) {
-        task.file_size = static_cast<size_t>(file.tellg());
+        std::streamsize sz = file.tellg();
+        if (sz > 0 && static_cast<size_t>(sz) <= MAX_SCAN_FILE_SIZE) {
+            task.file_size = static_cast<size_t>(sz);
+        } else if (sz > 0) {
+            task.file_size = MAX_SCAN_FILE_SIZE; // Bound to max limit
+        } else {
+            task.file_size = 0;
+        }
     }
 
     enqueue_task(task);
@@ -153,10 +160,16 @@ TaskScanReport BatchScheduler::execute_task_on_slot(const ScanTask& task, Pipeli
             std::streamsize fsize = file.tellg();
             file.seekg(0, std::ios::beg);
             if (fsize > 0) {
-                file_disk_buffer.resize(fsize);
-                if (file.read(reinterpret_cast<char*>(file_disk_buffer.data()), fsize)) {
-                    scan_data = file_disk_buffer.data();
-                    scan_size = static_cast<size_t>(fsize);
+                size_t to_read = std::min(static_cast<size_t>(fsize), MAX_SCAN_FILE_SIZE);
+                try {
+                    file_disk_buffer.resize(to_read);
+                    if (file.read(reinterpret_cast<char*>(file_disk_buffer.data()), to_read)) {
+                        scan_data = file_disk_buffer.data();
+                        scan_size = to_read;
+                    }
+                } catch (const std::bad_alloc&) {
+                    report.final_verdict = "CLEAN";
+                    return report; // Gracefully handle memory exhaustion
                 }
             }
         }

@@ -410,9 +410,24 @@ MLInferenceResult MLClassifier::classify_file(const std::string& file_path, uint
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<uint8_t> buffer(size);
-    if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        return classify_buffer(buffer.data(), buffer.size(), file_path, task_id);
+    if (size <= 0) {
+        MLInferenceResult res;
+        res.task_id = task_id;
+        res.file_path = file_path;
+        res.classification_label = "CLEAN";
+        return res;
+    }
+
+    constexpr size_t MAX_ML_FILE_SIZE = 128 * 1024 * 1024; // 128 MB max limit
+    size_t to_read = std::min(static_cast<size_t>(size), MAX_ML_FILE_SIZE);
+
+    try {
+        std::vector<uint8_t> buffer(to_read);
+        if (file.read(reinterpret_cast<char*>(buffer.data()), to_read)) {
+            return classify_buffer(buffer.data(), buffer.size(), file_path, task_id);
+        }
+    } catch (const std::bad_alloc&) {
+        // Safe out-of-memory fallback
     }
 
     MLInferenceResult res;

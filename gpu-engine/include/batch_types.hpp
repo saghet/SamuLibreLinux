@@ -9,6 +9,9 @@
 
 namespace samulibre::gpu {
 
+// Security Bound: 128 MB maximum file scan limit to prevent Out-Of-Memory DoS
+constexpr size_t MAX_SCAN_FILE_SIZE = 128 * 1024 * 1024;
+
 enum class TaskPriority {
     LOW = 0,
     NORMAL = 1,

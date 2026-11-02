@@ -606,8 +606,16 @@ impl EndpointShield {
 
         let total = items.len();
 
+        #[cfg(target_os = "windows")]
         let lsass_text = if self.lsass_protection_enabled {
             "Protegido contra PROCESS_VM_READ (LSA RunAsPPL Activo)".to_string()
+        } else {
+            "Inactivo (Supervisión manual)".to_string()
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        let lsass_text = if self.lsass_protection_enabled {
+            "Blindado (ptrace_scope Yama y restricción /proc/mem activa)".to_string()
         } else {
             "Inactivo (Supervisión manual)".to_string()
         };

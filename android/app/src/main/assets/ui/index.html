@@ -95,83 +95,98 @@
     <!-- Sidebar Translúcida Izquierda (Desktop) -->
     <div class="hidden md:flex w-60 md:w-64 bg-black/30 border-r border-white/5 p-4 md:p-5 flex-col justify-between select-none shrink-0">
       <div>
-        <!-- Botones de Ventana macOS (Semáforo) -->
-        <div class="flex items-center gap-2 mb-8">
-          <div class="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]/50 cursor-pointer hover:opacity-80"></div>
-          <div class="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]/50 cursor-pointer hover:opacity-80"></div>
-          <div class="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]/50 cursor-pointer hover:opacity-80"></div>
-          <span class="text-[11px] font-mono font-semibold tracking-wide text-emerald-400 ml-2">v2.00.4</span>
-        </div>
-
-        <!-- Logo / Marca -->
-        <div class="flex items-center gap-3 px-2 mb-6">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-black font-extrabold text-lg shadow-lg shadow-emerald-500/20">
-            🛡️
+        <!-- Logo / Marca Nativa Linux -->
+        <div class="flex items-center gap-3 px-2 mb-6 pt-1">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-sm shrink-0">
+            <svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           </div>
           <div>
             <h1 class="text-sm font-semibold tracking-tight text-white flex items-center gap-1.5">
-              SamuLibre <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 rounded">v2.00.4</span>
+              SamuLibre <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-semibold">Linux v2.00.32</span>
             </h1>
-            <p class="text-[11px] text-emerald-400 font-medium">100% Open Source</p>
+            <p class="text-[11px] text-emerald-400/90 font-medium flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sistema Protegido
+            </p>
           </div>
         </div>
 
         <!-- Menú de Navegación -->
         <nav class="space-y-1">
           <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-white bg-white/10 transition-all">
-            <span class="text-base">✨</span> Estado Global
+            <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+            <span>Estado Global</span>
           </button>
           <button onclick="switchTab('patcher')" id="nav-patcher" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🩹</span> Parchado Virtual
-            <span id="patchBadge" class="ml-auto text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-semibold">5 Activos</span>
+            <svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <span>Parchado Virtual</span>
+            <span id="patchBadge" class="ml-auto text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">5 Activos</span>
           </button>
           <button onclick="switchTab('shield')" id="nav-shield" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🥷</span> Escudo Endpoint
+            <svg class="w-4 h-4 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            <span>Escudo Endpoint</span>
           </button>
           <button onclick="switchTab('persistence')" id="nav-persistence" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🚀</span> Persistencia
-            <span id="persistenceBadge" class="ml-auto text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full font-semibold">Autoruns</span>
+            <svg class="w-4 h-4 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span>Persistencia & Servicios</span>
+            <span id="persistenceBadge" class="ml-auto text-[10px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-semibold">Systemd</span>
           </button>
           <button onclick="switchTab('network')" id="nav-network" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🌐</span> Red en Vivo
-            <span id="networkBadge" class="ml-auto text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold">WFP</span>
+            <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+            <span>Red & Netfilter</span>
+            <span id="networkBadge" class="ml-auto text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold">Netfilter</span>
           </button>
           <button onclick="switchTab('copilot')" id="nav-copilot" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🤖</span> Copiloto IA
-            <span class="ml-auto text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-semibold">Local</span>
+            <svg class="w-4 h-4 text-purple-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>Copiloto IA</span>
+            <span class="ml-auto text-[10px] bg-purple-500/15 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded-full font-semibold">Local</span>
           </button>
           <button onclick="switchTab('scanner')" id="nav-scanner" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🔍</span> Escáner Multi-Motor
+            <svg class="w-4 h-4 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/></svg>
+            <span>Escáner Multi-Motor</span>
           </button>
           <button onclick="switchTab('vpn')" id="nav-vpn" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🔒</span> VPN & Privacidad
-            <span class="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">11 Países</span>
-          </button>
-          <button onclick="switchTab('audit')" id="nav-audit" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <span class="text-base">🛡️</span> Auditoría Interna
-            <span class="ml-auto text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold">100/100</span>
+            <svg class="w-4 h-4 text-teal-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>VPN WireGuard</span>
+            <span class="ml-auto text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/20 px-2 py-0.5 rounded-full font-semibold">11 Nodos</span>
           </button>
         </nav>
       </div>
 
-      <!-- Pie de Sidebar: Cero Anuncios & Memoria -->
-      <div class="glass-card p-3 rounded-2xl bg-white/[0.02]">
+            <!-- Pie de Sidebar: Telemetría en Vivo CPU, GPU & Memoria RAM (Kodara Arrow Target) -->
+      <div id="samulibreSidebarHardware" class="glass-card p-3 rounded-2xl bg-white/[0.02]">
+        <!-- Consumo CPU -->
         <div class="flex items-center justify-between text-[11px] text-gray-400 mb-1">
-          <span>Memoria RAM</span>
-          <span class="font-mono text-emerald-400 font-semibold">38.4 MB</span>
+          <span>Consumo CPU</span>
+          <span id="samuSidebarCpuVal" class="font-mono text-cyan-400 font-semibold">11%</span>
         </div>
         <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mb-2">
-          <div class="bg-emerald-400 h-full w-[12%] rounded-full"></div>
+          <div id="samuSidebarCpuBar" class="bg-cyan-400 h-full w-[11%] rounded-full transition-all duration-300"></div>
+        </div>
+        <!-- Consumo GPU -->
+        <div class="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+          <span>Consumo GPU</span>
+          <span id="samuSidebarGpuVal" class="font-mono text-purple-400 font-semibold">4% • RTX</span>
+        </div>
+        <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mb-2">
+          <div id="samuSidebarGpuBar" class="bg-purple-400 h-full w-[8%] rounded-full transition-all duration-300"></div>
+        </div>
+        <!-- Memoria RAM -->
+        <div class="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+          <span>Memoria RAM</span>
+          <span id="samuSidebarRamVal" class="font-mono text-emerald-400 font-semibold">38.4 MB</span>
+        </div>
+        <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mb-2">
+          <div id="samuSidebarRamBar" class="bg-emerald-400 h-full w-[12%] rounded-full transition-all duration-300"></div>
         </div>
         <div class="flex items-center gap-1.5 text-[10px] text-emerald-400/90 font-medium">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
           <span>0% Anuncios | Cero Telemetría</span>
         </div>
-        <!-- Toggle Autostart Windows -->
+        <!-- Toggle Autostart Multiplataforma -->
         <div class="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between">
           <div class="flex items-center gap-1.5 text-[10px] text-gray-300">
             <span>⚡</span>
-            <span>Inicio con Windows</span>
+            <span id="autostartLabel">Inicio con Linux</span>
           </div>
           <label class="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" id="autostartToggle" onchange="toggleAutostart(this.checked)" class="sr-only peer">
@@ -184,12 +199,12 @@
     <!-- Área de Contenido Principal -->
     <div class="flex-1 flex flex-col overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 relative">
 
-      <!-- Barra Superior Móvil con Versión v2.00.4 en la Esquina Izquierda -->
+      <!-- Barra Superior Móvil con Versión v2.00.31 en la Esquina Izquierda -->
       <div class="md:hidden flex items-center justify-between pb-2.5 mb-3 border-b border-white/10 select-none">
         <div class="flex items-center gap-2">
           <span class="text-base">🛡️</span>
           <span class="text-xs font-bold text-white tracking-tight">SamuLibre</span>
-          <span class="text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1.5 py-0.5 rounded-md">v2.00.4</span>
+          <span class="text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1.5 py-0.5 rounded-md">v2.00.31</span>
         </div>
         <div id="mobileHeaderStatus" class="text-[10px] text-emerald-400 flex items-center gap-1 font-mono font-medium">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sistema Blindado
@@ -229,7 +244,7 @@
             <button id="btnToggleTunShield" onclick="toggleTunShield()" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs rounded-xl shadow transition-all cursor-pointer">
               🛡️ Activar Escudo TUN
             </button>
-            <button onclick="startAppPermissionAudit()" class="px-3.5 py-1.5 glass-panel hover:bg-white/10 text-white font-medium text-xs rounded-xl transition-all cursor-pointer">
+            <button onclick="sendIpc('audit_device_apps')" class="px-3.5 py-1.5 glass-panel hover:bg-white/10 text-white font-medium text-xs rounded-xl transition-all cursor-pointer">
               🔍 Auditar Apps
             </button>
           </div>
@@ -368,7 +383,7 @@
                   <h3 class="text-sm font-semibold text-white">Blindaje Avanzado de Próxima Generación (PC)</h3>
                   <span class="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">15 / 15 Activas</span>
                 </div>
-                <p class="text-xs text-gray-400">Protección predictiva, EDR en memoria, micro-sandbox y firewall adaptativo para Windows y Linux.</p>
+                <p class="text-xs text-gray-400">Protección predictiva, EDR en memoria, micro-sandbox y firewall adaptativo para Linux (Escritorios y Servidores).</p>
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -468,7 +483,7 @@
               </span>
             </h2>
             <div id="osBuildInfoBanner" class="mt-1 flex items-center gap-2 text-xs text-gray-400">
-              <span id="osBuildText">Windows 11 (Cargando datos de compilación y kernel...)</span>
+              <span id="osBuildText">Linux (Cargando telemetría de distribución y kernel...)</span>
             </div>
           </div>
           <div class="flex items-center gap-3">
@@ -511,12 +526,12 @@
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <h3 class="text-sm font-semibold text-white">Centinela de KBs con IA Local</h3>
+                  <h3 class="text-sm font-semibold text-white">Centinela de CVEs con IA Local</h3>
                   <span class="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono">100% Offline / Privado</span>
                   <span id="aiGuardrailBadge" class="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">Guardrails Rust ✔</span>
                 </div>
                 <p class="text-[11px] text-gray-300 mt-0.5">
-                  Vigila nuevos boletines de Windows, analiza los binarios afectados y genera parches virtuales con IA local en la máquina.
+                  Vigila avisos de seguridad CVE y el kernel Linux, analiza los subsistemas afectados y sintetiza parches virtuales y mitigaciones sysctl con IA local.
                 </p>
               </div>
             </div>
@@ -524,15 +539,15 @@
             <div class="flex items-center gap-3 shrink-0">
               <div class="flex items-center gap-2">
                 <span class="text-[11px] text-gray-300 font-medium">Auto-Pilot IA</span>
-                <div id="aiAutopilotSwitch" class="apple-switch active cursor-pointer" onclick="toggleAiAutopilot(this)" title="Aplica automáticamente parches virtuales generados por la IA al detectar KBs faltantes">
+                <div id="aiAutopilotSwitch" class="apple-switch active cursor-pointer" onclick="toggleAiAutopilot(this)" title="Aplica automáticamente parches virtuales generados por la IA al detectar CVEs críticos">
                   <div class="apple-switch-thumb"></div>
                 </div>
               </div>
                             <button onclick="runDailyKbCheck()" class="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 border border-blue-500/40 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
-                <span>🔄</span> Verificar KBs de Hoy
+                <span>🔄</span> Verificar CVEs de Hoy
               </button>
 <button onclick="runAiKbAudit()" class="px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
-                <span>⚡</span> Auditar KBs con IA
+                <span>⚡</span> Auditar CVEs con IA
               </button>
               <button onclick="toggleManualKbModal()" class="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5">
                 <span>📝</span> Analizar KB Manual
@@ -617,10 +632,10 @@
             </div>
           </div>
 
-          <!-- Lista de KBs Monitoreados con su Estado -->
+          <!-- Lista de CVEs Monitoreados con su Estado -->
           <div class="space-y-1.5 pt-1">
             <div class="flex items-center justify-between text-[11px] text-gray-400 px-1 font-medium">
-              <span>Boletines de Seguridad Windows Monitoreados</span>
+              <span>Mitigaciones y Avisos de Seguridad del Kernel Monitoreados</span>
               <span>Estado en este Equipo</span>
             </div>
             <div id="monitoredKbsList" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -640,7 +655,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-white">Escudo Anti-Infiltración</h2>
-            <p class="text-xs text-gray-400">Blindaje de credenciales LSASS, cookies de navegadores y trampas señuelo anti-ransomware.</p>
+            <p class="text-xs text-gray-400">Blindaje de memoria de procesos, tokens de sesión y trampas señuelo anti-ransomware.</p>
           </div>
           <div class="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-medium shadow-sm">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -649,23 +664,23 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          <!-- Tarjeta LSASS -->
+          <!-- Tarjeta Protección Memoria y Credenciales -->
           <div class="glass-card p-5 rounded-2xl space-y-3">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm">🔒</div>
                 <div>
-                  <span class="text-xs font-semibold text-white block">Protección LSASS</span>
-                  <span class="text-[10px] text-gray-400">Blindaje de credenciales de Windows</span>
+                  <span class="text-xs font-semibold text-white block">Protección de Memoria & Credenciales</span>
+                  <span class="text-[10px] text-gray-400">Yama ptrace_scope & aislamiento /proc/mem</span>
                 </div>
               </div>
               <div id="lsassSwitch" class="apple-switch active cursor-pointer" onclick="toggleLsassSwitch(this)">
                 <div class="apple-switch-thumb"></div>
               </div>
             </div>
-            <p class="text-xs text-gray-400">Bloquea intentos de apertura de memoria por parte de Mimikatz, NanoDump o minivolcados sospechosos.</p>
+            <p class="text-xs text-gray-400">Bloquea intentos de inyección y volcado de memoria mediante ptrace, Process VM Read y accesos no autorizados a /proc/$PID/mem.</p>
             <div id="lsassStatusSub" class="text-[11px] font-mono text-emerald-400 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/15">
-              Estado: Protegido contra PROCESS_VM_READ (LSA RunAsPPL Activo)
+              Estado: Blindado (ptrace_scope Yama y restricción /proc/mem activa)
             </div>
           </div>
 
@@ -740,14 +755,14 @@
           </div>
         </div>
 
-        <!-- Zona Drag and Drop Interactiva con Explorador de Windows -->
+        <!-- Zona Drag and Drop Interactiva con Gestor de Archivos Linux -->
         <input type="file" id="nativeFilePicker" multiple style="display:none;" onchange="handleNativeFileInput(event)">
         <div id="dropZone" onclick="handleDropZoneClick(event)" class="border-2 border-dashed border-white/10 hover:border-blue-400/50 rounded-3xl p-8 text-center glass-card cursor-pointer transition-all relative overflow-hidden group">
           <div class="w-14 h-14 rounded-2xl bg-white/5 text-3xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
             📁
           </div>
           <h3 class="text-sm font-semibold text-white mb-1">Arrastra archivos o carpetas aquí</h3>
-          <p class="text-xs text-gray-400 mb-4">O haz clic para seleccionar desde tu explorador de archivos de Windows</p>
+          <p class="text-xs text-gray-400 mb-4">O haz clic para seleccionar desde el gestor de archivos de tu sistema Linux</p>
           <div class="flex flex-wrap justify-center gap-2" onclick="event.stopPropagation()">
             <button onclick="browseAndScanFiles()" class="px-3.5 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-medium rounded-xl hover:bg-blue-500/30 active:scale-95 transition-all flex items-center gap-1.5">
               <span>📄</span> Examinar Archivos
@@ -897,6 +912,47 @@
             </table>
           </div>
         </div>
+
+        <!-- Tarjeta de Gestión de Exclusiones de Directorios y Archivos -->
+        <div class="glass-card p-5 rounded-2xl space-y-4 border border-amber-500/20 bg-amber-500/[0.02]">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🚫</span>
+              <div>
+                <h4 class="text-xs font-semibold text-white">Carpetas y Rutas Excluidas del Escaneo</h4>
+                <p class="text-[11px] text-gray-400">Las rutas configuradas aquí son omitidas automáticamente por el escáner y la vigilancia en tiempo real.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="browseAndAddExclusionFolder()" class="px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-xl hover:bg-amber-500/30 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+                <span>📂</span> Seleccionar Carpeta...
+              </button>
+            </div>
+          </div>
+
+          <!-- Formulario manual para añadir ruta -->
+          <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-2 border-t border-white/5">
+            <div class="relative flex-1">
+              <input type="text" id="customExclusionInput" placeholder="Ejemplo: /home/usuario/proyectos o C:\Desarrollo\Codigo" class="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/50 font-mono transition-colors">
+            </div>
+            <button onclick="addManualExclusion()" class="px-4 py-2 bg-white/10 text-gray-200 hover:text-white border border-white/10 text-xs font-medium rounded-xl hover:bg-white/15 active:scale-95 transition-all flex items-center gap-1.5 whitespace-nowrap">
+              <span>➕</span> Añadir Ruta
+            </button>
+          </div>
+
+          <!-- Lista de Rutas Excluidas -->
+          <div class="overflow-hidden rounded-xl border border-white/5 bg-black/20">
+            <div class="p-3 text-[11px] font-mono text-gray-400 border-b border-white/5 flex items-center justify-between">
+              <span>Directorios y Rutas Activas (<span id="exclusionsCountBadge" class="text-amber-400 font-bold">0</span>)</span>
+              <span class="text-[10px] text-gray-500">Poda inmediata en árbol WalkDir & Sentinel</span>
+            </div>
+            <div id="exclusionsListContainer" class="divide-y divide-white/5 max-h-52 overflow-y-auto font-mono text-xs">
+              <div class="p-4 text-center text-gray-500 text-xs">
+                No hay directorios excluidos. Todo el sistema está protegido bajo análisis.
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ================= VISTA 5: VPN & PRIVACIDAD ================= -->
@@ -904,13 +960,13 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-white">Navegación Privada & VPN WireGuard</h2>
-            <p class="text-xs text-gray-400">Túnel cifrado con ChaCha20-Poly1305, servidores en jurisdicciones de privacidad estricta y Kill-Switch WFP activo.</p>
+            <p class="text-xs text-gray-400">Túnel cifrado con ChaCha20-Poly1305, servidores en jurisdicciones de privacidad estricta y Kill-Switch Netfilter & eBPF activo.</p>
           </div>
           <div class="flex items-center gap-3">
             <button id="vpnQuickActionBtn" onclick="toggleVpnGlobal()" class="px-4 py-2 bg-emerald-500 text-black font-semibold text-xs rounded-xl shadow-lg hover:bg-emerald-400 active:scale-95 transition-all flex items-center gap-2">
               <span id="vpnBtnIcon">⚡</span> <span id="vpnBtnText">Conectar VPN</span>
             </button>
-            <button onclick="emergencyResetNetwork()" title="Restaura la red de Windows si el proxy o VPN quedaron bloqueados" class="px-3.5 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-semibold text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2">
+            <button onclick="emergencyResetNetwork()" title="Restaura las interfaces de red y reglas Netfilter si la VPN o proxy quedaron bloqueados" class="px-3.5 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-semibold text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2">
               <span>🔄</span> <span>Restablecer Red</span>
             </button>
           </div>
@@ -932,6 +988,9 @@
               </span>
               <button onclick="triggerLiveIpCheck()" id="btnCheckLiveIp" class="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 hover:text-white rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer">
                 <span>🔍</span> <span>Comprobar IP en Vivo</span>
+              </button>
+              <button onclick="syncBrowserVpn()" id="btnSyncBrowser" class="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer" title="Aplica el túnel a Google Chrome en ejecución restaurando todas las pestañas">
+                <span>🌐</span> <span>Aplicar a Navegador</span>
               </button>
             </div>
           </div>
@@ -1016,12 +1075,12 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <span class="text-base">🛡️</span>
-                <span class="text-xs font-semibold text-white">WFP Network Kill-Switch</span>
+                <span class="text-xs font-semibold text-white">Netfilter / eBPF Kill-Switch</span>
               </div>
               <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Activo</span>
             </div>
             <p class="text-xs text-gray-400 leading-relaxed">
-              Filtro a nivel de Windows Filtering Platform (WFP) que corta instantáneamente cualquier paquete saliente si el túnel WireGuard se interrumpe, impidiendo fugas de tu IP real.
+              Filtro de paquetes a nivel de Netfilter/iptables y hooks eBPF que corta instantáneamente cualquier paquete saliente si el túnel WireGuard se interrumpe, impidiendo fugas de tu IP real.
             </p>
           </div>
 
@@ -1040,98 +1099,15 @@
         </div>
       </div>
 
-      <!-- ================= VISTA 6: AUDITORÍA INTERNA ================= -->
-      <div id="view-audit" class="view-content space-y-6 hidden">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 class="text-2xl font-semibold tracking-tight text-white">Auditoría Interna de Seguridad & Excelencia</h2>
-            <p class="text-xs text-gray-400">Verificación automatizada de estándares de la industria, preparación para auditorías externas, AV-TEST y cobertura MITRE ATT&CK.</p>
-          </div>
-          <button onclick="runSecurityAudit()" class="px-4 py-2 bg-emerald-500 text-black font-semibold text-xs rounded-xl shadow-lg hover:bg-emerald-400 active:scale-95 transition-all flex items-center gap-2">
-            <span>🔄</span> Ejecutar Auto-Auditoría Completa
-          </button>
-        </div>
-
-        <!-- Banner de Certificación y Puntuación 100/100 -->
-        <div class="glass-card p-6 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-500/20 flex flex-wrap items-center justify-between gap-6">
-          <div class="flex items-center gap-4">
-            <div class="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-3xl font-black font-mono shadow-lg shadow-emerald-500/20">
-              <span id="auditScoreVal">100</span>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-base font-bold text-white" id="auditCertLevel">Grado de Excelencia A+ (Cumplimiento AV-TEST / MITRE ATT&CK)</span>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Verificado</span>
-              </div>
-              <p class="text-xs text-gray-300 mt-1">12 de 12 pruebas de integridad y eficacia de detección superadas sin fallos.</p>
-              <p id="auditTimestampText" class="text-[11px] text-gray-400 font-mono mt-0.5">Última auditoría: 2026-10-11 14:00:00</p>
-            </div>
-          </div>
-          <div class="glass-panel px-4 py-3 rounded-2xl flex items-center gap-3">
-            <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-            <div>
-              <p class="text-xs font-semibold text-white">Cero Telemetría Verificado</p>
-              <p class="text-[10px] text-gray-400">Sin conexiones a servidores publicitarios o analíticos.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Estado de los Subsistemas de SamuLibre -->
-        <div>
-          <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <span>🔍</span> Integridad de los Subsistemas de Seguridad
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="auditSubsystemsContainer">
-            <div class="glass-card p-4 rounded-2xl">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-semibold text-white">1. Escáner Multi-Motor</span>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Conforme</span>
-              </div>
-              <p id="auditScannerStatus" class="text-xs text-gray-400">Firmas activas, reglas YARA-X y motor de entropía operando.</p>
-            </div>
-            <div class="glass-card p-4 rounded-2xl">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-semibold text-white">2. Escudo Endpoint Anti-Ransomware</span>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Conforme</span>
-              </div>
-              <p id="auditShieldStatus" class="text-xs text-gray-400">Archivos canario desplegados, monitor LSASS y mitigación tripwire listos.</p>
-            </div>
-            <div class="glass-card p-4 rounded-2xl">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-semibold text-white">3. Parchado Virtual de Vulnerabilidades</span>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Conforme</span>
-              </div>
-              <p id="auditPatcherStatus" class="text-xs text-gray-400">Auditoría de kernel Windows 11, tcpip.sys y mitigación de CVEs activos.</p>
-            </div>
-            <div class="glass-card p-4 rounded-2xl">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-semibold text-white">4. Privacidad & Túnel VPN WireGuard</span>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">Conforme</span>
-              </div>
-              <p id="auditVpnStatus" class="text-xs text-gray-400">8 países con privacidad estricta, DNS Quad9 y Kill-Switch WFP verificado.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Matriz de Cobertura MITRE ATT&CK -->
-        <div>
-          <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <span>🎯</span> Cobertura de Técnicas MITRE ATT&CK Evaluadas
-          </h3>
-          <div class="glass-card p-4 rounded-2xl divide-y divide-white/5" id="auditMitreContainer">
-            <!-- Coberturas MITRE -->
-          </div>
-        </div>
-      </div>
-
-      <!-- ================= VISTA: PERSISTENCIA (AUTORUNS) ================= -->
+      <!-- ================= VISTA: PERSISTENCIA ================= -->
       <div id="view-persistence" class="view-content hidden space-y-6">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-white flex items-center gap-2">
-              <span>🚀</span> Cazador de Persistencia
+              <svg class="w-6 h-6 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              Cazador de Persistencia & Servicios
             </h2>
-            <p class="text-xs text-gray-400">Auditoría en tiempo real de mecanismos de auto-inicio (Registro Run/RunOnce, Startup, schtasks).</p>
+            <p class="text-xs text-gray-400">Auditoría en tiempo real de mecanismos de auto-inicio (Servicios Systemd, Crontabs, XDG Autostart y Timers).</p>
           </div>
           <button onclick="refreshPersistence()" class="px-4 py-2 bg-white/10 hover:bg-white/15 active:scale-95 text-xs font-semibold rounded-xl border border-white/10 flex items-center gap-2 transition-all">
             <span>🔄</span> Auditar Persistencia
@@ -1146,14 +1122,14 @@
             <span class="text-[10px] text-emerald-400 font-medium">Supervisión continua</span>
           </div>
           <div class="glass-card p-4 rounded-2xl">
-            <span class="text-[11px] text-gray-400 font-medium">Registro (Run / Winlogon)</span>
+            <span class="text-[11px] text-gray-400 font-medium">Servicios Systemd & Timers</span>
             <p id="persistRegCount" class="text-2xl font-bold text-cyan-400 mt-1">0</p>
-            <span class="text-[10px] text-cyan-300 font-medium">HKCU / HKLM</span>
+            <span class="text-[10px] text-cyan-300 font-medium">/etc/systemd & ~/.config</span>
           </div>
           <div class="glass-card p-4 rounded-2xl">
-            <span class="text-[11px] text-gray-400 font-medium">Tareas Programadas</span>
+            <span class="text-[11px] text-gray-400 font-medium">Crontabs & Autostart</span>
             <p id="persistTasksCount" class="text-2xl font-bold text-purple-400 mt-1">0</p>
-            <span class="text-[10px] text-purple-300 font-medium">schtasks.exe</span>
+            <span class="text-[10px] text-purple-300 font-medium">/etc/cron.* & XDG</span>
           </div>
           <div class="glass-card p-4 rounded-2xl">
             <span class="text-[11px] text-gray-400 font-medium">Sospechosas / Temp</span>
@@ -1174,14 +1150,15 @@
         </div>
       </div>
 
-      <!-- ================= VISTA: RED EN VIVO (LIVE NETWORK & WFP) ================= -->
+      <!-- ================= VISTA: RED EN VIVO (LIVE NETWORK & NETFILTER) ================= -->
       <div id="view-network" class="view-content hidden space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-white flex items-center gap-2">
-              <span>🌐</span> Inspector de Red en Vivo
+              <svg class="w-6 h-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+              Inspector de Red en Vivo & Netfilter
             </h2>
-            <p class="text-xs text-gray-400">Telemetría de sockets TCP en tiempo real con atribución de proceso y blindaje de puertos vulnerables con WFP.</p>
+            <p class="text-xs text-gray-400">Telemetría de sockets TCP/UDP en tiempo real con atribución de proceso y blindaje de puertos con Netfilter.</p>
           </div>
           <div class="flex items-center gap-2.5">
             <button id="btnCloseAllRiskPorts" onclick="closeAllVulnerablePorts()" class="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 active:scale-95 text-red-200 border border-red-500/40 text-xs font-semibold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-red-500/10">
@@ -1247,16 +1224,17 @@
         <div class="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-white/5">
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-white flex items-center gap-2">
-              <span>🤖</span> Copiloto de Ciberseguridad SamuLibre
+              <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              Copiloto de Ciberseguridad SamuLibre
             </h2>
-            <p class="text-xs text-gray-400">Inteligencia Artificial Local Offline • Razonamiento y Parchado Autónomo de KBs de Windows</p>
+            <p class="text-xs text-gray-400">Inteligencia Artificial Local Offline • Razonamiento y Mitigación Autónoma de CVEs del Kernel Linux</p>
           </div>
           <div class="flex items-center gap-2.5">
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">
               <span class="w-2 h-2 rounded-full bg-purple-400 mr-2 animate-pulse"></span> 100% Offline / Privado
             </span>
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2"></span> Guardrails en Rust (Zero BSOD)
+              <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2"></span> Guardrails en Rust (Zero Kernel Panic)
             </span>
           </div>
         </div>
@@ -1297,14 +1275,14 @@
                     ¡Hola! Soy el <strong>Copiloto de Ciberseguridad de SamuLibre</strong>. Ejecuto directamente en tu hardware sin enviar ningún byte a la nube.
                   </p>
                   <p class="text-xs text-gray-300 leading-relaxed font-sans">
-                    Monitoreo en tiempo real los <strong>boletines y KBs futuros de Windows</strong> para aplicar mitigaciones virtuales antes de que los exploits se propaguen. Puedes consultarme cualquier duda técnica sobre tu equipo o probar el simulador a la derecha.
+                    Monitoreo en tiempo real los <strong>avisos de seguridad CVE y el kernel Linux</strong> para aplicar mitigaciones virtuales y hardening sysctl antes de que los exploits se propaguen. Puedes consultarme cualquier duda técnica sobre tu equipo o probar el simulador a la derecha.
                   </p>
                   <div class="pt-2 flex flex-wrap gap-2 border-t border-white/5">
-                    <button onclick="sendQuickCopilotPrompt('¿Cómo funciona el parchado autónomo de KBs?')" class="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-xs font-semibold text-purple-200 rounded-xl active:scale-95 transition-all">
+                    <button onclick="sendQuickCopilotPrompt('¿Cómo funciona el parchado autónomo en Linux?')" class="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-xs font-semibold text-purple-200 rounded-xl active:scale-95 transition-all">
                       💬 ¿Cómo funciona el Auto-Pilot?
                     </button>
-                    <button onclick="sendQuickCopilotPrompt('¿Qué KBs faltan por instalar en Windows?')" class="px-3 py-1 bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-semibold text-cyan-300 rounded-xl active:scale-95 transition-all">
-                      📋 Ver KBs pendientes
+                    <button onclick="sendQuickCopilotPrompt('¿Qué mitigaciones CVE faltan por auditar en Linux?')" class="px-3 py-1 bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-semibold text-cyan-300 rounded-xl active:scale-95 transition-all">
+                      📋 Ver CVEs y Mitigaciones
                     </button>
                   </div>
                 </div>
@@ -1400,36 +1378,36 @@
               <div class="flex items-center justify-between border-b border-white/5 pb-2">
                 <div class="flex items-center gap-2">
                   <span class="text-base">🧪</span>
-                  <span class="text-xs font-semibold text-white">Simulador de KBs Futuros</span>
+                  <span class="text-xs font-semibold text-white">Simulador de CVEs & Avisos de Seguridad</span>
                 </div>
                 <button onclick="triggerImmediateAiAudit()" class="text-[10px] bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-xl font-medium active:scale-95 transition-all">
                   🔄 Sondeo Forzado
                 </button>
               </div>
               <p class="text-[11px] text-gray-400 leading-tight">
-                Prueba en tiempo real cómo la IA analiza un boletín nuevo y sintetiza la regla de mitigación virtual:
+                Prueba en tiempo real cómo la IA analiza un aviso de seguridad nuevo y sintetiza la regla de mitigación virtual:
               </p>
 
               <!-- Botones de prueba rápida -->
               <div class="flex flex-wrap gap-2">
-                <button onclick="simulateKbAnalysisQuick('KB5041585', 'Windows 11 TCP/IP IPv6 Remote Code Execution', 'Vulnerabilidad crítica en la pila de red TCP/IP de Windows vía paquetes IPv6 malformados.')" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] text-gray-300 font-medium active:scale-95 transition-all">
-                  🧪 Simular KB5041585 (IPv6)
+                <button onclick="simulateKbAnalysisQuick('CVE-2024-1086', 'Linux Netfilter nf_tables Privilege Escalation', 'Vulnerabilidad use-after-free en nf_tables que permite escalamiento local a root.')" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] text-gray-300 font-medium active:scale-95 transition-all">
+                  🧪 Simular CVE-2024-1086 (Netfilter)
                 </button>
-                <button onclick="simulateKbAnalysisQuick('KB5004945', 'PrintNightmare Spooler RCE', 'Vulnerabilidad en Spoolsv.exe que permite inyección de DLLs maliciosas como controlador de impresora.')" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] text-gray-300 font-medium active:scale-95 transition-all">
-                  🧪 Simular KB5004945 (Spooler)
+                <button onclick="simulateKbAnalysisQuick('CVE-2024-6387', 'regreSSHion OpenSSH Remote Signal Race Condition', 'Condición de carrera remota en el manejador de señales SIGALRM de sshd en Linux glibc.')" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] text-gray-300 font-medium active:scale-95 transition-all">
+                  🧪 Simular CVE-2024-6387 (OpenSSH)
                 </button>
-                <button onclick="simulateKbAnalysisQuick('KB5043076', 'Windows Kernel Local Privilege Escalation', 'Escalamiento de privilegios a SYSTEM debido a validación insuficiente de punteros en memoria de kernel.')" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] text-gray-300 font-medium active:scale-95 transition-all">
-                  🧪 Simular KB5043076 (Kernel LPE)
+                <button onclick="simulateKbAnalysisQuick('CVE-2023-32233', 'Linux Kernel Netfilter UAF LPE', 'Desreferencia de puntero liberado en nf_tables anonymous sets permitiendo ejecución arbitraria en kernel.')" class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] text-gray-300 font-medium active:scale-95 transition-all">
+                  🧪 Simular CVE-2023-32233 (nf_tables)
                 </button>
               </div>
 
-              <!-- Formulario de KB Personalizado -->
+              <!-- Formulario de CVE Personalizado -->
               <div class="pt-2 border-t border-white/5 space-y-2">
                 <div class="flex items-center gap-2">
                   <input
                     type="text"
                     id="customKbInputId"
-                    placeholder="ID (ej. KB5059999)"
+                    placeholder="ID (ej. CVE-2024-1086)"
                     class="w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] text-white font-mono placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
                   />
                   <input
@@ -1501,6 +1479,8 @@
         sendIpc('get_quarantine_records');
         sendIpc('get_threat_history');
         sendIpc('get_autostart_status');
+        sendIpc('get_exclusions');
+        sendIpc('get_exclusions');
       }
     }
 
@@ -1645,9 +1625,12 @@
       }
     };
 
-        window.onAndroidPackagesAudited = function(data) {
-      if (window.handleAndroidPackagesAuditedResult) {
-        window.handleAndroidPackagesAuditedResult(data);
+    window.onAndroidPackagesAudited = function(alerts) {
+      if (!alerts || !Array.isArray(alerts)) return;
+      if (alerts.length > 0) {
+        showToast('Auditoría de Apps Finalizada', `Se identificaron ${alerts.length} aplicaciones con permisos sensibles (Superposición / Accesibilidad).`, true);
+      } else {
+        showToast('Auditoría de Apps Limpia', 'Ninguna aplicación instalada abusa de permisos de superposición bancaria o accesibilidad.');
       }
     };
 
@@ -1748,15 +1731,21 @@
     });
 
     function reauditSystemVulnerabilities() {
-      showToast('Auditoría del SO Iniciada', 'Comprobando compilación del kernel, drivers (tcpip.sys) y servicios...');
+      showToast('Auditoría del SO Iniciada', 'Comprobando compilación del kernel, parámetros sysctl y mitigaciones CVE...');
       sendIpc('reaudit_so');
     }
 
     window.onPatchRulesUpdated = function(rules, osInfo, sentinelStatus, kbMonitorStatus) {
-      if (osInfo && osInfo.build_number) {
+      if (osInfo) {
         const osText = document.getElementById('osBuildText');
         if (osText) {
-          osText.textContent = `Windows 11 ${osInfo.display_version} (Compilación ${osInfo.build_number}.${osInfo.ubr}) • Kernel & Binarios Protegidos Nativamente`;
+          if (osInfo.distro_name && osInfo.kernel_release) {
+            osText.textContent = `${osInfo.distro_name} • Kernel ${osInfo.kernel_release} • Mitigaciones Nativas & Sysctl`;
+          } else if (osInfo.build_number && osInfo.build_number > 10000) {
+            osText.textContent = `Windows ${osInfo.display_version || '11'} (Compilación ${osInfo.build_number}.${osInfo.ubr}) • Protegido`;
+          } else {
+            osText.textContent = `Linux Enterprise • Kernel Activo • Mitigaciones y Sysctl Protegidos`;
+          }
         }
       }
 
@@ -1921,7 +1910,7 @@
       }
       const widgetSub = document.getElementById('widgetPatchSubText');
       if (widgetSub) {
-        widgetSub.textContent = activePatches === 0 ? '0 vulnerabilidades abiertas en Windows 11.' : `${activePatches} parches virtuales activos.`;
+        widgetSub.textContent = activePatches === 0 ? '0 vulnerabilidades abiertas en el sistema Linux.' : `${activePatches} parches virtuales activos.`;
       }
     };
 
@@ -2076,6 +2065,37 @@
       sendIpc('set_sentinel_auto_patch', willEnable ? 'true' : 'false');
     }
 
+    
+    // Telemetría de Hardware en Vivo (CPU, GPU y Memoria RAM en el pie del Sidebar)
+    window.onHardwareTelemetryUpdated = function(hw) {
+      if (!hw) return;
+      const cpuEl = document.getElementById('samuSidebarCpuVal');
+      const cpuBar = document.getElementById('samuSidebarCpuBar');
+      const gpuEl = document.getElementById('samuSidebarGpuVal');
+      const gpuBar = document.getElementById('samuSidebarGpuBar');
+      const ramEl = document.getElementById('samuSidebarRamVal');
+      const ramBar = document.getElementById('samuSidebarRamBar');
+
+      if (cpuEl && typeof hw.cpu_percent === 'number') {
+        const c = Math.max(1, Math.min(100, Math.round(hw.cpu_percent)));
+        cpuEl.textContent = c + '%';
+        if (cpuBar) cpuBar.style.width = Math.max(4, c) + '%';
+      }
+      if (gpuEl && typeof hw.gpu_percent === 'number') {
+        const g = Math.max(0, Math.min(100, Math.round(hw.gpu_percent)));
+        const vramTxt = hw.gpu_vram_mb ? ' • ' + hw.gpu_vram_mb + ' MB' : ' • GPU';
+        gpuEl.textContent = g + '%' + vramTxt;
+        if (gpuBar) gpuBar.style.width = Math.max(5, g) + '%';
+      }
+      if (ramEl && typeof hw.ram_mb === 'number') {
+        ramEl.textContent = hw.ram_mb.toFixed(1) + ' MB';
+        if (ramBar) {
+          const rPct = Math.max(6, Math.min(100, Math.round((hw.ram_mb / 512) * 100)));
+          ramBar.style.width = rPct + '%';
+        }
+      }
+    };
+
     window.onShieldStatusUpdated = function(status) {
       if (!status) return;
 
@@ -2156,10 +2176,10 @@
       const newState = !isCurrentlyActive;
       if (newState) {
         el.classList.add('active');
-        showToast('Protección LSASS Activada', 'LSA RunAsPPL configurado. Bloqueando PROCESS_VM_READ contra Mimikatz y NanoDump.');
+        showToast('Protección de Memoria Activada', 'Yama ptrace_scope y aislamiento /proc/$PID/mem activos.');
       } else {
         el.classList.remove('active');
-        showToast('Protección LSASS Desactivada', 'Supervisión de memoria LSASS en modo pasivo.');
+        showToast('Protección de Memoria Desactivada', 'Supervisión de ptrace y memoria en modo pasivo.');
       }
       sendIpc('toggle_lsass_protection', newState ? 'true' : 'false');
     }
@@ -2169,10 +2189,10 @@
       const newState = !isCurrentlyActive;
       if (newState) {
         el.classList.add('active');
-        showToast('Escudo de Cookies Activado', 'Vigilando almacenes DPAPI y perfiles de navegadores contra InfoStealers.');
+        showToast('Escudo de Sesiones Activado', 'Vigilando Secret Service, Keyrings y cookies de navegadores contra InfoStealers.');
       } else {
         el.classList.remove('active');
-        showToast('Escudo de Cookies Desactivado', 'Vigilancia de almacenes DPAPI en espera.');
+        showToast('Escudo de Sesiones Desactivado', 'Vigilancia de credenciales y cookies en espera.');
       }
       sendIpc('toggle_cookie_shield', newState ? 'true' : 'false');
     }
@@ -2356,12 +2376,12 @@
     }
 
     function browseAndScanFiles() {
-      showToast('Explorador de Archivos', 'Abriendo diálogo nativo de Windows para selección de archivos...');
+      showToast('Explorador de Archivos', 'Abriendo selector de archivos del sistema (KDialog / Zenity)...');
       sendIpc('browse_and_scan_files');
     }
 
     function browseAndScanFolder() {
-      showToast('Explorador de Carpetas', 'Abriendo selector de carpetas de Windows para escaneo exhaustivo...');
+      showToast('Explorador de Carpetas', 'Abriendo selector de carpetas del sistema...');
       sendIpc('browse_and_scan_folder');
     }
 
@@ -2616,10 +2636,18 @@
       sendIpc('set_autostart', enable ? 'true' : 'false');
     }
 
-    window.onAutostartStatusLoaded = function(enabled) {
+    window.onAutostartStatusLoaded = function(enabled, osName) {
       const toggle = document.getElementById('autostartToggle');
       if (toggle) {
         toggle.checked = !!enabled;
+      }
+      const label = document.getElementById('autostartLabel');
+      if (label) {
+        if (osName === 'windows') {
+          label.textContent = 'Inicio con Windows';
+        } else if (osName === 'linux' || navigator.userAgent.toLowerCase().includes('linux')) {
+          label.textContent = 'Inicio automático (Systemd / XDG)';
+        }
       }
     };
 
@@ -2738,6 +2766,69 @@
       cachedThreatHistory = history || [];
       renderThreatHistory();
     };
+
+    let cachedExclusions = [];
+
+    function browseAndAddExclusionFolder() {
+      showToast('Seleccionar Directorio', 'Abriendo diálogo del sistema de archivos...');
+      sendIpc('browse_and_add_exclusion_folder');
+    }
+
+    function addManualExclusion() {
+      const input = document.getElementById('customExclusionInput');
+      if (!input) return;
+      const val = input.value.trim();
+      if (!val) {
+        showToast('Ruta Requerida', 'Ingresa una ruta de archivo o directorio válida.');
+        return;
+      }
+      sendIpc('add_exclusion', val);
+      input.value = '';
+    }
+
+    function removeExclusion(pathStr) {
+      if (!pathStr) return;
+      if (confirm(`¿Deseas volver a incluir "${pathStr}" en los escaneos de seguridad?`)) {
+        sendIpc('remove_exclusion', pathStr);
+      }
+    }
+
+    window.onExclusionsLoaded = function(list) {
+      cachedExclusions = Array.isArray(list) ? list : [];
+      renderExclusionsList();
+    };
+
+    function renderExclusionsList() {
+      const container = document.getElementById('exclusionsListContainer');
+      const badge = document.getElementById('exclusionsCountBadge');
+      if (badge) badge.textContent = cachedExclusions.length;
+      if (!container) return;
+
+      if (cachedExclusions.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 text-center text-gray-500 text-xs">
+            No hay directorios excluidos. Todo el sistema está protegido bajo análisis.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = cachedExclusions.map((p) => {
+        const safeDisplay = String(p).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const safeArg = encodeURIComponent(String(p));
+        return `
+          <div class="flex items-center justify-between p-2.5 px-3 hover:bg-white/5 transition-colors group">
+            <div class="flex items-center gap-2.5 min-w-0 pr-2">
+              <span class="text-amber-400 text-sm flex-shrink-0">📁</span>
+              <span class="text-gray-300 truncate text-[11px] font-mono" title="${safeDisplay}">${safeDisplay}</span>
+            </div>
+            <button onclick="removeExclusion(decodeURIComponent('${safeArg}'))" class="px-2.5 py-1 text-[10px] rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center gap-1 active:scale-95 transition-all flex-shrink-0">
+              <span>🗑️</span> <span class="hidden sm:inline">Eliminar</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
 
     function refreshThreatHistory() {
       sendIpc('get_threat_history');
@@ -3250,6 +3341,11 @@
       }
     };
 
+    function syncBrowserVpn() {
+      showToast('Sincronizando Navegador', 'Aplicando el túnel VPN a Google Chrome y restaurando pestañas...');
+      sendIpc('reload_browsers_vpn');
+    }
+
     window.onLiveIpChecked = function(data) {
       const ipEl = document.getElementById('vpnMetricIp');
       const badge = document.getElementById('vpnLiveIpCheckBadge');
@@ -3293,7 +3389,7 @@
     }
 
     function emergencyResetNetwork() {
-      showToast('Restableciendo Red', 'Desactivando proxy del sistema y normalizando tráfico de Windows...');
+      showToast('Restableciendo Red', 'Desactivando proxy del sistema y normalizando interfaces de red Netfilter...');
       sendIpc('reset_network');
     }
 
@@ -3749,10 +3845,10 @@
     }
 
     function simulateKbAnalysisQuick(kbId, title, desc) {
-      logCopilotThought('IA-MONITOR', `Boletín detectado: ${kbId} - ${title}`, 'text-blue-300 font-bold');
-      logCopilotThought('IA-REASONING', `Analizando descripción técnica y vectores de ataque...`, 'text-purple-300');
-      logCopilotThought('SAFETY-GUARDRAIL', `Verificando estabilidad de kernel y compatibilidad formal con Windows...`, 'text-cyan-300');
-      showToast('Simulando Boletín KB', `Analizando ${kbId} con el modelo local de IA...`);
+      logCopilotThought('IA-MONITOR', `Aviso detectado: ${kbId} - ${title}`, 'text-blue-300 font-bold');
+      logCopilotThought('IA-REASONING', `Analizando vector de ataque y subsistema de kernel afectado...`, 'text-purple-300');
+      logCopilotThought('SAFETY-GUARDRAIL', `Verificando estabilidad de kernel y compatibilidad formal con Linux...`, 'text-cyan-300');
+      showToast('Simulando Mitigación', `Analizando ${kbId} con el modelo local de IA...`);
       sendIpc('analyze_raw_kb', JSON.stringify({ kb_id: kbId, title: title, description: desc }));
     }
 
@@ -3764,19 +3860,19 @@
       const desc = descInput ? descInput.value.trim() : '';
 
       if (!kbId) {
-        showToast('Identificador Requerido', 'Por favor ingresa un identificador de KB (ej. KB5059999).', true);
+        showToast('Identificador Requerido', 'Por favor ingresa un identificador (ej. CVE-2024-1086).', true);
         return;
       }
 
-      const technicalDesc = desc || `Actualización acumulativa de seguridad para componentes críticos de Windows (${kbId}).`;
-      simulateKbAnalysisQuick(kbId, `Actualización de Seguridad ${kbId}`, technicalDesc);
+      const technicalDesc = desc || `Aviso de seguridad y regla de mitigación para componentes de Linux (${kbId}).`;
+      simulateKbAnalysisQuick(kbId, `Mitigación ${kbId}`, technicalDesc);
       idInput.value = '';
       if (descInput) descInput.value = '';
     }
 
     function triggerImmediateAiAudit() {
-      logCopilotThought('IA-MONITOR', 'Invocando sondeo inmediato de actualizaciones y boletines Microsoft...', 'text-blue-300');
-      showToast('Sondeo Inmediato', 'Consultando estado de KBs pendientes en el catálogo...');
+      logCopilotThought('IA-MONITOR', 'Invocando sondeo inmediato de avisos de seguridad y vulnerabilidades Linux...', 'text-blue-300');
+      showToast('Sondeo Inmediato', 'Consultando estado de mitigaciones y CVEs en el kernel...');
       sendIpc('run_ai_kb_audit');
     }
 
@@ -3899,6 +3995,7 @@
         sendIpc('get_quarantine_records');
         sendIpc('get_threat_history');
         sendIpc('get_autostart_status');
+        sendIpc('get_exclusions');
       }, 1200);
 
       // Fase 4: Telemetría de persistencia y sockets (+2000ms en tiempo ocioso)
@@ -3912,7 +4009,7 @@
     // CAPACIDADES AVANZADAS DE SEGURIDAD PC (15 FUNCIONES)
     // ==========================================
     function scanFilelessMemory() {
-      showToast('Escaneo Fileless en Memoria', 'Analizando regiones RWX anónimas y subprocesos no respaldados en Windows/Linux...');
+      showToast('Escaneo Fileless en Memoria', 'Analizando regiones RWX anónimas y subprocesos en Linux (/proc/*/maps)...');
       const panel = document.getElementById('pcAdvancedResultsPanel');
       const title = document.getElementById('pcAdvancedResultsTitle');
       const content = document.getElementById('pcAdvancedResultsContent');
@@ -4062,639 +4159,6 @@
       if (!verdict) return;
       showToast('Anti-Phishing IA', `${verdict.domain}: ${verdict.is_phishing ? '¡PHISHING DETECTADO!' : 'Dominio Legítimo'}`);
     };
-
-    // =========================================================================
-    // AUDITORÍA INTELIGENTE DE PERMISOS EN ANDROID (ESTUDIO DE MERCADO & UX ADVISOR)
-    // =========================================================================
-    let _auditedAppsStore = [];
-    let _auditedAlertsStore = [];
-    let _currentAuditFilter = 'all';
-    let _searchAuditQuery = '';
-
-    const ANDROID_PERMISSIONS_DB = {
-      'android.permission.ACCESS_FINE_LOCATION': { name: 'Ubicación Precisa', icon: '📍', category: 'location' },
-      'android.permission.ACCESS_COARSE_LOCATION': { name: 'Ubicación Aproximada', icon: '📍', category: 'location' },
-      'android.permission.ACCESS_BACKGROUND_LOCATION': { name: 'Ubicación 24/7 en Segundo Plano', icon: '🛰️', category: 'location' },
-      'android.permission.CAMERA': { name: 'Cámara', icon: '📷', category: 'camera' },
-      'android.permission.RECORD_AUDIO': { name: 'Micrófono', icon: '🎙️', category: 'mic' },
-      'android.permission.READ_CONTACTS': { name: 'Leer Contactos', icon: '👥', category: 'contacts' },
-      'android.permission.WRITE_CONTACTS': { name: 'Modificar Contactos', icon: '👥', category: 'contacts' },
-      'android.permission.GET_ACCOUNTS': { name: 'Ver Cuentas del Dispositivo', icon: '👤', category: 'contacts' },
-      'android.permission.READ_SMS': { name: 'Leer Mensajes SMS', icon: '💬', category: 'sms' },
-      'android.permission.SEND_SMS': { name: 'Enviar SMS', icon: '💬', category: 'sms' },
-      'android.permission.RECEIVE_SMS': { name: 'Recibir SMS', icon: '💬', category: 'sms' },
-      'android.permission.READ_CALL_LOG': { name: 'Historial de Llamadas', icon: '📞', category: 'phone' },
-      'android.permission.READ_PHONE_STATE': { name: 'Estado del Teléfono / IMEI', icon: '📱', category: 'phone' },
-      'android.permission.CALL_PHONE': { name: 'Hacer Llamadas Directas', icon: '📞', category: 'phone' },
-      'android.permission.SYSTEM_ALERT_WINDOW': { name: 'Mostrar sobre Otras Apps', icon: '🪟', category: 'overlay' },
-      'android.permission.BIND_ACCESSIBILITY_SERVICE': { name: 'Servicio de Accesibilidad', icon: '♿', category: 'accessibility' },
-      'android.permission.READ_EXTERNAL_STORAGE': { name: 'Leer Almacenamiento / Fotos', icon: '📁', category: 'storage' },
-      'android.permission.WRITE_EXTERNAL_STORAGE': { name: 'Escribir Almacenamiento', icon: '📁', category: 'storage' },
-      'android.permission.MANAGE_EXTERNAL_STORAGE': { name: 'Control Total de Archivos', icon: '💾', category: 'storage' },
-      'android.permission.READ_MEDIA_IMAGES': { name: 'Fotos y Galerías', icon: '🖼️', category: 'storage' },
-      'android.permission.READ_MEDIA_VIDEO': { name: 'Vídeos', icon: '🎬', category: 'storage' },
-      'android.permission.READ_MEDIA_AUDIO': { name: 'Archivos de Audio', icon: '🎵', category: 'storage' }
-    };
-
-    function classifyAppCategory(pkg, name) {
-      const q = ((pkg || '') + ' ' + (name || '')).toLowerCase();
-      if (/torch|flashlight|linterna|calc|calculadora|scanner|qr|compass|brújula|brujula|wallpaper|fondo|cleaner|limpiador|battery|batería|bateria|clock|reloj|alarm|timer|note|bloc|recorder|grabadora|file|archivos|pdf/.test(q)) {
-        return { id: 'utility', label: 'Herramienta / Utilidad', icon: '🛠️' };
-      }
-      if (/game|juego|puzzle|simulator|sim|racer|racing|subway|clash|candy|runner|craft|sniper|shooter|casino|arcade|play|pokemon|fifa|roblox|free fire/.test(q)) {
-        return { id: 'game', label: 'Juego', icon: '🎮' };
-      }
-      if (/shop|compra|amazon|aliexpress|temu|shein|mercadolibre|mercado|ebay|uber|rappi|pedidos|didi|delivery|glovo|falabella|walmart|food/.test(q)) {
-        return { id: 'shopping', label: 'Comercio / Delivery', icon: '🛍️' };
-      }
-      if (/whatsapp|telegram|instagram|tiktok|facebook|messenger|discord|snapchat|twitter|x\.corp|reddit|signal|threads|wechat|social/.test(q)) {
-        return { id: 'social', label: 'Red Social / Chat', icon: '💬' };
-      }
-      if (/spotify|netflix|youtube|music|vlc|prime|disney|soundcloud|deezer|twitch|video|player|stream|radio/.test(q)) {
-        return { id: 'media', label: 'Streaming / Multimedia', icon: '🎵' };
-      }
-      if (/browser|chrome|firefox|opera|edge|brave|navegador|ucbrowser|duckduckgo/.test(q)) {
-        return { id: 'browser', label: 'Navegador Web', icon: '🌐' };
-      }
-      if (/bank|banco|wallet|bcp|bbva|santander|nu|nequi|daviplata|binance|crypto|pay|mercado pago/.test(q)) {
-        return { id: 'finance', label: 'Finanzas / Banca', icon: '💳' };
-      }
-      return { id: 'general', label: 'App de Usuario', icon: '📱' };
-    }
-
-    function evaluateAppPermissionsInsight(app) {
-      const cat = classifyAppCategory(app.package_name, app.app_name);
-      const granted = app.granted_permissions || [];
-      const requested = app.requested_permissions || [];
-      const hasPerm = (p) => granted.includes(p) || requested.includes(p);
-      const isGranted = (p) => granted.includes(p);
-
-      const recommendations = [];
-      let zeroImpactCount = 0;
-      let reducibleCount = 0;
-      let criticalCount = 0;
-
-      // 1. Detección de Superposición (SYSTEM_ALERT_WINDOW)
-      if (app.has_overlay_permission || hasPerm('android.permission.SYSTEM_ALERT_WINDOW')) {
-        criticalCount++;
-        recommendations.push({
-          level: 'critical',
-          badge: '⚠️ Riesgo Crítico',
-          color: 'red',
-          title: 'Superposición de Pantalla (Mostrar sobre otras apps)',
-          detail: 'Permite a la aplicación dibujar pantallas flotantes transparentes o falsas sobre otras apps (riesgo de tapjacking o captura de contraseñas y datos bancarios).',
-          uxImpact: 'Impacto en UX: Si no es una burbuja de chat o grabador de pantalla esencial, desactívalo de inmediato en Ajustes.'
-        });
-      }
-
-      // 2. Detección de Accesibilidad (BIND_ACCESSIBILITY_SERVICE)
-      if (app.has_accessibility_service || hasPerm('android.permission.BIND_ACCESSIBILITY_SERVICE')) {
-        criticalCount++;
-        recommendations.push({
-          level: 'critical',
-          badge: '⚠️ Alerta Máxima',
-          color: 'red',
-          title: 'Servicio de Accesibilidad Activado',
-          detail: 'Otorga control absoluto para leer todos los textos en pantalla (incluyendo contraseñas y chats) y simular toques automáticamente.',
-          uxImpact: 'Impacto en UX: Únicamente debe estar activo en herramientas asistivas o gestores autorizados por ti.'
-        });
-      }
-
-      // 3. Reglas Contextuales por Categoría (Estudio de Mercado & Impacto UX)
-      if (cat.id === 'utility') {
-        if (hasPerm('android.permission.ACCESS_FINE_LOCATION') || hasPerm('android.permission.ACCESS_COARSE_LOCATION') || hasPerm('android.permission.ACCESS_BACKGROUND_LOCATION')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Ubicación Geográfica Innecesaria',
-            detail: 'Una herramienta (linterna, calculadora, notas o limpiador) no necesita conocer tus coordenadas GPS para funcionar.',
-            uxImpact: 'Impacto en UX: NINGUNO. La aplicación seguirá ejecutándose exactamente igual sin compartir tu ubicación.'
-          });
-        }
-        if (hasPerm('android.permission.READ_CONTACTS') || hasPerm('android.permission.WRITE_CONTACTS') || hasPerm('android.permission.GET_ACCOUNTS')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Acceso a Libreta de Contactos',
-            detail: 'Esta herramienta no requiere leer ni sincronizar tus contactos personales.',
-            uxImpact: 'Impacto en UX: NINGUNO. Protege la información de tus amigos y familiares sin alterar el uso de la app.'
-          });
-        }
-        if (hasPerm('android.permission.READ_SMS') || hasPerm('android.permission.SEND_SMS') || hasPerm('android.permission.RECEIVE_SMS')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Acceso a Mensajes de Texto (SMS)',
-            detail: 'Las utilidades no deben leer mensajes SMS (podrían interceptar códigos 2FA bancarios).',
-            uxImpact: 'Impacto en UX: NINGUNO. Quitar de inmediato en los ajustes de Android.'
-          });
-        }
-        if ((hasPerm('android.permission.RECORD_AUDIO') || hasPerm('android.permission.CAMERA')) && !/recorder|grabadora|scan|qr|cam/.test((app.package_name + ' ' + app.app_name).toLowerCase())) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Acceso a Micrófono / Cámara',
-            detail: 'Esta herramienta no tiene funciones de audio o captura visual primarias justificadas.',
-            uxImpact: 'Impacto en UX: NINGUNO. Mantiene tus micrófonos y lentes apagados.'
-          });
-        }
-      } else if (cat.id === 'game') {
-        if (hasPerm('android.permission.ACCESS_BACKGROUND_LOCATION')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Ubicación 24/7 en Segundo Plano',
-            detail: 'Los videojuegos no deben rastrear tus desplazamientos cuando la pantalla está apagada.',
-            uxImpact: 'Impacto en UX: NINGUNO. Ahorra considerablemente la batería y evita telemetría publicitaria.'
-          });
-        } else if (hasPerm('android.permission.ACCESS_FINE_LOCATION') || hasPerm('android.permission.ACCESS_COARSE_LOCATION')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Ubicación GPS en Juego',
-            detail: 'Las partidas (offline u online) funcionan sin conocer tu dirección exacta de residencia.',
-            uxImpact: 'Impacto en UX: NINGUNO. Puedes jugar sin limitaciones.'
-          });
-        }
-        if (hasPerm('android.permission.READ_CONTACTS') || hasPerm('android.permission.GET_ACCOUNTS')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Lectura de Contactos en Juego',
-            detail: 'Suele usarse para recolectar agendas telefónicas y perfilar usuarios con fines publicitarios.',
-            uxImpact: 'Impacto en UX: NINGUNO. No afecta partidas ni puntuaciones.'
-          });
-        }
-        if (hasPerm('android.permission.READ_SMS') || hasPerm('android.permission.READ_CALL_LOG')) {
-          criticalCount++;
-          recommendations.push({
-            level: 'critical',
-            badge: '⚠️ Permiso Abusivo',
-            color: 'red',
-            title: 'Lectura de SMS o Llamadas en Juego',
-            detail: 'Comportamiento sospechoso: los juegos nunca deben inspeccionar registros de llamadas o SMS.',
-            uxImpact: 'Impacto en UX: Debe ser revocado sin demora.'
-          });
-        }
-      } else if (cat.id === 'shopping') {
-        if (hasPerm('android.permission.ACCESS_BACKGROUND_LOCATION')) {
-          reducibleCount++;
-          recommendations.push({
-            level: 'reducible',
-            badge: '🟡 Impacto MÍNIMO (Modo Recomendado)',
-            color: 'amber',
-            title: 'Ubicación Permanente de Fondo',
-            detail: 'La app no necesita saber dónde estás a las 3 a.m. para entregarte un pedido.',
-            uxImpact: 'Impacto en UX: Configura en "Solo mientras la app está en uso". Podrás rastrear repartidores en vivo sin ser monitorizado 24/7.'
-          });
-        }
-        if (hasPerm('android.permission.READ_CONTACTS')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Contactos en App de Compras',
-            detail: 'Para comprar o recibir productos basta con ingresar el nombre y dirección manualmente.',
-            uxImpact: 'Impacto en UX: NINGUNO. Realizarás compras con total normalidad.'
-          });
-        }
-        if (hasPerm('android.permission.RECORD_AUDIO')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Micrófono en Comercio Electrónico',
-            detail: 'Usado para búsqueda por voz, pero escribir en la barra de búsqueda es más preciso y privado.',
-            uxImpact: 'Impacto en UX: CERO si buscas escribiendo con tu teclado.'
-          });
-        }
-      } else if (cat.id === 'social') {
-        if (hasPerm('android.permission.ACCESS_BACKGROUND_LOCATION')) {
-          reducibleCount++;
-          recommendations.push({
-            level: 'reducible',
-            badge: '🟡 Impacto MÍNIMO (Modo Recomendado)',
-            color: 'amber',
-            title: 'Rastreo Continuo de Fondo',
-            detail: 'Las redes sociales recolectan historiales de movimiento para perfilar gustos e intereses.',
-            uxImpact: 'Impacto en UX: Configura en "Solo mientras la app está en uso". Podrás adjuntar tu ubicación en chats o fotos cuando tú lo decidas.'
-          });
-        }
-        if (hasPerm('android.permission.READ_SMS') || hasPerm('android.permission.READ_CALL_LOG')) {
-          reducibleCount++;
-          recommendations.push({
-            level: 'reducible',
-            badge: '🟡 Impacto MÍNIMO (Modo Recomendado)',
-            color: 'amber',
-            title: 'Lectura Automática de SMS / Llamadas',
-            detail: 'Solo se utiliza para autocompletar códigos de verificación OTP de 6 dígitos.',
-            uxImpact: 'Impacto en UX: Escribir el código SMS manualmente toma solo 3 segundos y evita que la app lea toda tu bandeja de entrada.'
-          });
-        }
-      } else if (cat.id === 'media') {
-        if (hasPerm('android.permission.ACCESS_FINE_LOCATION') || hasPerm('android.permission.ACCESS_COARSE_LOCATION')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Ubicación GPS en Reproductor de Medios',
-            detail: 'La música y vídeos se transmiten por internet sin requerir tu posición satelital.',
-            uxImpact: 'Impacto en UX: NINGUNO. Tus listas de reproducción y descargas funcionan sin cambios.'
-          });
-        }
-        if (hasPerm('android.permission.READ_CONTACTS')) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Contactos en Streaming Multimedia',
-            detail: 'Innecesario para escuchar canciones o ver series.',
-            uxImpact: 'Impacto en UX: NINGUNO.'
-          });
-        }
-      } else {
-        // General apps
-        if (hasPerm('android.permission.ACCESS_BACKGROUND_LOCATION')) {
-          reducibleCount++;
-          recommendations.push({
-            level: 'reducible',
-            badge: '🟡 Impacto MÍNIMO',
-            color: 'amber',
-            title: 'Ubicación Permanente 24/7',
-            detail: 'Pocas apps justifican consultar tu GPS con la pantalla apagada.',
-            uxImpact: 'Impacto en UX: Cambiar a "Solo con la app en uso" ahorra batería y protege tu rutina diaria.'
-          });
-        }
-        if (hasPerm('android.permission.READ_CONTACTS') && !/contact|agenda|tel|phone|call/.test(app.package_name)) {
-          zeroImpactCount++;
-          recommendations.push({
-            level: 'zero',
-            badge: '🟢 Impacto NULO (100% Seguro Quitar)',
-            color: 'emerald',
-            title: 'Lectura de Agenda Telefónica',
-            detail: 'No parece esencial para la funcionalidad descrita de esta aplicación.',
-            uxImpact: 'Impacto en UX: NINGUNO en la gran mayoría de casos de uso.'
-          });
-        }
-      }
-
-      // Conteo de permisos sensibles activos para badge visual
-      const sensitiveActive = [];
-      Object.keys(ANDROID_PERMISSIONS_DB).forEach(p => {
-        if (isGranted(p)) {
-          sensitiveActive.push(ANDROID_PERMISSIONS_DB[p]);
-        }
-      });
-
-      return {
-        ...app,
-        category: cat,
-        recommendations,
-        zeroImpactCount,
-        reducibleCount,
-        criticalCount,
-        sensitiveActive
-      };
-    }
-
-    function startAppPermissionAudit() {
-      const modal = document.getElementById('modalAppPermissionAudit');
-      if (!modal) return;
-      modal.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-
-      const stateLoading = document.getElementById('stateAuditLoading');
-      const cardsList = document.getElementById('auditedAppsCardsList');
-      const stateEmpty = document.getElementById('stateAuditEmpty');
-
-      if (stateLoading) stateLoading.classList.remove('hidden');
-      if (cardsList) cardsList.classList.add('hidden');
-      if (stateEmpty) stateEmpty.classList.add('hidden');
-
-      sendIpc('audit_device_apps');
-    }
-
-    function closeAppPermissionAuditModal() {
-      const modal = document.getElementById('modalAppPermissionAudit');
-      if (modal) modal.classList.add('hidden');
-      document.body.style.overflow = '';
-    }
-
-    function openAppDetailsSettings(pkgName) {
-      if (!pkgName) return;
-      sendIpc('open_app_details_settings', pkgName);
-      showToast('Ajustes de Android', `Abriendo configuración de permisos para ${pkgName}...`);
-    }
-
-    window.handleAndroidPackagesAuditedResult = function(data) {
-      let alerts = [];
-      let apps = [];
-      if (Array.isArray(data)) {
-        alerts = data;
-      } else if (data && typeof data === 'object') {
-        alerts = data.alerts || [];
-        apps = data.apps || [];
-      }
-
-      _auditedAlertsStore = alerts;
-      _auditedAppsStore = apps.map(app => evaluateAppPermissionsInsight(app));
-
-      // Ordenar: primero las que tienen sugerencias de impacto nulo o críticas
-      _auditedAppsStore.sort((a, b) => {
-        const scoreA = (a.criticalCount * 10) + (a.zeroImpactCount * 3) + (a.reducibleCount * 1);
-        const scoreB = (b.criticalCount * 10) + (b.zeroImpactCount * 3) + (b.reducibleCount * 1);
-        return scoreB - scoreA;
-      });
-
-      updateAuditMetricsAndFilters();
-      applyCurrentAuditFilter();
-
-      const stateLoading = document.getElementById('stateAuditLoading');
-      if (stateLoading) stateLoading.classList.add('hidden');
-
-      if (alerts.length > 0) {
-        showToast('Auditoría Finalizada', `Se auditaron ${_auditedAppsStore.length} apps. Detectadas ${alerts.length} alertas sensibles.`, true);
-      } else {
-        showToast('Auditoría Completada', `Se auditaron ${_auditedAppsStore.length} aplicaciones con éxito.`);
-      }
-    };
-
-    function updateAuditMetricsAndFilters() {
-      const totalApps = _auditedAppsStore.length;
-      let totalZero = 0;
-      let totalReducible = 0;
-      let totalCritical = 0;
-      let totalLocation = 0;
-      let totalMicCam = 0;
-      let totalContacts = 0;
-
-      _auditedAppsStore.forEach(app => {
-        totalZero += app.zeroImpactCount;
-        totalReducible += app.reducibleCount;
-        totalCritical += app.criticalCount;
-
-        const granted = app.granted_permissions || [];
-        const requested = app.requested_permissions || [];
-        const has = (p) => granted.includes(p) || requested.includes(p);
-
-        if (has('android.permission.ACCESS_FINE_LOCATION') || has('android.permission.ACCESS_COARSE_LOCATION') || has('android.permission.ACCESS_BACKGROUND_LOCATION')) {
-          totalLocation++;
-        }
-        if (has('android.permission.CAMERA') || has('android.permission.RECORD_AUDIO')) {
-          totalMicCam++;
-        }
-        if (has('android.permission.READ_CONTACTS') || has('android.permission.READ_SMS') || has('android.permission.READ_CALL_LOG')) {
-          totalContacts++;
-        }
-      });
-
-      // Calcular Score de Privacidad (100 base)
-      let score = 100 - (totalZero * 3) - (totalReducible * 2) - (totalCritical * 10);
-      if (score < 20) score = 20;
-      if (totalApps === 0) score = 100;
-
-      const elScoreVal = document.getElementById('permAuditScoreVal');
-      const elScoreIcon = document.getElementById('permAuditScoreIcon');
-      if (elScoreVal) {
-        elScoreVal.innerText = `${score}%`;
-        if (score >= 80) {
-          elScoreVal.className = 'text-base sm:text-lg font-bold text-emerald-400';
-          if (elScoreIcon) elScoreIcon.innerText = '🛡️';
-        } else if (score >= 55) {
-          elScoreVal.className = 'text-base sm:text-lg font-bold text-amber-400';
-          if (elScoreIcon) elScoreIcon.innerText = '⚡';
-        } else {
-          elScoreVal.className = 'text-base sm:text-lg font-bold text-red-400';
-          if (elScoreIcon) elScoreIcon.innerText = '⚠️';
-        }
-      }
-
-      const elTotalApps = document.getElementById('permAuditTotalApps');
-      if (elTotalApps) elTotalApps.innerText = totalApps;
-
-      const elZeroCount = document.getElementById('permAuditZeroImpactCount');
-      if (elZeroCount) elZeroCount.innerText = totalZero;
-
-      const elCriticalCount = document.getElementById('permAuditCriticalCount');
-      if (elCriticalCount) elCriticalCount.innerText = totalCritical;
-
-      // Actualizar conteos de chips
-      const setTxt = (id, txt) => { const el = document.getElementById(id); if (el) el.innerText = txt; };
-      setTxt('countChip-all', totalApps);
-      setTxt('countChip-zero', _auditedAppsStore.filter(a => a.zeroImpactCount > 0).length);
-      setTxt('countChip-reducible', _auditedAppsStore.filter(a => a.reducibleCount > 0).length);
-      setTxt('countChip-location', totalLocation);
-      setTxt('countChip-miccam', totalMicCam);
-      setTxt('countChip-contacts', totalContacts);
-      setTxt('countChip-critical', _auditedAppsStore.filter(a => a.criticalCount > 0).length);
-    }
-
-    function filterAuditedApps(filterType) {
-      _currentAuditFilter = filterType;
-      
-      // Actualizar estilo visual de los chips
-      const chipIds = ['all', 'zero-impact', 'reducible', 'location', 'mic-cam', 'contacts-sms', 'critical'];
-      chipIds.forEach(id => {
-        const chip = document.getElementById('chipFilter-' + id);
-        if (!chip) return;
-        if (id === filterType) {
-          chip.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap font-medium transition-all cursor-pointer';
-        } else {
-          chip.className = 'px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer';
-        }
-      });
-
-      applyCurrentAuditFilter();
-    }
-
-    function onSearchAuditedAppsChange(query) {
-      _searchAuditQuery = (query || '').trim().toLowerCase();
-      applyCurrentAuditFilter();
-    }
-
-    function applyCurrentAuditFilter() {
-      let filtered = _auditedAppsStore.slice();
-
-      // Filtro por texto
-      if (_searchAuditQuery) {
-        filtered = filtered.filter(app => {
-          const appName = (app.app_name || '').toLowerCase();
-          const pkgName = (app.package_name || '').toLowerCase();
-          return appName.includes(_searchAuditQuery) || pkgName.includes(_searchAuditQuery);
-        });
-      }
-
-      // Filtro por tipo
-      if (_currentAuditFilter === 'zero-impact') {
-        filtered = filtered.filter(a => a.zeroImpactCount > 0);
-      } else if (_currentAuditFilter === 'reducible') {
-        filtered = filtered.filter(a => a.reducibleCount > 0);
-      } else if (_currentAuditFilter === 'critical') {
-        filtered = filtered.filter(a => a.criticalCount > 0);
-      } else if (_currentAuditFilter === 'location') {
-        filtered = filtered.filter(app => {
-          const p = (app.granted_permissions || []).concat(app.requested_permissions || []);
-          return p.some(x => x.includes('LOCATION'));
-        });
-      } else if (_currentAuditFilter === 'mic-cam') {
-        filtered = filtered.filter(app => {
-          const p = (app.granted_permissions || []).concat(app.requested_permissions || []);
-          return p.some(x => x.includes('CAMERA') || x.includes('RECORD_AUDIO'));
-        });
-      } else if (_currentAuditFilter === 'contacts-sms') {
-        filtered = filtered.filter(app => {
-          const p = (app.granted_permissions || []).concat(app.requested_permissions || []);
-          return p.some(x => x.includes('CONTACTS') || x.includes('SMS') || x.includes('CALL_LOG'));
-        });
-      }
-
-      renderAuditedAppsCards(filtered);
-    }
-
-    function renderAuditedAppsCards(apps) {
-      const cardsList = document.getElementById('auditedAppsCardsList');
-      const stateEmpty = document.getElementById('stateAuditEmpty');
-      if (!cardsList) return;
-
-      if (apps.length === 0) {
-        cardsList.innerHTML = '';
-        cardsList.classList.add('hidden');
-        if (stateEmpty) stateEmpty.classList.remove('hidden');
-        return;
-      }
-
-      if (stateEmpty) stateEmpty.classList.add('hidden');
-      cardsList.classList.remove('hidden');
-      cardsList.innerHTML = '';
-
-      apps.forEach(app => {
-        const card = document.createElement('div');
-        card.className = 'glass-card p-3 sm:p-4 rounded-2xl border border-white/10 hover:border-white/20 transition-all flex flex-col gap-3';
-
-        // Fuente de instalación
-        let installerLabel = '📦 Instalación Externa (APK)';
-        let installerClass = 'bg-amber-500/10 text-amber-300 border-amber-500/20';
-        if (app.installer_package_name && app.installer_package_name.includes('vending')) {
-          installerLabel = '🛍️ Google Play';
-          installerClass = 'bg-blue-500/10 text-blue-300 border-blue-500/20';
-        } else if (app.is_system_app) {
-          installerLabel = '⚙️ Sistema';
-          installerClass = 'bg-purple-500/10 text-purple-300 border-purple-500/20';
-        }
-
-        // Insignias de resumen
-        let statusBadge = '';
-        if (app.criticalCount > 0) {
-          statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">⚠️ Riesgo Crítico</span>';
-        } else if (app.zeroImpactCount > 0) {
-          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 ${app.zeroImpactCount} Permisos Seguros de Quitar</span>`;
-        } else if (app.reducibleCount > 0) {
-          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 Optimizable</span>`;
-        } else {
-          statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-gray-300 border border-white/10">✨ Permisos Óptimos</span>';
-        }
-
-        // Permisos sensibles activos chips
-        let sensitiveTagsHtml = '';
-        if (app.sensitiveActive && app.sensitiveActive.length > 0) {
-          sensitiveTagsHtml = app.sensitiveActive.map(p => `
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] text-gray-300">
-              <span>${p.icon}</span> <span>${escapeHtml(p.name)}</span>
-            </span>
-          `).join('');
-        } else {
-          sensitiveTagsHtml = '<span class="text-[10px] text-gray-500 italic">Sin permisos sensibles de fondo detectados</span>';
-        }
-
-        // Consejos de SamuLibre (Estudio de Mercado / UX Impact)
-        let adviceHtml = '';
-        if (app.recommendations && app.recommendations.length > 0) {
-          adviceHtml = app.recommendations.map(r => {
-            let boxColor = 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300';
-            let titleColor = 'text-emerald-300';
-            if (r.level === 'critical') {
-              boxColor = 'bg-red-500/10 border-red-500/20 text-red-300';
-              titleColor = 'text-red-300';
-            } else if (r.level === 'reducible') {
-              boxColor = 'bg-amber-500/10 border-amber-500/20 text-amber-300';
-              titleColor = 'text-amber-300';
-            }
-            return `
-              <div class="p-2.5 rounded-xl border ${boxColor} space-y-1">
-                <div class="flex items-center justify-between text-[11px] font-semibold ${titleColor}">
-                  <span>💡 ${escapeHtml(r.title)}</span>
-                  <span class="text-[9px] px-1.5 py-0.2 rounded border uppercase font-mono">${escapeHtml(r.badge)}</span>
-                </div>
-                <p class="text-[11px] text-gray-300">${escapeHtml(r.detail)}</p>
-                <div class="text-[11px] font-medium text-white/90 pt-0.5 border-t border-white/5">
-                  👉 <b>${escapeHtml(r.uxImpact)}</b>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // Primer letra para el avatar
-        const firstLetter = (app.app_name || app.package_name || 'A').charAt(0).toUpperCase();
-
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-white/10 flex items-center justify-center text-base font-bold text-emerald-400 shrink-0">
-                ${firstLetter}
-              </div>
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="text-xs sm:text-sm font-bold text-white truncate">${escapeHtml(app.app_name)}</h4>
-                  <span class="px-2 py-0.5 rounded-md text-[9px] font-medium border ${installerClass}">${installerLabel}</span>
-                  <span class="px-2 py-0.5 rounded-md text-[9px] font-medium bg-white/5 border border-white/10 text-gray-300">${app.category.icon} ${app.category.label}</span>
-                </div>
-                <div class="text-[10px] text-gray-400 font-mono truncate mt-0.5">${escapeHtml(app.package_name)}</div>
-              </div>
-            </div>
-            <div class="shrink-0">
-              ${statusBadge}
-            </div>
-          </div>
-
-          <!-- Permisos Sensibles Activos -->
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-[10px] text-gray-400 font-medium">Permisos activos:</span>
-            ${sensitiveTagsHtml}
-          </div>
-
-          <!-- Evaluaciones y Consejos de SamuLibre -->
-          ${adviceHtml ? `<div class="space-y-1.5 pt-1">${adviceHtml}</div>` : ''}
-
-          <!-- Botón de Acción Directo -->
-          <div class="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
-            <button onclick="openAppDetailsSettings('${escapeHtml(app.package_name)}')" class="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs rounded-xl flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer">
-              <span>⚙️</span> Gestionar en Ajustes de Android
-            </button>
-          </div>
-        `;
-
-        cardsList.appendChild(card);
-      });
-    }
   </script>
 
   <!-- Modal Flotante: Historial de Actualizaciones de Firmas (Cada Hora) -->
@@ -4741,7 +4205,7 @@
           </div>
           <div>
             <h3 class="text-sm font-semibold text-white">Bóveda de Cuarentena Cifrada (XOR 0xAA)</h3>
-            <p class="text-xs text-gray-400">Archivos maliciosos neutralizados y aislados físicamente de la ejecución en Windows.</p>
+            <p class="text-xs text-gray-400">Archivos maliciosos neutralizados y aislados físicamente en la bóveda cifrada.</p>
           </div>
         </div>
         <button onclick="closeQuarantineModal()" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-all">
@@ -4942,136 +4406,6 @@
           </button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Modal: Auditoría Inteligente de Permisos en Android (Estudio de Mercado & UX Advisor) -->
-  <div id="modalAppPermissionAudit" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 hidden select-none">
-    <div class="glass-panel bg-[#0B0D13]/95 max-w-4xl w-full rounded-3xl border border-white/15 p-4 sm:p-6 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-fade-in">
-      
-      <!-- Encabezado del Modal -->
-      <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-3">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shadow-inner border border-emerald-500/30">
-            🔍
-          </div>
-          <div>
-            <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              Auditoría Inteligente de Permisos
-              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Asesor de UX & Privacidad</span>
-            </h3>
-            <p class="text-xs text-gray-400">Protege tu privacidad sin degradar la funcionalidad de tus aplicaciones</p>
-          </div>
-        </div>
-        <button onclick="closeAppPermissionAuditModal()" class="w-8 h-8 rounded-xl glass-panel hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-all cursor-pointer">
-          ✕
-        </button>
-      </div>
-
-      <!-- Barra de Resumen y Métricas Clave -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-        <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center gap-3">
-          <div class="text-2xl" id="permAuditScoreIcon">🛡️</div>
-          <div>
-            <div class="text-[10px] text-gray-400 font-medium">Salud de Privacidad</div>
-            <div class="text-base sm:text-lg font-bold text-emerald-400" id="permAuditScoreVal">--%</div>
-          </div>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center gap-3">
-          <div class="text-2xl">📦</div>
-          <div>
-            <div class="text-[10px] text-gray-400 font-medium">Apps Analizadas</div>
-            <div class="text-base sm:text-lg font-bold text-white" id="permAuditTotalApps">0</div>
-          </div>
-        </div>
-        <div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 cursor-pointer active:scale-95 transition-all" onclick="filterAuditedApps('zero-impact')">
-          <div class="text-2xl">🟢</div>
-          <div>
-            <div class="text-[10px] text-emerald-300 font-medium">Quitar Seguro (0 Impacto)</div>
-            <div class="text-base sm:text-lg font-bold text-emerald-400" id="permAuditZeroImpactCount">0</div>
-          </div>
-        </div>
-        <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3 cursor-pointer active:scale-95 transition-all" onclick="filterAuditedApps('critical')">
-          <div class="text-2xl">⚠️</div>
-          <div>
-            <div class="text-[10px] text-amber-300 font-medium">Riesgos Críticos</div>
-            <div class="text-base sm:text-lg font-bold text-amber-400" id="permAuditCriticalCount">0</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Barra de Búsqueda y Chips de Filtro -->
-      <div class="space-y-2 mb-3">
-        <div class="relative">
-          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
-          <input type="text" id="inputSearchAuditedApps" oninput="onSearchAuditedAppsChange(this.value)" placeholder="Buscar aplicación por nombre o paquete..." class="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 transition-all">
-        </div>
-
-        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-          <button id="chipFilter-all" onclick="filterAuditedApps('all')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap font-medium transition-all cursor-pointer">
-            Todas (<span id="countChip-all">0</span>)
-          </button>
-          <button id="chipFilter-zero-impact" onclick="filterAuditedApps('zero-impact')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer">
-            🟢 Impacto NULO (<span id="countChip-zero">0</span>)
-          </button>
-          <button id="chipFilter-reducible" onclick="filterAuditedApps('reducible')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer">
-            🟡 Reducibles (<span id="countChip-reducible">0</span>)
-          </button>
-          <button id="chipFilter-location" onclick="filterAuditedApps('location')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer">
-            📍 Ubicación (<span id="countChip-location">0</span>)
-          </button>
-          <button id="chipFilter-mic-cam" onclick="filterAuditedApps('mic-cam')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer">
-            🎙️/📷 Micro & Cámara (<span id="countChip-miccam">0</span>)
-          </button>
-          <button id="chipFilter-contacts-sms" onclick="filterAuditedApps('contacts-sms')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer">
-            👥/💬 Contactos & SMS (<span id="countChip-contacts">0</span>)
-          </button>
-          <button id="chipFilter-critical" onclick="filterAuditedApps('critical')" class="px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10 whitespace-nowrap font-medium transition-all cursor-pointer">
-            ⚠️ Críticos (<span id="countChip-critical">0</span>)
-          </button>
-        </div>
-      </div>
-
-      <!-- Contenedor con Scroll de Tarjetas de Aplicaciones -->
-      <div id="containerAuditedAppsList" class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar min-h-[240px]">
-        <!-- Estado de Carga / Animación Radar -->
-        <div id="stateAuditLoading" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative w-16 h-16 flex items-center justify-center">
-            <div class="absolute inset-0 rounded-full border-2 border-emerald-500/40 animate-ping"></div>
-            <div class="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-xl animate-pulse">
-              🛡️
-            </div>
-          </div>
-          <div>
-            <div class="text-sm font-semibold text-white">Inspeccionando aplicaciones y evaluando permisos...</div>
-            <p class="text-xs text-gray-400 max-w-sm mt-1">Cruzando categorías de apps y modelos de impacto en UX para generar consejos personalizados.</p>
-          </div>
-        </div>
-
-        <!-- Lista generada por JS -->
-        <div id="auditedAppsCardsList" class="space-y-3 hidden"></div>
-
-        <!-- Estado Vacío -->
-        <div id="stateAuditEmpty" class="py-12 flex flex-col items-center justify-center text-center space-y-2 hidden">
-          <div class="text-3xl">✨</div>
-          <div class="text-sm font-semibold text-white">No se encontraron aplicaciones con este filtro</div>
-          <p class="text-xs text-gray-400">Tu dispositivo está optimizado o no hay apps que coincidan con la búsqueda.</p>
-        </div>
-      </div>
-
-      <!-- Pie del Modal con Leyenda de Seguridad -->
-      <div class="border-t border-white/10 pt-3 mt-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-gray-400">
-        <div class="flex items-center gap-2">
-          <span>💡</span>
-          <span>Toca <b>"⚙️ Gestionar en Ajustes"</b> para revocar permisos de forma nativa e inmediata en Android.</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="startAppPermissionAudit()" class="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all flex items-center gap-1 cursor-pointer">
-            <span>🔄</span> Re-auditar
-          </button>
-        </div>
-      </div>
-
     </div>
   </div>
 

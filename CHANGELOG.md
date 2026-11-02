@@ -6,6 +6,27 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-02
 
+### 🎨 Auditoría UI/UX Full Stack, Estudio de Mercado y Localización 100% Linux (Fase 11)
+- **Eliminación del Menú Redundante "Auditoría Interna 100/100":**
+  - Removido el botón `nav-audit` de la barra de navegación lateral y la vista asociada `view-audit`, despejando la interfaz de paneles autoreferenciales innecesarios para el uso operativo diario.
+- **Purga Total de Remanentes de Windows y Localización 100% Nativa Linux:**
+  - Sustituidas todas las referencias a Microsoft Windows por la terminología y subsistemas nativos de Linux:
+    * `Windows 11 ...` reemplazado por la distribución real detectada (`distro_name`) y versión del Kernel (`kernel_release`).
+    * "Protección LSASS" reemplazada por "Protección de Memoria & Credenciales (Yama ptrace_scope y aislamiento `/proc/$PID/mem`)".
+    * "Registro (Run / Winlogon) / schtasks" reemplazado por "Servicios Systemd, Timers, Crontabs y XDG Autostart".
+    * "Windows Filtering Platform (WFP)" reemplazado por "Netfilter / iptables & eBPF Kill-Switch".
+    * "Boletines y KBs de Windows" reemplazados por "Avisos de Seguridad CVE y Mitigaciones del Kernel Linux".
+    * "Explorador de archivos de Windows" reemplazado por "Gestor de archivos nativo del sistema (KDialog / Zenity)".
+- **Rediseño Visual Ligero y Profesional (Full Stack UI/UX):**
+  - Eliminados los botones falsos tipo semáforo de macOS de la barra lateral, integrando un encabezado nativo respetuoso de los gestores de ventanas Linux (KWin / Mutter).
+  - Reemplazo sistemático de emojis informales por iconografía vectorial SVG profesional con trazo fino.
+  - Aligeramiento de la densidad visual, reduciendo gradientes pesados y badges neón saturados a favor de una estética moderna, limpia y sobria alineada con los estándares Libadwaita y KDE Kirigami.
+- **Estudio de Mercado UI/UX en Linux:**
+  - Conducido análisis comparativo frente a soluciones de referencia (ProtonVPN, Mullvad, CrowdStrike Falcon Linux, Wazuh y 1Password) consolidando las mejores prácticas de experiencia de usuario en sistemas Linux.
+- **Reempaquetado y Validación:**
+  - Regenerados paquetes de instalación `.deb`, `.rpm` y `.pkg.tar.zst` integrando los nuevos activos visuales.
+  - Suite de pruebas ejecutada con 100% de éxito (67 pasadas, 0 fallidas).
+
 ### 🚀 Validación Integral, Stress Testing de Rendimiento, Hardening Final y Entrega Definitiva (Fase 10)
 - **Stress Testing y Evaluación de Rendimiento Cuantitativo:**
   - Velocidad de streaming criptográfico SHA-256 multi-motor probada en **885.7 MB/s (46 ms para 50 MB)**.

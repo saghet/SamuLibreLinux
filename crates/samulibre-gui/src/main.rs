@@ -1112,6 +1112,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         let proxy_browse_folder = proxy_for_ipc.clone();
                         let core_browse_folder = Arc::clone(&core_for_ipc);
                         IS_SCAN_CANCELLED.store(false, Ordering::SeqCst);
+                        samulibre_scanner::set_cancel_flag(false);
                         std::thread::spawn(move || {
                             if let Some(folder) = open_native_folder_dialog() {
                                 let scanner_arc = if let Ok(c) = core_browse_folder.lock() {
@@ -1199,6 +1200,16 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     let _ = proxy_browse_folder.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
                                 }
 
+                                if IS_SCAN_CANCELLED.load(Ordering::SeqCst) || samulibre_scanner::is_cancelled() {
+                                    let _ = proxy_browse_folder.send_event(CustomUserEvent::ScanProgress {
+                                        files_scanned: total_scanned,
+                                        current_file: "⏹️ Análisis de carpeta detenido por el usuario.".to_string(),
+                                        threats_found,
+                                        is_done: true,
+                                    });
+                                    return;
+                                }
+
                                 let _ = proxy_browse_folder.send_event(CustomUserEvent::ScanCompleted {
                                     files_scanned: total_scanned,
                                     threats_found,
@@ -1221,6 +1232,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                             let proxy_paths = proxy_for_ipc.clone();
                             let core_paths = Arc::clone(&core_for_ipc);
                             IS_SCAN_CANCELLED.store(false, Ordering::SeqCst);
+                        samulibre_scanner::set_cancel_flag(false);
                             std::thread::spawn(move || {
                                 let mut paths_to_scan = Vec::new();
                                 if let Ok(arr) = serde_json::from_str::<Vec<String>>(&payload_str) {
@@ -1316,6 +1328,16 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     let _ = proxy_paths.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
                                 }
 
+                                if IS_SCAN_CANCELLED.load(Ordering::SeqCst) || samulibre_scanner::is_cancelled() {
+                                    let _ = proxy_paths.send_event(CustomUserEvent::ScanProgress {
+                                        files_scanned: total_scanned,
+                                        current_file: "⏹️ Análisis de rutas detenido por el usuario.".to_string(),
+                                        threats_found,
+                                        is_done: true,
+                                    });
+                                    return;
+                                }
+
                                 let _ = proxy_paths.send_event(CustomUserEvent::ScanCompleted {
                                     files_scanned: total_scanned,
                                     threats_found,
@@ -1335,7 +1357,14 @@ fn run_app(app_root: PathBuf) -> Result<()> {
 
                     "cancel_scan" => {
                         IS_SCAN_CANCELLED.store(true, Ordering::SeqCst);
+                        samulibre_scanner::set_cancel_flag(true);
                         IS_SCAN_IN_PROGRESS.store(false, Ordering::SeqCst);
+                        let _ = proxy_for_ipc.send_event(CustomUserEvent::ScanProgress {
+                            files_scanned: 0,
+                            current_file: "⏹️ Análisis detenido por el usuario.".to_string(),
+                            threats_found: 0,
+                            is_done: true,
+                        });
                         let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
                             title: "⏹️ Deteniendo Análisis".to_string(),
                             details: "Cancelación solicitada por el usuario. Deteniendo análisis...".to_string(),
@@ -2909,6 +2938,7 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 }
 
                 IS_SCAN_CANCELLED.store(false, Ordering::SeqCst);
+                samulibre_scanner::set_cancel_flag(false);
                 window.set_visible(true);
                 window.set_minimized(false);
                 window.set_focus();
@@ -3340,72 +3370,79 @@ fn scan_paths_parallel(
         .build()
         .unwrap_or_else(|_| rayon::ThreadPoolBuilder::new().build().unwrap());
 
-    pool.install(|| {
-        paths.par_iter().for_each(|path| {
-            if IS_SCAN_CANCELLED.load(Ordering::Relaxed) {
-                return;
-            }
+    let chunk_size = 64;
+    for chunk in paths.chunks(chunk_size) {
+        if IS_SCAN_CANCELLED.load(Ordering::Relaxed) || samulibre_scanner::is_cancelled() {
+            break;
+        }
 
-            // Micro-pausa de 150us para permitir descanso térmico al CPU y evitar estrangulamiento
-            std::thread::sleep(std::time::Duration::from_micros(150));
+        pool.install(|| {
+            chunk.par_iter().for_each(|path| {
+                if IS_SCAN_CANCELLED.load(Ordering::Relaxed) || samulibre_scanner::is_cancelled() {
+                    return;
+                }
 
-            let curr_scanned = scanned_count.fetch_add(1, Ordering::Relaxed) + 1;
+                // Micro-pausa de 100us para permitir descanso térmico al CPU y evitar estrangulamiento
+                std::thread::sleep(std::time::Duration::from_micros(100));
 
-            if let Ok(res) = scanner_arc.scan_file(path) {
-                if res.status == samulibre_types::FileScanStatus::Infected || res.status == samulibre_types::FileScanStatus::Suspicious {
-                    threats_count.fetch_add(1, Ordering::Relaxed);
-                    let threat_name = res.detection_name.clone().unwrap_or_else(|| "Amenaza.Desconocida".to_string());
-                    let severity = if threat_name.to_lowercase().contains("critical") || threat_name.to_lowercase().contains("wiper") || threat_name.to_lowercase().contains("ransomware") || threat_name.to_lowercase().contains("eicar") {
-                        "Crítica".to_string()
-                    } else if threat_name.to_lowercase().contains("trojan") || threat_name.to_lowercase().contains("exploit") || threat_name.to_lowercase().contains("dropper") {
-                        "Alta".to_string()
-                    } else {
-                        "Media".to_string()
-                    };
-                    let (origin_source, origin_url, human_explanation, suggested_action) = samulibre_scanner::extract_file_origin_and_story(path, &threat_name);
-                    let rec = samulibre_types::ThreatRecord {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                        file_path: path.to_string_lossy().to_string(),
-                        threat_name,
-                        engine: res.engine.clone(),
-                        sha256: res.sha256.clone(),
-                        severity,
-                        action_taken: "Pendiente".to_string(),
-                        quarantine_id: None,
-                        origin_source,
-                        origin_url,
-                        human_explanation,
-                        suggested_action,
-                    };
-                    if let Ok(mut list) = detected_threats.lock() {
-                        list.push(rec);
+                let curr_scanned = scanned_count.fetch_add(1, Ordering::Relaxed) + 1;
+
+                if let Ok(res) = scanner_arc.scan_file(path) {
+                    if res.status == samulibre_types::FileScanStatus::Infected || res.status == samulibre_types::FileScanStatus::Suspicious {
+                        threats_count.fetch_add(1, Ordering::Relaxed);
+                        let threat_name = res.detection_name.clone().unwrap_or_else(|| "Amenaza.Desconocida".to_string());
+                        let severity = if threat_name.to_lowercase().contains("critical") || threat_name.to_lowercase().contains("wiper") || threat_name.to_lowercase().contains("ransomware") || threat_name.to_lowercase().contains("eicar") {
+                            "Crítica".to_string()
+                        } else if threat_name.to_lowercase().contains("trojan") || threat_name.to_lowercase().contains("exploit") || threat_name.to_lowercase().contains("dropper") {
+                            "Alta".to_string()
+                        } else {
+                            "Media".to_string()
+                        };
+                        let (origin_source, origin_url, human_explanation, suggested_action) = samulibre_scanner::extract_file_origin_and_story(path, &threat_name);
+                        let rec = samulibre_types::ThreatRecord {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                            file_path: path.to_string_lossy().to_string(),
+                            threat_name,
+                            engine: res.engine.clone(),
+                            sha256: res.sha256.clone(),
+                            severity,
+                            action_taken: "Pendiente".to_string(),
+                            quarantine_id: None,
+                            origin_source,
+                            origin_url,
+                            human_explanation,
+                            suggested_action,
+                        };
+                        if let Ok(mut list) = detected_threats.lock() {
+                            list.push(rec);
+                        }
                     }
                 }
-            }
 
-            let mut do_update = false;
-            if let Ok(mut last) = last_ui_update.try_lock() {
-                if last.elapsed() >= std::time::Duration::from_millis(40) {
-                    *last = std::time::Instant::now();
-                    do_update = true;
+                let mut do_update = false;
+                if let Ok(mut last) = last_ui_update.try_lock() {
+                    if last.elapsed() >= std::time::Duration::from_millis(40) {
+                        *last = std::time::Instant::now();
+                        do_update = true;
+                    }
                 }
-            }
 
-            if do_update {
-                let t_count = threats_count.load(Ordering::Relaxed);
-                let elapsed_sec = start_time.elapsed().as_secs_f64().max(0.01);
-                let speed = (curr_scanned as f64 / elapsed_sec) as usize;
-                let current_label = format!("{} [{} arch/s | {} hilos EcoQoS]", path.file_name().unwrap_or_default().to_string_lossy(), speed, scan_threads);
-                let _ = proxy.send_event(CustomUserEvent::ScanProgress {
-                    files_scanned: curr_scanned,
-                    current_file: current_label,
-                    threats_found: t_count,
-                    is_done: false,
-                });
-            }
+                if do_update {
+                    let t_count = threats_count.load(Ordering::Relaxed);
+                    let elapsed_sec = start_time.elapsed().as_secs_f64().max(0.01);
+                    let speed = (curr_scanned as f64 / elapsed_sec) as usize;
+                    let current_label = format!("{} [{} arch/s | {} hilos EcoQoS]", path.file_name().unwrap_or_default().to_string_lossy(), speed, scan_threads);
+                    let _ = proxy.send_event(CustomUserEvent::ScanProgress {
+                        files_scanned: curr_scanned,
+                        current_file: current_label,
+                        threats_found: t_count,
+                        is_done: false,
+                    });
+                }
+            });
         });
-    });
+    }
 
     let final_scanned = scanned_count.load(Ordering::SeqCst);
     let final_threats = threats_count.load(Ordering::SeqCst);
@@ -3644,8 +3681,20 @@ fn execute_scan_loop(
         let _ = proxy.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
     }
 
-    update_scheduled_scan_timestamp();
+    let is_cancelled = IS_SCAN_CANCELLED.load(Ordering::SeqCst) || samulibre_scanner::is_cancelled();
     IS_SCAN_IN_PROGRESS.store(false, Ordering::SeqCst);
+
+    if is_cancelled {
+        let _ = proxy.send_event(CustomUserEvent::ScanProgress {
+            files_scanned: total_scanned,
+            current_file: format!("⏹️ Análisis detenido por el usuario ({:.2}s | {} archivos analizados).", elapsed_ms as f64 / 1000.0, total_scanned),
+            threats_found,
+            is_done: true,
+        });
+        return;
+    }
+
+    update_scheduled_scan_timestamp();
 
     let _ = proxy.send_event(CustomUserEvent::ScanCompleted {
         files_scanned: total_scanned,

@@ -2586,6 +2586,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "hex",
+ "libc",
  "md5",
  "regex",
  "samulibre-types",

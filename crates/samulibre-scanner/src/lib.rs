@@ -3,7 +3,7 @@ use regex::bytes::Regex;
 use samulibre_types::{FileScanStatus, ScanResult};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -19,6 +19,20 @@ pub use elf_analyzer::*;
 
 pub mod threat_intel;
 pub use threat_intel::{ThreatIntelligenceUpdateManager, UpdateEvidence, UpdateProfile, UpdateStatus};
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static SCANNER_GLOBAL_CANCEL: AtomicBool = AtomicBool::new(false);
+
+/// Activa o desactiva la señal de cancelación global para interrumpir inmediatamente lecturas y análisis de archivos
+pub fn set_cancel_flag(cancelled: bool) {
+    SCANNER_GLOBAL_CANCEL.store(cancelled, Ordering::SeqCst);
+}
+
+/// Consulta si el usuario ha solicitado cancelar el escaneo actual
+pub fn is_cancelled() -> bool {
+    SCANNER_GLOBAL_CANCEL.load(Ordering::Relaxed)
+}
 
 /// Regla heurística / YARA para detección en memoria o en disco
 #[derive(Debug, Clone)]
@@ -350,6 +364,18 @@ impl MultiEngineScanner {
         let start = Instant::now();
         let path_ref = path.as_ref();
 
+        // Si se solicitó cancelar el escaneo, salir de inmediato sin E/S
+        if is_cancelled() {
+            return Ok(ScanResult {
+                file_path: path_ref.to_string_lossy().to_string(),
+                sha256: String::new(),
+                status: FileScanStatus::Clean,
+                detection_name: Some("Interrumpido: Cancelación solicitada por el usuario".to_string()),
+                engine: "SamuLibre Multi-Engine".to_string(),
+                scan_time_ms: 0,
+            });
+        }
+
         if !path_ref.exists() {
             return Ok(ScanResult {
                 file_path: path_ref.to_string_lossy().to_string(),
@@ -412,8 +438,31 @@ impl MultiEngineScanner {
             }
         };
 
+        // Filtro estricto anti-cuelgues: Si no es un archivo regular (ej. socket, FIFO named pipe, directorio, char/block dev),
+        // NUNCA intentar abrirlo como archivo secuencial.
+        if !metadata.is_file() {
+            return Ok(ScanResult {
+                file_path: path_ref.to_string_lossy().to_string(),
+                sha256: String::new(),
+                status: FileScanStatus::Clean,
+                detection_name: Some("Omitido: No es un archivo regular (dispositivo, FIFO, socket o directorio)".to_string()),
+                engine: "SamuLibre VFS Filter".to_string(),
+                scan_time_ms: start.elapsed().as_millis() as u64,
+            });
+        }
+
         let file_len = metadata.len();
-        let file = match File::open(path_ref) {
+
+        // Apertura segura no bloqueante (evita que FIFOs en /tmp o /dev/shm bloqueen indefinidamente el hilo de escaneo)
+        let mut open_opts = fs::OpenOptions::new();
+        open_opts.read(true);
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            open_opts.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW);
+        }
+
+        let file = match open_opts.open(path_ref) {
             Ok(f) => f,
             Err(e) => {
                 if e.raw_os_error() == Some(225) {
@@ -448,6 +497,18 @@ impl MultiEngineScanner {
         let mut hasher = Sha256::new();
 
         loop {
+            // Comprobación de cancelación reactiva: si el usuario pulsa 'Detener', abortar lectura de inmediato
+            if is_cancelled() {
+                return Ok(ScanResult {
+                    file_path: path_ref.to_string_lossy().to_string(),
+                    sha256: String::new(),
+                    status: FileScanStatus::Clean,
+                    detection_name: Some("Interrumpido: Cancelación solicitada por el usuario".to_string()),
+                    engine: "SamuLibre Multi-Engine".to_string(),
+                    scan_time_ms: start.elapsed().as_millis() as u64,
+                });
+            }
+
             let n = match reader.read(&mut chunk) {
                 Ok(0) => break,
                 Ok(n) => n,
@@ -1188,6 +1249,7 @@ fn contains_case_insensitive(haystack: &[u8], needle: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
     use std::io::Write;
 
     #[test]
@@ -1388,5 +1450,27 @@ mod tests {
         let res_ransom = scanner.scan_bytes(ransom_note, "how_to_decrypt.txt");
         assert_eq!(res_ransom.status, FileScanStatus::Infected);
         assert!(res_ransom.detection_name.unwrap().contains("Ransomware.Linux"));
+    }
+
+    #[test]
+    fn test_scanner_cancellation_reactivity() {
+        let scanner = MultiEngineScanner::new();
+        let test_file = std::env::temp_dir().join(format!("samu_cancel_test_{}.bin", std::process::id()));
+        let _ = std::fs::write(&test_file, b"sample test content for cancellation");
+
+        // Con flag activo, el escaneo debe abortarse inmediatamente
+        set_cancel_flag(true);
+        assert!(is_cancelled());
+        let res_cancelled = scanner.scan_file(&test_file).expect("Escaneo cancelado debe retornar Ok");
+        assert_eq!(res_cancelled.status, FileScanStatus::Clean);
+        assert!(res_cancelled.detection_name.unwrap().contains("Interrumpido"));
+
+        // Restaurar flag
+        set_cancel_flag(false);
+        assert!(!is_cancelled());
+        let res_normal = scanner.scan_file(&test_file).expect("Escaneo normal debe retornar Ok");
+        assert_eq!(res_normal.status, FileScanStatus::Clean);
+
+        let _ = std::fs::remove_file(&test_file);
     }
 }

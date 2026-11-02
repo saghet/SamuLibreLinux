@@ -2295,6 +2295,19 @@
         currentPathEl.textContent = '⏹️ Deteniendo análisis manual a petición del usuario...';
       }
       sendIpc('cancel_scan');
+
+      // Guardrail reactivo de resguardo: si el evento IPC tardase en propagarse, restaurar el botón y el estado en 1 segundo
+      setTimeout(() => {
+        const b = document.getElementById('btnCancelScan');
+        if (b && b.disabled) {
+          b.disabled = false;
+          b.innerHTML = '<span>⏹️</span> <span>Detener Análisis</span>';
+        }
+        const p = document.getElementById('scanCurrentPathText');
+        if (p && p.textContent.includes('Deteniendo')) {
+          p.textContent = '⏹️ Análisis detenido por el usuario.';
+        }
+      }, 1000);
     }
 
     window.onScanProgressUpdate = function(filesScanned, currentFile, threatsFound, isDone) {

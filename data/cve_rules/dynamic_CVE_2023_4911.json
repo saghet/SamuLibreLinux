@@ -1,0 +1,22 @@
+{
+  "id": "VP-AI-CVE_2023_4911",
+  "cve": "CVE-2023-4911",
+  "title": "[IA Patch] Ubuntu Security Notice: GNU C Library GLIBC_TUNABLES Buffer Overflow (Looney Tunables)",
+  "description": "Mitigación virtual preventiva sintetizada por IA local para KBUSN-6409-1: Aviso de seguridad analizado para KBUSN-6409-1. Se estableció centinela conductual preventivo en Linux.",
+  "severity": "Low",
+  "target_component": "Linux Subsystem Generic",
+  "required_kb": [
+    "KBUSN-6409-1"
+  ],
+  "strategy": {
+    "BehavioralBlock": {
+      "target_process": "sh",
+      "forbidden_call": "untrusted_exec_KBUSN-6409-1"
+    }
+  },
+  "status": "NativePatchInstalled",
+  "detected_at": "2026-11-02T17:10:02.151917736Z",
+  "patched_at": null,
+  "unpatched_at": null,
+  "status_reason": "Corregido nativamente: biblioteca glibc parcheada contra desbordamiento en GLIBC_TUNABLES."
+}

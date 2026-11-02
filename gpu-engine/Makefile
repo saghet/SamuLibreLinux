@@ -10,7 +10,8 @@ SRCS_CORE = src/core/gpu_detector.cpp \
             src/ml/elf_feature_extractor.cpp \
             src/ml/ml_classifier.cpp \
             src/core/batch_scheduler.cpp \
-            src/core/resource_monitor.cpp
+            src/core/resource_monitor.cpp \
+            src/core/result_dispatcher.cpp
 
 OBJS_CORE = $(SRCS_CORE:.cpp=.o)
 

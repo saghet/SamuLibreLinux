@@ -20,6 +20,9 @@ pub use elf_analyzer::*;
 pub mod threat_intel;
 pub use threat_intel::{ThreatIntelligenceUpdateManager, UpdateEvidence, UpdateProfile, UpdateStatus};
 
+pub mod gpu_engine_ffi;
+pub use gpu_engine_ffi::*;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static SCANNER_GLOBAL_CANCEL: AtomicBool = AtomicBool::new(false);
@@ -43,11 +46,23 @@ pub struct PatternRule {
     pub severity: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MultiEngineScanner {
     known_signatures: HashMap<String, String>, // Hash (SHA256) -> ThreatName
     pattern_rules: Vec<PatternRule>,
     excluded_paths: Vec<PathBuf>,
+    pub gpu_engine: Option<std::sync::Arc<GPUEngineScanner>>,
+}
+
+impl std::fmt::Debug for MultiEngineScanner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MultiEngineScanner")
+            .field("signatures_count", &self.known_signatures.len())
+            .field("pattern_rules_count", &self.pattern_rules.len())
+            .field("excluded_paths_count", &self.excluded_paths.len())
+            .field("has_gpu_engine", &self.gpu_engine.is_some())
+            .finish()
+    }
 }
 
 pub fn get_signatures_storage_dir() -> PathBuf {
@@ -68,14 +83,31 @@ pub fn get_signatures_storage_dir() -> PathBuf {
 
 impl MultiEngineScanner {
     pub fn new() -> Self {
+        let gpu_engine = GPUEngineScanner::try_init(1).map(std::sync::Arc::new);
         let mut scanner = Self {
             known_signatures: HashMap::new(),
             pattern_rules: Vec::new(),
             excluded_paths: Vec::new(),
+            gpu_engine,
         };
         scanner.load_default_signatures();
         scanner.load_default_pattern_rules();
         scanner
+    }
+
+    /// Comprueba si la aceleración por hardware GPU (CUDA/OpenCL) está activa
+    pub fn has_gpu_acceleration(&self) -> bool {
+        self.gpu_engine.as_ref().map(|g| g.is_accelerated()).unwrap_or(false)
+    }
+
+    /// Devuelve el nombre del backend de cómputo en ejecución (ej. "NVIDIA_CUDA_Native")
+    pub fn get_gpu_backend_name(&self) -> Option<String> {
+        self.gpu_engine.as_ref().map(|g| g.get_backend_name())
+    }
+
+    /// Obtiene la telemetría térmica y de recursos de la GPU en tiempo real
+    pub fn get_gpu_telemetry(&self) -> Option<GpuTelemetry> {
+        self.gpu_engine.as_ref().and_then(|g| g.get_telemetry())
     }
 
     /// Asigna la lista de rutas y directorios excluidos por el usuario
@@ -452,6 +484,33 @@ impl MultiEngineScanner {
         }
 
         let file_len = metadata.len();
+
+        // -------------------------------------------------------------
+        // CAPA DE ACELERACIÓN GPU SAMULIBRE (NVIDIA CUDA / OPENCL / PTX)
+        // -------------------------------------------------------------
+        // Si el subsistema GPU está disponible y el archivo es >= 1 KB,
+        // delegamos el filtrado masivo de patrones binarios, cálculo de entropía
+        // y clasificación estática ML a los núcleos de la GPU.
+        if let Some(gpu) = &self.gpu_engine {
+            if gpu.is_accelerated() && file_len >= 1024 {
+                if let Some(gpu_res) = gpu.scan_file(path_ref) {
+                    if gpu_res.status == FileScanStatus::Infected || gpu_res.status == FileScanStatus::Suspicious {
+                        // Principio Zero-Trust Asimétrico: La CPU valida y calcula el SHA-256
+                        let mut final_res = gpu_res;
+                        if let Ok(mut f) = fs::File::open(path_ref) {
+                            let mut h = Sha256::new();
+                            let mut buf = [0u8; 64 * 1024];
+                            while let Ok(n) = f.read(&mut buf) {
+                                if n == 0 { break; }
+                                h.update(&buf[..n]);
+                            }
+                            final_res.sha256 = hex::encode(h.finalize());
+                        }
+                        return Ok(final_res);
+                    }
+                }
+            }
+        }
 
         // Apertura segura no bloqueante (evita que FIFOs en /tmp o /dev/shm bloqueen indefinidamente el hilo de escaneo)
         let mut open_opts = fs::OpenOptions::new();

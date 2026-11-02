@@ -17,6 +17,7 @@ set(CORE_SOURCES
     src/ml/ml_classifier.cpp
     src/core/batch_scheduler.cpp
     src/core/resource_monitor.cpp
+    src/core/result_dispatcher.cpp
 )
 
 add_library(samulibre_gpu SHARED ${CORE_SOURCES})

@@ -6,6 +6,28 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-02
 
+### 🛡️ Motor Avanzado de Protección Continua Multicapa y Detección EDR para Linux (Fase 13)
+- **Diagnóstico y Resolución de la Causa Raíz:**
+  - Corregida la ausencia de inicialización del watcher en el demonio del sistema `samulibred`.
+  - Superada la limitación de directorios aislados: la vigilancia continua se expande de 3 carpetas a 17 rutas troncales del sistema (`/home/user`, `Downloads`, `Desktop`, `Documents`, `Videos`, `Pictures`, `Public`, `.config/autostart`, `.local/bin`, `.local/share/applications`, `/tmp`, `/var/tmp`, `/dev/shm`, `/usr/local/bin`, `/usr/local/sbin`, `/etc/systemd/system`, `/mnt`).
+  - Resuelta la condición de carrera en eventos `Create` (archivos vacíos de 0 bytes) mediante la intercepción obligatoria de `FAN_CLOSE_WRITE` / `IN_CLOSE_WRITE`, garantizando que el análisis se ejecute con el binario completamente escrito en disco.
+- **Arquitectura de 5 Capas de Observación Continua:**
+  - **Capa 1: Filesystem VFS Interceptor & Dynamic Inotify:** Integración nativa de `fanotify` (`FAN_CLASS_NOTIF`, `FAN_CLOSE_WRITE`, `FAN_OPEN_EXEC`, `FAN_MODIFY`) con fallback transparente a sensor `inotify` recursivo con descubrimiento y registro dinámico de subdirectorios.
+  - **Capa 2: Process & Subsystem Execution Sensor:** Monitoreo activo de procesos vía `/proc`, intercepción de llamadas `execve`/`execveat`, resolución de linaje (PID, PPID, ancestría), detección de ejecuciones anómalas desde `/tmp` o `/dev/shm`, y sanitización forense de credenciales en línea de comandos.
+  - **Capa 3: File Integrity Monitoring (FIM):** Línea base criptográfica continua de archivos sensibles (`/etc/passwd`, `/etc/shadow`, `/etc/sudoers`, `/etc/pam.d`, `/usr/local/bin`, `/etc/systemd/system`) con detección inmediata de modificaciones de hash, permisos o atributos extendidos.
+  - **Capa 4: Behavioral Monitoring & Anti-Ransomware:** Detección de ráfagas anómalas de escritura (>30 modificaciones en 5s), cálculo de entropía de Shannon (>7.55 bits/byte), alerta por extensiones de ransomware y suspensión preventiva del proceso atacante mediante señal `SIGSTOP`.
+  - **Capa 5: Reconciliation Background Scanner:** Escáner en segundo plano ejecutado en baja prioridad de CPU (`SCHED_IDLE`) cada 30 minutos para reconciliar archivos preexistentes no indexados en el caché.
+- **Cola de Eventos Priorizada con Protección de Saturación:**
+  - `BinaryHeap` de eventos con 4 niveles de prioridad (`Critical` > `High` > `Normal` > `Low`).
+  - Descarte seguro de eventos de baja prioridad bajo sobrecarga (`events_dropped_saturation`) y sincronización multihilo eficiente mediante variables de condición.
+- **Caché Inteligente de Inspección Multidimensional (`SmartInspectionCache`):**
+  - Indexación por tupla `(device, inode)` con validación de tamaño, fecha de modificación (`mtime`) y versión de la base de firmas `signatures_db_version`.
+  - Latencia de consulta inferior a **0.05 ms** y desalojo automático LRU limitado a 100,000 entradas.
+- **Real-Time Protection Center & Línea de Tiempo Forense:**
+  - Comandos interactivos de terminal: `samulibre watcher status`, `coverage`, `activity`, `timeline`, `inspect <ruta>` y `mode <passive|active|strict>`.
+  - Conexión completa de eventos IPC con `samulibre-gui` y el demonio del sistema `samulibred`.
+  - Purga definitiva de remanentes de Windows (LSASS, DPAPI, AMSI, PowerShell, WFP) en reportes de auditoría y técnicas MITRE ATT&CK de Linux.
+
 ### 🌐 Sistema Avanzado de Actualizaciones Multi-Fuente y Centro de Auditoría de Inteligencia de Amenazas (Fase 12)
 - **8 Conectores de Inteligencia de Amenazas (Threat Intelligence Providers):**
   - **Fuente 1: ClamAV:** Soporte e ingesta oficial de firmas CVD (`main.cvd`, `daily.cvd`, `bytecode.cvd`) y bases HDB locales.

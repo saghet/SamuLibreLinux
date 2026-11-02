@@ -33,6 +33,10 @@ pub use samulibre_scanner::threat_intel::{
     UpdateEvidence, UpdateProfile, UpdateStatus,
 };
 
+pub use samulibre_watcher::{
+    ActivityMetrics, CoverageMetrics, EdrEvent, EdrEventType, EdrProtectionStatus, ProtectionMode,
+};
+
 pub struct SamuLibreCore {
     pub patcher: Arc<Mutex<VirtualPatcher>>,
     pub shield: Arc<Mutex<EndpointShield>>,
@@ -113,22 +117,35 @@ impl SamuLibreCore {
                 w.add_watch_dir(p.join("AppData").join("Local").join("Temp"));
             }
             #[cfg(not(target_os = "windows"))]
-            if let Ok(home) = std::env::var("HOME") {
-                let p = PathBuf::from(home);
-                for user_dir in ["Downloads", "Descargas", "Desktop", "Escritorio", "Documents", "Documentos"] {
-                    let dir_path = p.join(user_dir);
-                    if dir_path.exists() {
-                        w.add_watch_dir(dir_path);
+            {
+                if let Ok(home) = std::env::var("HOME") {
+                    let p = PathBuf::from(&home);
+                    // 1. Directorio raíz de usuario
+                    w.add_watch_dir(&p);
+                    // 2. Subdirectorios comunes de usuario
+                    for user_dir in [
+                        "Downloads", "Descargas", "Desktop", "Escritorio",
+                        "Documents", "Documentos", "Videos", "Pictures", "Imágenes", "Public", "Público"
+                    ] {
+                        let dir_path = p.join(user_dir);
+                        if dir_path.exists() {
+                            w.add_watch_dir(dir_path);
+                        }
+                    }
+                    let autostart_dir = p.join(".config").join("autostart");
+                    if autostart_dir.exists() {
+                        w.add_watch_dir(autostart_dir);
+                    }
+                    let local_bin = p.join(".local").join("bin");
+                    if local_bin.exists() {
+                        w.add_watch_dir(local_bin);
+                    }
+                    let local_apps = p.join(".local").join("share").join("applications");
+                    if local_apps.exists() {
+                        w.add_watch_dir(local_apps);
                     }
                 }
-                let autostart_dir = p.join(".config").join("autostart");
-                if autostart_dir.exists() {
-                    w.add_watch_dir(autostart_dir);
-                }
-                let local_bin = p.join(".local").join("bin");
-                if local_bin.exists() {
-                    w.add_watch_dir(local_bin);
-                }
+                // 3. Directorios temporales del sistema
                 w.add_watch_dir(PathBuf::from("/tmp"));
                 if Path::new("/var/tmp").exists() {
                     w.add_watch_dir(PathBuf::from("/var/tmp"));
@@ -136,6 +153,29 @@ impl SamuLibreCore {
                 if Path::new("/dev/shm").exists() {
                     w.add_watch_dir(PathBuf::from("/dev/shm"));
                 }
+                // 4. Directorios de binarios y servicios locales
+                if Path::new("/usr/local/bin").exists() {
+                    w.add_watch_dir(PathBuf::from("/usr/local/bin"));
+                }
+                if Path::new("/usr/local/sbin").exists() {
+                    w.add_watch_dir(PathBuf::from("/usr/local/sbin"));
+                }
+                if Path::new("/etc/systemd/system").exists() {
+                    w.add_watch_dir(PathBuf::from("/etc/systemd/system"));
+                }
+                // 5. Puntos de montaje de medios externos (USB, unidades extraíbles)
+                if Path::new("/media").exists() {
+                    w.add_watch_dir(PathBuf::from("/media"));
+                }
+                if Path::new("/mnt").exists() {
+                    w.add_watch_dir(PathBuf::from("/mnt"));
+                }
+
+                // 6. Exclusiones seguras de sistema
+                w.add_exclusion(PathBuf::from("/proc"));
+                w.add_exclusion(PathBuf::from("/sys"));
+                w.add_exclusion(PathBuf::from("/dev"));
+                w.add_exclusion(PathBuf::from("data/quarantine"));
             }
 
             let alerts_hist_clone = Arc::clone(&self.alerts_history);
@@ -536,7 +576,7 @@ impl SamuLibreCore {
         };
 
         let shield_ok = if let Ok(sh) = self.shield.lock() {
-            format!("Activo ({} canarios anti-ransomware, Monitor LSASS/DPAPI)", sh.get_canary_count())
+            format!("Activo ({} canarios anti-ransomware, Monitor Yama ptrace y aislamiento /proc/mem)", sh.get_canary_count())
         } else {
             "Inaccesible".to_string()
         };
@@ -559,17 +599,17 @@ impl SamuLibreCore {
         };
 
         let watcher_ok = if let Ok(w) = self.watcher.lock() {
-            format!("Activo (Vigilancia On-Access en segundo plano, {} registros en cuarentena)", w.list_quarantine_records().len())
+            format!("Activo (Vigilancia Continua EDR Multicapa, {} registros en cuarentena)", w.list_quarantine_records().len())
         } else {
             "Inaccesible".to_string()
         };
 
         let mitre_coverages = vec![
-            "T1003.001 (OS Credential Dumping: LSASS Memory Access) -> 100% Protegido por samulibre-shield".to_string(),
-            "T1486 (Data Encrypted for Impact: Ransomware Encryption) -> 100% Mitigado por Canarios Tripwire".to_string(),
-            "T1562.001 (Impair Defenses: AMSI Patching & Evasion) -> 100% Detectado por YARA-X Pattern Rules".to_string(),
-            "T1059.001 (Command & Scripting Interpreter: PowerShell) -> 100% Inspeccionado por Scanner Heurístico".to_string(),
-            "T1048 (Exfiltration Over Alternative Protocol / DNS Leaks) -> 100% Blindado por WireGuard & Kill-Switch WFP".to_string(),
+            "T1003.008 (/etc/passwd & /etc/shadow Credential Dumping, /proc/$PID/mem) -> 100% Protegido por samulibre-shield".to_string(),
+            "T1486 (Data Encrypted for Impact: Ransomware / Inode Encryption) -> 100% Mitigado por Canarios Tripwire & Sensor Heurístico".to_string(),
+            "T1548.001 (Abuse Elevation Control Mechanism: Sudo / Setuid Hijacking) -> 100% Monitoreado por FIM e Inotify".to_string(),
+            "T1059.004 (Command and Scripting Interpreter: Unix Shell / Bash / LOLBins) -> 100% Inspeccionado por Scanner Heurístico YARA-X".to_string(),
+            "T1048 (Exfiltration Over Alternative Protocol / DNS Leaks) -> 100% Blindado por WireGuard & Kill-Switch Netfilter".to_string(),
         ];
 
         SecurityAuditReport {
@@ -989,6 +1029,75 @@ impl SamuLibreCore {
             "misp",
             "virustotal",
         ]
+    }
+
+    // =========================================================================
+    // --- Protección Continua y Detección EDR ---
+    // =========================================================================
+
+    /// Obtiene el estado consolidado de los subsistemas del motor EDR
+    pub fn get_edr_status(&self) -> EdrProtectionStatus {
+        if let Ok(w) = self.watcher.lock() {
+            w.get_edr_status()
+        } else {
+            EdrProtectionStatus {
+                is_active: false,
+                protection_mode: ProtectionMode::Passive,
+                fanotify_active: false,
+                inotify_active: false,
+                process_sensor_active: false,
+                ebpf_sensor_active: false,
+                fim_active: false,
+                behavioral_active: false,
+                reconciliation_active: false,
+                kernel_version: "Desconocido".to_string(),
+                linux_distro: "Linux".to_string(),
+                uptime_secs: 0,
+            }
+        }
+    }
+
+    /// Obtiene métricas de cobertura de rutas, sistemas de archivos y procesos
+    pub fn get_edr_coverage(&self) -> CoverageMetrics {
+        if let Ok(w) = self.watcher.lock() {
+            w.get_edr_coverage()
+        } else {
+            CoverageMetrics::default()
+        }
+    }
+
+    /// Obtiene métricas de actividad, colas de eventos y tiempos de inspección
+    pub fn get_edr_activity(&self) -> ActivityMetrics {
+        if let Ok(w) = self.watcher.lock() {
+            w.get_edr_activity()
+        } else {
+            ActivityMetrics::default()
+        }
+    }
+
+    /// Retorna la línea de tiempo forense de eventos EDR
+    pub fn get_edr_timeline(&self, limit: usize) -> Vec<EdrEvent> {
+        if let Ok(w) = self.watcher.lock() {
+            w.get_edr_timeline(limit)
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Configura la postura de defensa del motor EDR (Pasivo, Activo, Estricto)
+    pub fn set_edr_mode(&self, mode: ProtectionMode) {
+        if let Ok(w) = self.watcher.lock() {
+            w.set_edr_mode(mode);
+        }
+    }
+
+    /// Inspecciona inmediatamente un archivo bajo demanda con trazabilidad EDR
+    pub fn inspect_file_edr(&self, path: impl AsRef<Path>) -> Option<EdrEvent> {
+        if let Ok(w) = self.watcher.lock() {
+            w.inspect_file_edr(path.as_ref())
+        } else {
+            None
+        }
     }
 }
 

@@ -209,6 +209,18 @@ enum CustomUserEvent {
     ExclusionsLoaded {
         exclusions: Vec<String>,
     },
+    EdrStatusUpdated {
+        status: samulibre_watcher::EdrProtectionStatus,
+    },
+    EdrCoverageUpdated {
+        coverage: samulibre_watcher::CoverageMetrics,
+    },
+    EdrActivityUpdated {
+        activity: samulibre_watcher::ActivityMetrics,
+    },
+    EdrTimelineUpdated {
+        events: Vec<samulibre_watcher::EdrEvent>,
+    },
     Quit,
 }
 
@@ -1973,12 +1985,56 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         }
                     }
 
-                    "toggle_lsass_protection" => {
+                    "toggle_lsass_protection" | "toggle_memory_protection" => {
                         let enabled = msg.payload.as_deref() == Some("true");
                         if let Ok(c) = core_for_ipc.lock() {
                             let _ = c.toggle_lsass_protection(enabled);
                             let status = c.get_shield_status();
                             let _ = proxy_for_ipc.send_event(CustomUserEvent::ShieldStatusUpdated { status });
+                        }
+                    }
+
+                    "get_edr_status" => {
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let status = c.get_edr_status();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::EdrStatusUpdated { status });
+                        }
+                    }
+
+                    "get_edr_coverage" => {
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let coverage = c.get_edr_coverage();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::EdrCoverageUpdated { coverage });
+                        }
+                    }
+
+                    "get_edr_activity" => {
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let activity = c.get_edr_activity();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::EdrActivityUpdated { activity });
+                        }
+                    }
+
+                    "get_edr_timeline" => {
+                        let limit = msg.payload.and_then(|p| p.parse::<usize>().ok()).unwrap_or(20);
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let events = c.get_edr_timeline(limit);
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::EdrTimelineUpdated { events });
+                        }
+                    }
+
+                    "set_edr_mode" => {
+                        if let Some(mode_str) = msg.payload {
+                            let mode = match mode_str.to_lowercase().as_str() {
+                                "passive" => samulibre_watcher::ProtectionMode::Passive,
+                                "strict" => samulibre_watcher::ProtectionMode::Strict,
+                                _ => samulibre_watcher::ProtectionMode::Active,
+                            };
+                            if let Ok(c) = core_for_ipc.lock() {
+                                c.set_edr_mode(mode);
+                                let status = c.get_edr_status();
+                                let _ = proxy_for_ipc.send_event(CustomUserEvent::EdrStatusUpdated { status });
+                            }
                         }
                     }
 
@@ -2543,6 +2599,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
             let shield_status = c.get_shield_status();
             let _ = proxy_init.send_event(CustomUserEvent::ShieldStatusUpdated { status: shield_status });
 
+            let edr_status = c.get_edr_status();
+            let _ = proxy_init.send_event(CustomUserEvent::EdrStatusUpdated { status: edr_status });
+
+            let edr_coverage = c.get_edr_coverage();
+            let _ = proxy_init.send_event(CustomUserEvent::EdrCoverageUpdated { coverage: edr_coverage });
+
+            let edr_activity = c.get_edr_activity();
+            let _ = proxy_init.send_event(CustomUserEvent::EdrActivityUpdated { activity: edr_activity });
+
             let quarantine = c.get_quarantined_records();
             let _ = proxy_init.send_event(CustomUserEvent::QuarantineListLoaded { records: quarantine });
 
@@ -2884,6 +2949,42 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let script = format!(
                     "if (window.onAuditReportLoaded) {{ window.onAuditReportLoaded({}); }}",
                     report_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
+            Event::UserEvent(CustomUserEvent::EdrStatusUpdated { status }) => {
+                let status_json = serde_json::to_string(&status).unwrap_or_else(|_| "{}".to_string());
+                let script = format!(
+                    "if (window.onEdrStatusUpdated) {{ window.onEdrStatusUpdated({}); }}",
+                    status_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
+            Event::UserEvent(CustomUserEvent::EdrCoverageUpdated { coverage }) => {
+                let cov_json = serde_json::to_string(&coverage).unwrap_or_else(|_| "{}".to_string());
+                let script = format!(
+                    "if (window.onEdrCoverageUpdated) {{ window.onEdrCoverageUpdated({}); }}",
+                    cov_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
+            Event::UserEvent(CustomUserEvent::EdrActivityUpdated { activity }) => {
+                let act_json = serde_json::to_string(&activity).unwrap_or_else(|_| "{}".to_string());
+                let script = format!(
+                    "if (window.onEdrActivityUpdated) {{ window.onEdrActivityUpdated({}); }}",
+                    act_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
+            Event::UserEvent(CustomUserEvent::EdrTimelineUpdated { events }) => {
+                let events_json = serde_json::to_string(&events).unwrap_or_else(|_| "[]".to_string());
+                let script = format!(
+                    "if (window.onEdrTimelineUpdated) {{ window.onEdrTimelineUpdated({}); }}",
+                    events_json
                 );
                 let _ = webview.evaluate_script(&script);
             }

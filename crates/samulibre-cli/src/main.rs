@@ -7,7 +7,7 @@ use samulibre_scanner::MultiEngineScanner;
 use samulibre_shield::EndpointShield;
 use samulibre_types::{FileScanStatus, PatchStatus, Severity};
 use samulibre_vpn::{SecureDnsProvider, VpnManager, WireGuardConfig};
-use samulibre_watcher::{QuarantineVault, RealTimeWatcher};
+use samulibre_watcher::QuarantineVault;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -238,13 +238,33 @@ enum PolicyCommands {
 
 #[derive(Subcommand)]
 enum WatcherCommands {
-    /// Simula la inspección On-Access en tiempo real de un archivo
+    /// Muestra el estado integral de la protección continua y sensores EDR (Real-Time Protection Center)
+    Status,
+
+    /// Muestra las rutas de archivos vigiladas, sistemas de archivos cubiertos y exclusiones
+    Coverage,
+
+    /// Muestra métricas de actividad, eventos procesados, colas y rendimiento
+    Activity,
+
+    /// Muestra la línea de tiempo forense de eventos EDR interceptados
+    Timeline {
+        /// Número máximo de eventos a listar
+        #[arg(short, long, default_value_t = 20)]
+        limit: usize,
+    },
+
+    /// Inspecciona inmediatamente un archivo con registro forense y veredicto EDR
     Inspect {
         #[arg(value_name = "PATH")]
         path: PathBuf,
     },
-    /// Muestra el estado del vigilante en tiempo real y estadísticas de caché
-    Status,
+
+    /// Establece la postura de defensa del EDR: passive | active | strict
+    Mode {
+        #[arg(value_name = "MODE")]
+        mode: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -464,30 +484,148 @@ async fn main() -> Result<()> {
         }
 
         Commands::Watcher { sub } => {
-            let quarantine_dir = Path::new("data").join("quarantine");
-            let scanner = std::sync::Arc::new(std::sync::Mutex::new(MultiEngineScanner::new()));
-            let watcher = RealTimeWatcher::new(scanner, &quarantine_dir);
+            let core = SamuLibreCore::new(&canary_dir, &vpn_dir, true);
+            let _ = core.initialize();
 
             match sub {
-                WatcherCommands::Inspect { path } => {
-                    println!("\n{}", format!("─── INSPECCIÓN ON-ACCESS EN TIEMPO REAL: {} ───", path.display()).bold().cyan());
-                    if let Some(alert) = watcher.inspect_on_access(&path) {
-                        println!("{} [{}] {}", "🚨 AMENAZA INTERCEPTADA".red().bold(), alert.severity, alert.title.bold().red());
-                        println!("  Detalles: {}", alert.details);
-                        println!("  Acción: {}", alert.action_taken.bold().yellow());
-                        println!("  {} Archivo eliminado del sistema y neutralizado en la bóveda de cuarentena.", "✔".green());
+                WatcherCommands::Status => {
+                    println!("\n{}", "─── REAL-TIME PROTECTION CENTER: ESTADO INTEGRAL EDR ───".bold().cyan());
+                    let status = core.get_edr_status();
+                    let activity = core.get_edr_activity();
+
+                    let status_str = if status.is_active {
+                        "ACTIVA Y VIGILANTE".bold().green()
                     } else {
-                        println!("{} Archivo verificado y validado como seguro en Clean File Cache (<0.05 ms).", "✔ LIMPIO".green().bold());
+                        "DETENIDA".bold().red()
+                    };
+
+                    println!("  Protección Continua:       {}", status_str);
+                    println!("  Postura de Defensa (Modo): {}", format!("{}", status.protection_mode).bold().yellow());
+                    println!("  Kernel Linux Detectado:    {}", status.kernel_version.cyan());
+                    println!("  Distribución SO:           {}", status.linux_distro.bold().white());
+                    println!("  Tiempo Activo (Uptime):    {} segundos", status.uptime_secs);
+
+                    println!("\n  Capas y Sensores de Monitoreo Activos:");
+                    let fanotify_tag = if status.fanotify_active {
+                        "ACTIVO (VFS Interceptor / FAN_OPEN_EXEC)".green()
+                    } else {
+                        "MODO INOTIFY DINÁMICO (Sin root/CAP_SYS_ADMIN)".yellow()
+                    };
+                    println!("    • Capa 1: Filesystem VFS:      {}", fanotify_tag);
+                    println!("    • Capa 1: Inotify Recursivo:   {}", if status.inotify_active { "ACTIVO (Descubrimiento Dinámico)".green() } else { "INACTIVO".red() });
+                    println!("    • Capa 2: Sensor de Procesos:  {}", if status.process_sensor_active { "ACTIVO (/proc, execve & linaje)".green() } else { "INACTIVO".red() });
+                    println!("    • Capa 2: Sensor eBPF:         {}", if status.ebpf_sensor_active { "ACTIVO (Tracepoints de llamadas al sistema)".green() } else { "INACTIVO".red() });
+                    println!("    • Capa 3: Sensor FIM:          {}", if status.fim_active { "ACTIVO (Integridad de /etc y /usr/bin)".green() } else { "INACTIVO".red() });
+                    println!("    • Capa 4: Detección Ransomware:{}", if status.behavioral_active { "ACTIVO (Ráfagas I/O & Entropía Shannon)".green() } else { "INACTIVO".red() });
+                    println!("    • Capa 5: Reconciliación:      {}", if status.reconciliation_active { "ACTIVO (Escaneo en baja prioridad cada 30m)".green() } else { "INACTIVO".red() });
+
+                    println!("\n  Métricas en Tiempo Real:");
+                    println!("    • Eventos en Cola Pendiente:   {}", activity.queue_pending.to_string().bold());
+                    println!("    • Total Eventos Procesados:    {}", activity.events_processed);
+                    println!("    • Eventos Descartados (Sat.):  {}", if activity.events_dropped_saturation > 0 { activity.events_dropped_saturation.to_string().red() } else { "0".green() });
+                    println!("    • Archivos en Caché Limpia:    {}", activity.files_clean_cached.to_string().bold().cyan());
+                    println!("    • Amenazas Bloqueadas:         {}", activity.threats_blocked_isolated.to_string().bold().red());
+                }
+
+                WatcherCommands::Coverage => {
+                    println!("\n{}", "─── COBERTURA DEL SISTEMA DE ARCHIVOS Y PROCESOS ───".bold().cyan());
+                    let cov = core.get_edr_coverage();
+
+                    println!("  Total Directorios Vigilados: {}", cov.total_dirs_watched.to_string().bold().green());
+                    println!("  Sistemas de Archivos Cubiertos: {}", cov.filesystems_monitored.join(", ").cyan());
+                    println!("  Procesos Activos Monitoreados: {}", cov.active_processes_monitored.to_string().bold().yellow());
+                    println!("  Archivos Indexados en Caché:  {}", cov.total_files_indexed.to_string().bold().cyan());
+
+                    println!("\n  Rutas Protegidas:");
+                    for dir in &cov.watch_dirs {
+                        println!("    ✔ {}", dir);
+                    }
+
+                    println!("\n  Exclusiones Explícitas Seguras:");
+                    for exc in &cov.excluded_paths {
+                        println!("    🚫 {}", exc.dimmed());
                     }
                 }
-                WatcherCommands::Status => {
-                    println!("\n{}", "─── ESTADO DEL ESCUDO EN TIEMPO REAL (ON-ACCESS) ───".bold().cyan());
-                    println!("  {} Motor On-Access:           ACTIVO (Intercepción I/O)", "✔".green());
-                    println!("  {} Clean Hash Cache:         EN MEMORIA (Ultra-Baja Latencia)", "✔".green());
-                    println!("  {} Bóveda de Cuarentena:     data/quarantine/ (Cifrado AES-256)", "✔".green());
-                    println!("  {} Consumo Promedio de CPU:  < 0.8%", "✔".green());
+
+                WatcherCommands::Activity => {
+                    println!("\n{}", "─── MÉTRICAS DE ACTIVIDAD Y RENDIMIENTO EDR ───".bold().cyan());
+                    let act = core.get_edr_activity();
+
+                    println!("  Eventos Recibidos:          {}", act.events_received);
+                    println!("  Eventos Procesados:         {}", act.events_processed.to_string().bold().green());
+                    println!("  Cola de Eventos Pendientes: {}", act.queue_pending.to_string().bold().yellow());
+                    println!("  Eventos Perdidos por Sat.:  {}", if act.events_dropped_saturation > 0 { act.events_dropped_saturation.to_string().red() } else { "0 (Sin pérdidas)".green() });
+                    println!("  Archivos Analizados:        {}", act.files_inspected);
+                    println!("  Archivos en Clean Cache:    {}", act.files_clean_cached.to_string().bold().cyan());
+                    println!("  Amenazas Detectadas:        {}", act.threats_detected.to_string().bold().red());
+                    println!("  Amenazas Bloqueadas/Aisladas:{}", act.threats_blocked_isolated.to_string().bold().red());
+                    println!("  Procesos Suspendidos (SIGSTOP): {}", act.processes_suspended.to_string().bold().magenta());
+                    println!("  Tiempo Promedio de Análisis:{} ms", act.avg_inspection_time_ms.to_string().bold().cyan());
+                }
+
+                WatcherCommands::Timeline { limit } => {
+                    println!("\n{}", "─── LÍNEA DE TIEMPO FORENSE EDR (EVENTOS INTERCEPTADOS) ───".bold().cyan());
+                    let timeline = core.get_edr_timeline(limit);
+                    if timeline.is_empty() {
+                        println!("No se registran eventos sospechosos ni amenazas en la ventana actual.");
+                    } else {
+                        for ev in timeline {
+                            let sev_tag = match ev.severity.as_str() {
+                                "Crítica" => ev.severity.bold().red(),
+                                "Alta" => ev.severity.yellow(),
+                                _ => ev.severity.normal(),
+                            };
+                            println!(
+                                "  • [{}] {} | {} | PID: {:?} | Veredicto: {} | Acción: {}",
+                                ev.timestamp.cyan(),
+                                ev.event_type,
+                                sev_tag,
+                                ev.pid.unwrap_or(0),
+                                ev.verdict.bold().white(),
+                                ev.action_taken.bold().yellow()
+                            );
+                            if let Some(ref path) = ev.file_path {
+                                println!("    Ruta: {}", path);
+                            }
+                            if let Some(ref hash) = ev.sha256 {
+                                println!("    SHA-256: {}", hash.dimmed());
+                            }
+                        }
+                    }
+                }
+
+                WatcherCommands::Inspect { path } => {
+                    println!("\n{}", format!("─── INSPECCIÓN EDR FORENSE: {} ───", path.display()).bold().cyan());
+                    if let Some(ev) = core.inspect_file_edr(&path) {
+                        if ev.verdict == "Limpio" {
+                            println!("{} Archivo verificado como seguro por MultiEngineScanner.", "✔ LIMPIO".green().bold());
+                            println!("  SHA-256: {}", ev.sha256.as_deref().unwrap_or(""));
+                            println!("  Acción:  {}", ev.action_taken.green());
+                        } else {
+                            println!("{} {}", "🚨 AMENAZA IDENTIFICADA:".red().bold(), ev.verdict.bold().red());
+                            println!("  Severidad:    {}", ev.severity.bold().red());
+                            println!("  Confianza:    {}%", ev.confidence_score);
+                            println!("  Acción:       {}", ev.action_taken.bold().yellow());
+                            println!("  Sensor:       {}", ev.sensor.cyan());
+                            println!("  SHA-256:      {}", ev.sha256.as_deref().unwrap_or(""));
+                            println!("  Detalles:     {}", ev.details);
+                        }
+                    } else {
+                        println!("{} No se pudo inspeccionar el archivo o no existe.", "✘".red());
+                    }
+                }
+
+                WatcherCommands::Mode { mode } => {
+                    let m = match mode.to_lowercase().as_str() {
+                        "passive" => samulibre_core::ProtectionMode::Passive,
+                        "strict" => samulibre_core::ProtectionMode::Strict,
+                        _ => samulibre_core::ProtectionMode::Active,
+                    };
+                    core.set_edr_mode(m);
+                    println!("{} Modo de defensa EDR actualizado a: {}", "✔".green(), format!("{}", m).bold().yellow());
                 }
             }
+            std::process::exit(0);
         }
 
         Commands::Quarantine { sub } => {

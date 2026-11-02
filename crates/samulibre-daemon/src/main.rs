@@ -87,6 +87,14 @@ async fn main() -> Result<()> {
     let canary_dir = data_dir.join("canaries");
     let vpn_dir = data_dir.join("vpn");
     let core = Arc::new(Mutex::new(SamuLibreCore::new(&canary_dir, &vpn_dir, args.dry_run)));
+    {
+        let c = core.lock().await;
+        if let Err(e) = c.initialize() {
+            warn!("Aviso al inicializar subsistemas en samulibred: {}", e);
+        } else {
+            info!("Subsistemas de protección continua y EDR inicializados en samulibred.");
+        }
+    }
 
     // 5. Iniciar Servidor UNIX Domain Socket
     let mut server = match UnixSocketServer::bind(&sock_path) {
@@ -290,6 +298,59 @@ async fn main() -> Result<()> {
                     let c = core.lock().await;
                     let providers = c.list_threat_intel_providers();
                     IpcResponse::ok(&req.id, serde_json::to_value(&providers).unwrap_or_default())
+                }
+
+                "get_edr_status" => {
+                    let c = core.lock().await;
+                    let status = c.get_edr_status();
+                    IpcResponse::ok(&req.id, serde_json::to_value(&status).unwrap_or_default())
+                }
+
+                "get_edr_coverage" => {
+                    let c = core.lock().await;
+                    let coverage = c.get_edr_coverage();
+                    IpcResponse::ok(&req.id, serde_json::to_value(&coverage).unwrap_or_default())
+                }
+
+                "get_edr_activity" => {
+                    let c = core.lock().await;
+                    let activity = c.get_edr_activity();
+                    IpcResponse::ok(&req.id, serde_json::to_value(&activity).unwrap_or_default())
+                }
+
+                "get_edr_timeline" => {
+                    let limit = req.payload.as_ref()
+                        .and_then(|p| p.get("limit").and_then(|v| v.as_u64()))
+                        .unwrap_or(50) as usize;
+                    let c = core.lock().await;
+                    let timeline = c.get_edr_timeline(limit);
+                    IpcResponse::ok(&req.id, serde_json::to_value(&timeline).unwrap_or_default())
+                }
+
+                "set_edr_mode" => {
+                    let mode_str = req.payload.as_ref()
+                        .and_then(|p| p.get("mode").and_then(|v| v.as_str()))
+                        .unwrap_or("active");
+                    let mode = match mode_str.to_lowercase().as_str() {
+                        "passive" => samulibre_core::ProtectionMode::Passive,
+                        "strict" => samulibre_core::ProtectionMode::Strict,
+                        _ => samulibre_core::ProtectionMode::Active,
+                    };
+                    let c = core.lock().await;
+                    c.set_edr_mode(mode);
+                    IpcResponse::ok(&req.id, serde_json::json!({ "mode": mode_str, "status": "updated" }))
+                }
+
+                "inspect_file_edr" => {
+                    let path_str = req.payload.as_ref()
+                        .and_then(|p| p.get("path").and_then(|v| v.as_str()))
+                        .unwrap_or("");
+                    let c = core.lock().await;
+                    if let Some(event) = c.inspect_file_edr(Path::new(path_str)) {
+                        IpcResponse::ok(&req.id, serde_json::to_value(&event).unwrap_or_default())
+                    } else {
+                        IpcResponse::err(&req.id, format!("No se pudo analizar o ruta inválida: {}", path_str))
+                    }
                 }
 
                 _ => IpcResponse::err(&req.id, format!("Acción '{}' no implementada en el daemon", req.action)),

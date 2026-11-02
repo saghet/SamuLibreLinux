@@ -13,6 +13,36 @@ use std::time::SystemTime;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+pub mod models;
+pub use models::*;
+
+pub mod smart_cache;
+pub use smart_cache::*;
+
+pub mod event_queue;
+pub use event_queue::*;
+
+pub mod fanotify_sensor;
+pub use fanotify_sensor::*;
+
+pub mod inotify_sensor;
+pub use inotify_sensor::*;
+
+pub mod process_sensor;
+pub use process_sensor::*;
+
+pub mod fim_sensor;
+pub use fim_sensor::*;
+
+pub mod behavioral_sensor;
+pub use behavioral_sensor::*;
+
+pub mod reconciliation;
+pub use reconciliation::*;
+
+pub mod continuous_engine;
+pub use continuous_engine::*;
+
 /// Registro de un archivo en caché validado como limpio
 #[derive(Debug, Clone)]
 struct CacheEntry {
@@ -232,21 +262,25 @@ impl QuarantineVault {
     }
 }
 
-/// Motor de Escaneo en Tiempo Real
+/// Motor de Escaneo en Tiempo Real y Protección Continua EDR
 pub struct RealTimeWatcher {
     scanner: Arc<Mutex<MultiEngineScanner>>,
     vault: Arc<QuarantineVault>,
     clean_cache: Arc<Mutex<HashMap<PathBuf, CacheEntry>>>,
     watch_dirs: Vec<PathBuf>,
+    pub edr: Arc<ContinuousProtectionEngine>,
 }
 
 impl RealTimeWatcher {
     pub fn new(scanner: Arc<Mutex<MultiEngineScanner>>, quarantine_dir: impl AsRef<Path>) -> Self {
+        let vault = Arc::new(QuarantineVault::new(&quarantine_dir));
+        let edr = Arc::new(ContinuousProtectionEngine::new(Arc::clone(&scanner), &quarantine_dir));
         Self {
             scanner,
-            vault: Arc::new(QuarantineVault::new(quarantine_dir)),
+            vault,
             clean_cache: Arc::new(Mutex::new(HashMap::new())),
             watch_dirs: Vec::new(),
+            edr,
         }
     }
 
@@ -258,8 +292,37 @@ impl RealTimeWatcher {
     pub fn add_watch_dir(&mut self, dir: impl AsRef<Path>) {
         let p = dir.as_ref().to_path_buf();
         if p.exists() && !self.watch_dirs.contains(&p) {
+            self.edr.add_watch_dir(&p);
             self.watch_dirs.push(p);
         }
+    }
+
+    pub fn add_exclusion(&mut self, dir: impl AsRef<Path>) {
+        self.edr.add_exclusion(dir);
+    }
+
+    pub fn get_edr_status(&self) -> EdrProtectionStatus {
+        self.edr.get_status()
+    }
+
+    pub fn get_edr_coverage(&self) -> CoverageMetrics {
+        self.edr.get_coverage()
+    }
+
+    pub fn get_edr_activity(&self) -> ActivityMetrics {
+        self.edr.get_activity()
+    }
+
+    pub fn get_edr_timeline(&self, limit: usize) -> Vec<EdrEvent> {
+        self.edr.get_timeline(limit)
+    }
+
+    pub fn set_edr_mode(&self, mode: ProtectionMode) {
+        self.edr.set_mode(mode);
+    }
+
+    pub fn inspect_file_edr(&self, path: &Path) -> Option<EdrEvent> {
+        self.edr.inspect_file_immediately(path)
     }
 
     /// Analiza un archivo interceptado en tiempo real
@@ -387,12 +450,18 @@ impl RealTimeWatcher {
     /// con debouncing temporal de 200 ms para eliminar ráfagas de escritura y mantener CPU < 0.3%.
     pub fn start_background_watcher<F>(&self, on_threat_detected: F) -> Result<RecommendedWatcher>
     where
-        F: Fn(ThreatAlert) + Send + Sync + 'static,
+        F: Fn(ThreatAlert) + Send + Sync + Clone + 'static,
     {
+        // 1. Iniciar Motor Multicapa EDR (Fanotify, Inotify dinámico, Process Sensor, FIM, Reconciliación)
+        if let Err(e) = self.edr.start(on_threat_detected.clone()) {
+            warn!("Aviso: No se pudo arrancar el motor multicapa EDR completo: {}", e);
+        }
+
         let scanner_clone = Arc::clone(&self.scanner);
         let scanner_cb = Arc::clone(&scanner_clone);
         let vault_clone = Arc::clone(&self.vault);
         let cache_clone = Arc::clone(&self.clean_cache);
+        let edr_clone = Arc::clone(&self.edr);
         let recent_events: Arc<Mutex<HashMap<PathBuf, std::time::Instant>>> = Arc::new(Mutex::new(HashMap::new()));
         let recent_events_cb = Arc::clone(&recent_events);
 
@@ -453,6 +522,7 @@ impl RealTimeWatcher {
                                         vault: Arc::clone(&vault_clone),
                                         clean_cache: Arc::clone(&cache_clone),
                                         watch_dirs: Vec::new(),
+                                        edr: Arc::clone(&edr_clone),
                                     };
                                     if let Some(alert) = sub_watcher.inspect_on_access(&path) {
                                         on_threat_detected(alert);
@@ -642,6 +712,117 @@ mod tests {
         assert!(restore_res.is_err(), "Restoration must fail when metadata is tampered");
         let err_msg = restore_res.unwrap_err().to_string();
         assert!(err_msg.contains("manipulados externamente") || err_msg.contains("HMAC"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_edr_event_queue_priority_and_backpressure() {
+        let queue = EdrEventQueue::new(5);
+
+        // Encolar elementos con diferentes prioridades
+        queue.enqueue(QueuePriority::Low, PathBuf::from("/test/low.txt"), EdrEventType::FileModify, None, None, None);
+        queue.enqueue(QueuePriority::Critical, PathBuf::from("/tmp/malware.elf"), EdrEventType::ProcessExec, Some(1234), None, None);
+        queue.enqueue(QueuePriority::High, PathBuf::from("/home/user/script.sh"), EdrEventType::FileCreate, None, None, None);
+        queue.enqueue(QueuePriority::Normal, PathBuf::from("/home/user/doc.pdf"), EdrEventType::FileModify, None, None, None);
+
+        // El primer elemento extraído DEBE ser el crítico
+        let first = queue.pop_timeout(std::time::Duration::from_millis(100)).expect("Debe haber elemento");
+        assert_eq!(first.priority, QueuePriority::Critical);
+        assert_eq!(first.path, PathBuf::from("/tmp/malware.elf"));
+
+        // El segundo elemento debe ser el de prioridad High
+        let second = queue.pop_timeout(std::time::Duration::from_millis(100)).expect("Debe haber elemento");
+        assert_eq!(second.priority, QueuePriority::High);
+
+        // Llenar la cola hasta el tope
+        queue.enqueue(QueuePriority::Normal, PathBuf::from("/1"), EdrEventType::FileModify, None, None, None);
+        queue.enqueue(QueuePriority::Normal, PathBuf::from("/2"), EdrEventType::FileModify, None, None, None);
+        queue.enqueue(QueuePriority::Normal, PathBuf::from("/3"), EdrEventType::FileModify, None, None, None);
+
+        // Intentar agregar uno no crítico excediendo capacidad debe descartarlo
+        let accepted = queue.enqueue(QueuePriority::Normal, PathBuf::from("/dropped"), EdrEventType::FileModify, None, None, None);
+        assert!(!accepted, "Elemento no crítico debió ser descartado por saturación");
+        assert!(queue.get_dropped_count() >= 1);
+    }
+
+    #[test]
+    fn test_smart_cache_invalidation_on_signatures_db_change() {
+        let temp_dir = std::env::temp_dir().join(format!("samu_smart_cache_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let test_file = temp_dir.join("clean_binary.bin");
+        fs::write(&test_file, b"SAFE_BINARY_CONTENT_12345").unwrap();
+
+        let cache = SmartInspectionCache::new(100);
+
+        // Insertar con versión de firmas "db_v1"
+        cache.insert_clean(test_file.clone(), "sha_dummy_123".to_string(), "db_v1".to_string());
+
+        // Consultar con "db_v1" debe dar HIT
+        assert_eq!(cache.query_clean(&test_file, "db_v1"), Some("sha_dummy_123".to_string()));
+
+        // Consultar con versión nueva de firmas "db_v2" debe dar MISS (invalidación automática)
+        assert_eq!(cache.query_clean(&test_file, "db_v2"), None);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_behavioral_ransomware_burst_and_entropy() {
+        let temp_dir = std::env::temp_dir().join(format!("samu_ransomware_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+
+        let behavioral = BehavioralSensor::new(3, std::time::Duration::from_secs(2));
+        let queue = EdrEventQueue::new(100);
+
+        // Crear archivos con nombres tipo ransomware
+        for i in 0..4 {
+            let f = temp_dir.join(format!("doc_{}.docx.locked", i));
+            // Escribir bytes pseudo-aleatorios con alta entropía (>7.6)
+            let high_entropy_bytes: Vec<u8> = (0..1024).map(|x| ((x * 167 + 13) % 256) as u8).collect();
+            fs::write(&f, high_entropy_bytes).unwrap();
+
+            let bad_pid = behavioral.record_write_operation(9999, &f, &queue);
+            if i >= 2 {
+                // Al tercer/cuarto archivo en ráfaga debe disparar alerta de ransomware
+                assert_eq!(bad_pid, Some(9999));
+            }
+        }
+
+        assert!(queue.len() >= 1);
+        let event = queue.pop_timeout(std::time::Duration::from_millis(50)).unwrap();
+        assert_eq!(event.event_type, EdrEventType::RansomwareBurst);
+        assert_eq!(event.priority, QueuePriority::Critical);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_continuous_protection_engine_status_and_activity() {
+        let scanner = Arc::new(Mutex::new(MultiEngineScanner::new()));
+        let temp_dir = std::env::temp_dir().join(format!("samu_engine_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+
+        let engine = ContinuousProtectionEngine::new(scanner, &temp_dir);
+        let status = engine.get_status();
+        assert_eq!(status.protection_mode, ProtectionMode::Active);
+
+        let coverage = engine.get_coverage();
+        assert_eq!(coverage.filesystems_monitored.len(), 3);
+
+        let activity = engine.get_activity();
+        assert_eq!(activity.threats_detected, 0);
+
+        // Probar inspección inmediata
+        let safe_file = temp_dir.join("clean.txt");
+        fs::write(&safe_file, b"CLEAN_FILE_DATA").unwrap();
+        let ev = engine.inspect_file_immediately(&safe_file);
+        assert!(ev.is_some());
+        let e = ev.unwrap();
+        assert_eq!(e.verdict, "Limpio");
+
+        let timeline = engine.get_timeline(10);
+        assert_eq!(timeline.len(), 1);
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

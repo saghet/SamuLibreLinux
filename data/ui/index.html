@@ -674,12 +674,12 @@
                   <span class="text-[10px] text-gray-400">Yama ptrace_scope & aislamiento /proc/mem</span>
                 </div>
               </div>
-              <div id="lsassSwitch" class="apple-switch active cursor-pointer" onclick="toggleLsassSwitch(this)">
+              <div id="memoryProtectionSwitch" class="apple-switch active cursor-pointer" onclick="toggleMemoryProtectionSwitch(this)">
                 <div class="apple-switch-thumb"></div>
               </div>
             </div>
             <p class="text-xs text-gray-400">Bloquea intentos de inyección y volcado de memoria mediante ptrace, Process VM Read y accesos no autorizados a /proc/$PID/mem.</p>
-            <div id="lsassStatusSub" class="text-[11px] font-mono text-emerald-400 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/15">
+            <div id="memoryProtectionStatusSub" class="text-[11px] font-mono text-emerald-400 bg-emerald-500/5 px-2.5 py-1.5 rounded-lg border border-emerald-500/15">
               Estado: Blindado (ptrace_scope Yama y restricción /proc/mem activa)
             </div>
           </div>
@@ -698,7 +698,7 @@
                 <div class="apple-switch-thumb"></div>
               </div>
             </div>
-            <p class="text-xs text-gray-400">Protege almacenes DPAPI y perfiles de Chrome, Edge, Brave y Firefox contra troyanos InfoStealers.</p>
+            <p class="text-xs text-gray-400">Protege almacenes de credenciales Secret Service (KWallet/GNOME Keyring) y perfiles de Chrome, Chromium, Brave y Firefox contra InfoStealers.</p>
             <div id="cookieStatusSub" class="text-[11px] font-mono text-blue-400 bg-blue-500/5 px-2.5 py-1.5 rounded-lg border border-blue-500/15">
               Estado: Bloqueo activo fuera de procesos oficiales (Chrome, Edge, Firefox)
             </div>
@@ -2099,18 +2099,18 @@
     window.onShieldStatusUpdated = function(status) {
       if (!status) return;
 
-      // 1. Interruptor LSASS
-      const lsassSw = document.getElementById('lsassSwitch');
-      const lsassSub = document.getElementById('lsassStatusSub');
-      if (lsassSw) {
+      // 1. Interruptor Protección de Memoria & Yama ptrace
+      const memSw = document.getElementById('memoryProtectionSwitch') || document.getElementById('lsassSwitch');
+      const memSub = document.getElementById('memoryProtectionStatusSub') || document.getElementById('lsassStatusSub');
+      if (memSw) {
         if (status.lsass_protection_active) {
-          lsassSw.classList.add('active');
+          memSw.classList.add('active');
         } else {
-          lsassSw.classList.remove('active');
+          memSw.classList.remove('active');
         }
       }
-      if (lsassSub) {
-        lsassSub.textContent = `Estado: ${status.lsass_status_text}`;
+      if (memSub) {
+        memSub.textContent = `Estado: ${status.lsass_status_text}`;
       }
 
       // 2. Interruptor Cookies
@@ -2171,7 +2171,7 @@
       }
     };
 
-    function toggleLsassSwitch(el) {
+    function toggleMemoryProtectionSwitch(el) {
       const isCurrentlyActive = el.classList.contains('active');
       const newState = !isCurrentlyActive;
       if (newState) {
@@ -2181,8 +2181,9 @@
         el.classList.remove('active');
         showToast('Protección de Memoria Desactivada', 'Supervisión de ptrace y memoria en modo pasivo.');
       }
-      sendIpc('toggle_lsass_protection', newState ? 'true' : 'false');
+      sendIpc('toggle_memory_protection', newState ? 'true' : 'false');
     }
+    const toggleLsassSwitch = toggleMemoryProtectionSwitch;
 
     function toggleCookieSwitch(el) {
       const isCurrentlyActive = el.classList.contains('active');

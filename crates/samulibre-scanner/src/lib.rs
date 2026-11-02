@@ -144,15 +144,36 @@ impl MultiEngineScanner {
         let sig_dir = get_signatures_storage_dir();
         let sig_path = sig_dir.join("malware_hashes.db");
         if let Ok(content) = fs::read_to_string(&sig_path) {
+            // SEC-04 Blindaje contra Inyección y DoS en Firmas Externas
+            const PROTECTED_WHITELIST_HASHES: &[&str] = &[
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // Empty file SHA-256
+            ];
+
             for line in content.lines() {
                 let trimmed = line.trim();
                 if trimmed.is_empty() || trimmed.starts_with('#') {
                     continue;
                 }
-                if let Some((hash, name)) = trimmed.split_once(':') {
-                    self.known_signatures.insert(hash.trim().to_lowercase(), name.trim().to_string());
-                } else if let Some((hash, name)) = trimmed.split_once(';') {
-                    self.known_signatures.insert(hash.trim().to_lowercase(), name.trim().to_string());
+                let pair = trimmed.split_once(':').or_else(|| trimmed.split_once(';'));
+                if let Some((raw_hash, raw_name)) = pair {
+                    let hash = raw_hash.trim().to_lowercase();
+                    let name = raw_name.trim();
+
+                    // Validación estricta de formato: SHA-256 (64 hex) o MD5 (32 hex)
+                    let is_valid_hex = (hash.len() == 64 || hash.len() == 32) 
+                        && hash.chars().all(|c| c.is_ascii_hexdigit());
+
+                    if !is_valid_hex || name.is_empty() || name.len() > 128 {
+                        tracing::warn!("Línea de firma malformada descartada por seguridad: '{}'", trimmed);
+                        continue;
+                    }
+
+                    if PROTECTED_WHITELIST_HASHES.contains(&hash.as_str()) {
+                        tracing::warn!("Intento de inyección de hash del sistema o vacío descartado: {}", hash);
+                        continue;
+                    }
+
+                    self.known_signatures.insert(hash, name.to_string());
                 }
             }
         }
@@ -733,15 +754,36 @@ impl MultiEngineScanner {
         let sig_dir = get_signatures_storage_dir();
         let sig_path = sig_dir.join("malware_hashes.db");
         if let Ok(content) = fs::read_to_string(&sig_path) {
+            // SEC-04 Blindaje contra Inyección y DoS en Firmas Externas
+            const PROTECTED_WHITELIST_HASHES: &[&str] = &[
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // Empty file SHA-256
+            ];
+
             for line in content.lines() {
                 let trimmed = line.trim();
                 if trimmed.is_empty() || trimmed.starts_with('#') {
                     continue;
                 }
-                if let Some((hash, name)) = trimmed.split_once(':') {
-                    self.known_signatures.insert(hash.trim().to_lowercase(), name.trim().to_string());
-                } else if let Some((hash, name)) = trimmed.split_once(';') {
-                    self.known_signatures.insert(hash.trim().to_lowercase(), name.trim().to_string());
+                let pair = trimmed.split_once(':').or_else(|| trimmed.split_once(';'));
+                if let Some((raw_hash, raw_name)) = pair {
+                    let hash = raw_hash.trim().to_lowercase();
+                    let name = raw_name.trim();
+
+                    // Validación estricta de formato: SHA-256 (64 hex) o MD5 (32 hex)
+                    let is_valid_hex = (hash.len() == 64 || hash.len() == 32) 
+                        && hash.chars().all(|c| c.is_ascii_hexdigit());
+
+                    if !is_valid_hex || name.is_empty() || name.len() > 128 {
+                        tracing::warn!("Línea de firma malformada descartada por seguridad: '{}'", trimmed);
+                        continue;
+                    }
+
+                    if PROTECTED_WHITELIST_HASHES.contains(&hash.as_str()) {
+                        tracing::warn!("Intento de inyección de hash del sistema o vacío descartado: {}", hash);
+                        continue;
+                    }
+
+                    self.known_signatures.insert(hash, name.to_string());
                 }
             }
         }

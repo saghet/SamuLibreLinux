@@ -208,8 +208,25 @@ pub fn audit_extension_manifest(
 
 /// Elimina de forma segura y permanente una extensión instalada en Chrome o Edge
 pub fn remove_browser_extension(browser: &str, profile: &str, ext_id: &str) -> Result<String> {
-    if ext_id.trim().is_empty() {
-        anyhow::bail!("Identificador de extensión inválido");
+    let clean_ext = ext_id.trim();
+    let clean_profile = profile.trim();
+
+    // SEC-06 Blindaje Anti-Path Traversal estricto (CWE-22)
+    if clean_ext.is_empty() 
+        || clean_ext.contains('/') 
+        || clean_ext.contains('\\') 
+        || clean_ext.contains("..") 
+        || !clean_ext.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') 
+    {
+        anyhow::bail!("Identificador de extensión inválido o potencialmente malicioso (violación de seguridad)");
+    }
+
+    if clean_profile.is_empty() 
+        || clean_profile.contains('/') 
+        || clean_profile.contains('\\') 
+        || clean_profile.contains("..") 
+    {
+        anyhow::bail!("Nombre de perfil de navegador inválido o con caracteres de escape prohibidos");
     }
 
     let mut ext_dir_opt: Option<PathBuf> = None;
@@ -224,8 +241,8 @@ pub fn remove_browser_extension(browser: &str, profile: &str, ext_id: &str) -> R
             } else {
                 base.join("Google").join("Chrome").join("User Data")
             };
-            let p_dir = browser_folder.join(profile);
-            let ext_dir = p_dir.join("Extensions").join(ext_id);
+            let p_dir = browser_folder.join(clean_profile);
+            let ext_dir = p_dir.join("Extensions").join(clean_ext);
             if ext_dir.exists() {
                 ext_dir_opt = Some(ext_dir);
                 profile_dir_opt = Some(p_dir);
@@ -242,8 +259,8 @@ pub fn remove_browser_extension(browser: &str, profile: &str, ext_id: &str) -> R
             } else {
                 base.join(".config").join("google-chrome")
             };
-            let p_dir = browser_folder.join(profile);
-            let ext_dir = p_dir.join("Extensions").join(ext_id);
+            let p_dir = browser_folder.join(clean_profile);
+            let ext_dir = p_dir.join("Extensions").join(clean_ext);
             if ext_dir.exists() {
                 ext_dir_opt = Some(ext_dir);
                 profile_dir_opt = Some(p_dir);
@@ -251,7 +268,15 @@ pub fn remove_browser_extension(browser: &str, profile: &str, ext_id: &str) -> R
         }
     }
 
-    let ext_dir = ext_dir_opt.ok_or_else(|| anyhow::anyhow!("No se encontró la carpeta de la extensión '{}'", ext_id))?;
+    let ext_dir = ext_dir_opt.ok_or_else(|| anyhow::anyhow!("No se encontró la carpeta de la extensión '{}'", clean_ext))?;
+
+    // Validar contención estricta: asegurar que ext_dir resida estrictamente dentro de p_dir/Extensions
+    if let Some(ref p_dir) = profile_dir_opt {
+        let expected_parent = p_dir.join("Extensions");
+        if ext_dir.parent() != Some(&expected_parent) {
+            anyhow::bail!("Intento de manipulación de ruta detectado: la carpeta de la extensión no reside dentro del directorio de extensiones del perfil");
+        }
+    }
 
     // 1. Borrado físico del directorio de la extensión
     fs::remove_dir_all(&ext_dir)?;
@@ -348,5 +373,17 @@ mod tests {
         let raw = "Normal Extension Name";
         let resolved = resolve_locales_name(dummy_path, raw);
         assert_eq!(resolved, "Normal Extension Name");
+    }
+
+    #[test]
+    fn test_remove_browser_extension_path_traversal_blocked() {
+        // Intentos de path traversal en extension ID
+        assert!(remove_browser_extension("Google Chrome", "Default", "../../../etc/shadow").is_err());
+        assert!(remove_browser_extension("Google Chrome", "Default", "malicious/slash").is_err());
+        assert!(remove_browser_extension("Google Chrome", "Default", "malicious\\backslash").is_err());
+
+        // Intentos de path traversal en profile
+        assert!(remove_browser_extension("Google Chrome", "../../etc", "validextensionid").is_err());
+        assert!(remove_browser_extension("Google Chrome", "", "validextensionid").is_err());
     }
 }

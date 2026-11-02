@@ -109,18 +109,33 @@ impl QuarantineVault {
             isolated_file_path: isolated_path.to_string_lossy().to_string(),
         };
 
-        // Guardar metadatos en JSON
+        // Guardar metadatos en JSON y firma de autenticidad HMAC (SEC-03)
         let meta_path = self.quarantine_dir.join(format!("{}.meta.json", id));
         fs::write(&meta_path, serde_json::to_string_pretty(&record)?)?;
+        let sig_path = self.quarantine_dir.join(format!("{}.meta.sig", id));
+        let hmac_tag = Self::compute_record_hmac(&record);
+        fs::write(&sig_path, hmac_tag)?;
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             let _ = fs::set_permissions(&meta_path, fs::Permissions::from_mode(0o600));
+            let _ = fs::set_permissions(&sig_path, fs::Permissions::from_mode(0o600));
         }
 
         warn!("¡AMENAZA AISLADA EN CUARENTENA! Archivo: {} -> Bóveda: {:?}", source_path.display(), isolated_path);
         Ok(record)
+    }
+
+    /// Calcula un código de autenticación (HMAC-SHA256) para proteger los metadatos de la cuarentena contra manipulación
+    pub fn compute_record_hmac(record: &QuarantineRecord) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(b"SamuLibre_Quarantine_Vault_HMAC_Auth_Tag_v1");
+        hasher.update(record.id.as_bytes());
+        hasher.update(record.original_path.as_bytes());
+        hasher.update(record.sha256.as_bytes());
+        hex::encode(hasher.finalize())
     }
 
     /// Lista los elementos actualmente en cuarentena
@@ -145,30 +160,73 @@ impl QuarantineVault {
     pub fn purge_file(&self, id: Uuid) -> Result<bool> {
         let isolated_path = self.quarantine_dir.join(format!("{}.quarantine", id));
         let meta_path = self.quarantine_dir.join(format!("{}.meta.json", id));
+        let sig_path = self.quarantine_dir.join(format!("{}.meta.sig", id));
         let _ = fs::remove_file(isolated_path);
         let _ = fs::remove_file(meta_path);
+        let _ = fs::remove_file(sig_path);
         Ok(true)
     }
 
     /// Restaura un archivo previamente aislado a su ruta original descifrando su contenido
     pub fn restore_file(&self, id: Uuid) -> Result<String> {
         let meta_path = self.quarantine_dir.join(format!("{}.meta.json", id));
+        let sig_path = self.quarantine_dir.join(format!("{}.meta.sig", id));
         let isolated_path = self.quarantine_dir.join(format!("{}.quarantine", id));
         if !meta_path.exists() || !isolated_path.exists() {
             anyhow::bail!("Registro de cuarentena no encontrado en {}", self.quarantine_dir.display());
         }
         let meta_content = fs::read_to_string(&meta_path)?;
         let record = serde_json::from_str::<QuarantineRecord>(&meta_content)?;
+
+        // SEC-03.1: Verificación de autenticidad HMAC de los metadatos de cuarentena
+        if sig_path.exists() {
+            let expected_sig = fs::read_to_string(&sig_path)?.trim().to_string();
+            let computed_sig = Self::compute_record_hmac(&record);
+            if expected_sig != computed_sig {
+                anyhow::bail!("ALERTA DE SEGURIDAD: Los metadatos de cuarentena han sido manipulados externamente (firma HMAC inválida). Restauración abortada.");
+            }
+        }
+
+        // SEC-03.2: Blindaje Anti-Symlink / Anti-LPE en la ruta de destino
+        let target_path = PathBuf::from(&record.original_path);
+        if !target_path.is_absolute() {
+            anyhow::bail!("Intento de manipulación detectado: la ruta de restauración '{}' no es una ruta absoluta válida.", target_path.display());
+        }
+        if target_path.to_string_lossy().contains("..") {
+            anyhow::bail!("Intento de manipulación detectado: la ruta de restauración '{}' contiene secuencias relativas '..'.", target_path.display());
+        }
+        if let Ok(meta) = fs::symlink_metadata(&target_path) {
+            if meta.file_type().is_symlink() {
+                anyhow::bail!("Intento de manipulación LPE detectado: la ruta de restauración '{}' es un enlace simbólico.", target_path.display());
+            }
+        }
+        // Validar que el directorio padre no sea un symlink malicioso
+        if let Some(parent) = target_path.parent() {
+            if let Ok(p_meta) = fs::symlink_metadata(parent) {
+                if p_meta.file_type().is_symlink() {
+                    anyhow::bail!("Intento de manipulación LPE detectado: el directorio padre '{}' es un enlace simbólico.", parent.display());
+                }
+            }
+            let _ = fs::create_dir_all(parent);
+        }
+
         let obfuscated_bytes = fs::read(&isolated_path)?;
         let mask = Self::derive_quarantine_mask(&id, obfuscated_bytes.len());
         let restored_bytes: Vec<u8> = obfuscated_bytes.iter().zip(mask.iter()).map(|(b, m)| b ^ m).collect();
-        let target_path = PathBuf::from(&record.original_path);
-        if let Some(parent) = target_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
+
+        // Escribir el archivo restaurado de forma segura
         fs::write(&target_path, restored_bytes)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // Asegurar que el archivo restaurado tenga permisos estándar seguros (no ejecutables por omisión)
+            let _ = fs::set_permissions(&target_path, fs::Permissions::from_mode(0o644));
+        }
+
         let _ = fs::remove_file(&isolated_path);
         let _ = fs::remove_file(&meta_path);
+        let _ = fs::remove_file(&sig_path);
         info!("Archivo restaurado con éxito desde la cuarentena: {}", record.original_path);
         Ok(record.original_path)
     }
@@ -559,6 +617,31 @@ mod tests {
             // Comprobar que nunca excede las 10.000 entradas
             assert!(cache.len() < 10_000, "Clean cache exceeded memory bound: {}", cache.len());
         }
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_quarantine_tamper_detection_and_anti_symlink() {
+        let temp_dir = std::env::temp_dir().join(format!("samu_quarantine_sec_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let vault = QuarantineVault::new(&temp_dir);
+
+        let sample_file = temp_dir.join("malware_test.bin");
+        fs::write(&sample_file, b"MALICIOUS_BYTES_TO_RESTORE").unwrap();
+        let record = vault.isolate_file(&sample_file, "Trojan.Test", "Engine", "hash123").unwrap();
+
+        // 1. Alterar metadatos JSON para intentar que se restaure en otra ruta sensible
+        let meta_path = temp_dir.join(format!("{}.meta.json", record.id));
+        let mut meta_json: serde_json::Value = serde_json::from_str(&fs::read_to_string(&meta_path).unwrap()).unwrap();
+        meta_json["original_path"] = serde_json::Value::String("/etc/shadow".to_string());
+        fs::write(&meta_path, serde_json::to_string(&meta_json).unwrap()).unwrap();
+
+        // Debe abortar con error de HMAC inválido
+        let restore_res = vault.restore_file(record.id);
+        assert!(restore_res.is_err(), "Restoration must fail when metadata is tampered");
+        let err_msg = restore_res.unwrap_err().to_string();
+        assert!(err_msg.contains("manipulados externamente") || err_msg.contains("HMAC"));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

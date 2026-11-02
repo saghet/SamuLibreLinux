@@ -1424,32 +1424,47 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                             } else {
                                 (payload_str.clone(), payload_str)
                             };
-                            let p = PathBuf::from(&path_str);
-                            let del_res = if p.exists() {
-                                fs::remove_file(&p)
+
+                            let is_dangerous_system_path = path_str == "/" 
+                                || path_str.starts_with("/bin") 
+                                || path_str.starts_with("/sbin") 
+                                || path_str.starts_with("/lib") 
+                                || path_str.starts_with("/usr/bin")
+                                || path_str.starts_with("/etc");
+
+                            if is_dangerous_system_path {
+                                let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                    title: "Acción Denegada por Seguridad".to_string(),
+                                    details: format!("Se bloqueó el intento de eliminación de una ruta protegida del sistema: '{}'", path_str),
+                                });
                             } else {
-                                Ok(())
-                            };
-                            let mut history = load_threat_history();
-                            for item in history.iter_mut() {
-                                if item.id == threat_id || item.file_path == path_str {
-                                    item.action_taken = "Eliminado".to_string();
+                                let p = PathBuf::from(&path_str);
+                                let del_res = if p.exists() {
+                                    fs::remove_file(&p)
+                                } else {
+                                    Ok(())
+                                };
+                                let mut history = load_threat_history();
+                                for item in history.iter_mut() {
+                                    if item.id == threat_id || item.file_path == path_str {
+                                        item.action_taken = "Eliminado".to_string();
+                                    }
                                 }
-                            }
-                            save_threat_history(&history);
-                            let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
-                            match del_res {
-                                Ok(_) => {
-                                    let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
-                                        title: "✔ Amenaza Eliminada Permanentemente".to_string(),
-                                        details: format!("'{}' destruido de forma segura del sistema.", path_str),
-                                    });
-                                }
-                                Err(e) => {
-                                    let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
-                                        title: "Error al Eliminar Archivo".to_string(),
-                                        details: format!("No se pudo eliminar '{}': {}", path_str, e),
-                                    });
+                                save_threat_history(&history);
+                                let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
+                                match del_res {
+                                    Ok(_) => {
+                                        let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "✔ Amenaza Eliminada Permanentemente".to_string(),
+                                            details: format!("'{}' destruido de forma segura del sistema.", path_str),
+                                        });
+                                    }
+                                    Err(e) => {
+                                        let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "Error al Eliminar Archivo".to_string(),
+                                            details: format!("No se pudo eliminar '{}': {}", path_str, e),
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -1485,7 +1500,19 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         let mut count = 0;
                         for item in history.iter_mut() {
                             if item.action_taken == "Pendiente" {
-                                let p = PathBuf::from(&item.file_path);
+                                let p_str = &item.file_path;
+                                let is_dangerous = p_str == "/" 
+                                    || p_str.starts_with("/bin") 
+                                    || p_str.starts_with("/sbin") 
+                                    || p_str.starts_with("/lib") 
+                                    || p_str.starts_with("/usr/bin")
+                                    || p_str.starts_with("/etc");
+
+                                if is_dangerous {
+                                    continue;
+                                }
+
+                                let p = PathBuf::from(p_str);
                                 if p.exists() {
                                     let _ = fs::remove_file(&p);
                                 }

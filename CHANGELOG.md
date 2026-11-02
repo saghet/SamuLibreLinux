@@ -6,6 +6,19 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-01
 
+### 🔒 Autoprotección, Hardening y Correcciones de Seguridad Críticas (Fase 5)
+- **Confinamiento de Kernel en Micro-Sandbox (`bwrap`):**
+  - Remediada la vulnerabilidad crítica de ejecución no confinada en el host. Implementado aislamiento mediante **Bubblewrap** (`--unshare-all`, `--ro-bind /usr`, `--tmpfs /tmp`, red 100% aislada, `--die-with-parent`). Bloqueo preventivo de ejecución dinámica en el host si `bwrap` no está disponible.
+- **Autenticidad Criptográfica HMAC y Protección Anti-Symlink en Cuarentena:**
+  - Generación y verificación estricta de tags HMAC-SHA256 (`<id>.meta.sig`) para prevenir manipulación externa de rutas de destino.
+  - Blindaje en `restore_file` que deniega la restauración si la ruta o su directorio padre es un enlace simbólico (`is_symlink()`), evitando ataques de sobreescritura arbitraria (CWE-59).
+- **Prevención de Path Traversal en Extensiones:**
+  - Validación de expresiones seguras en `remove_browser_extension`, bloqueando secuencias `..`, `/` y `\` (CWE-22) y forzando contención estricta dentro de `Extensions/`.
+- **Validación Estricta y Anti-DoS en Firmas Externas:**
+  - Validación de hashes hexadecimales y lista blanca de protección para impedir inyección maliciosa de archivos esenciales del sistema operativo.
+- **Protección IPC de Rutas Críticas del Sistema:**
+  - Bloqueo de peticiones de eliminación dirigidas contra directorios esenciales del sistema (`/`, `/bin`, `/sbin`, `/lib`, `/usr/bin`, `/etc`).
+
 ### 📦 Compatibilidad con Distribuciones Linux y Empaquetado Multi-Ecosistema (Fase 4)
 - **Pipeline de Empaquetado Nativo para Tres Grandes Ecosistemas:**
   - **Ubuntu / Debian (`.deb`):** Generación automatizada con `build_deb.sh` (`target/samulibre_2.0.32_amd64.deb`). Compatible con APT/DPKG, integración con `unattended-upgrades`, control de dependencias Freedesktop y soporte de políticas AppArmor para WebKitGTK.

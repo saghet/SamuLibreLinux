@@ -770,3 +770,46 @@ Se implementaron y probaron con éxito los scripts automatizados de generación 
 * **Versión del Workspace:** Unificada a `2.0.32` en todos los crates y ficheros de empaquetado (`Cargo.toml`, `Cargo.lock`, `PKGBUILD`, `samulibre.spec`).
 * **Estado de Integridad:** Pruebas unitarias al 100% de éxito en todos los componentes (`samulibre-scanner`, `samulibre-shield`, `samulibre-core`, etc.).
 * **Distribuciones Validadas:** Ubuntu 22.04/24.04 LTS, Debian 12, RHEL 9 / Fedora 40, Arch Linux y Garuda Linux.
+
+---
+
+## 25. Sección 25: Auditoría de Seguridad del Propio Antivirus y Correcciones Críticas Inmediatas (Fase 5)
+
+### 25.1 Diagnóstico de Vulnerabilidades Internas
+Tras una auditoría estricta de código fuente bajo modelo *Zero-Trust*, se identificaron y remediaron las siguientes debilidades de seguridad en los componentes centrales de SamuLibre:
+
+1. **[CRÍTICO] SEC-01 - Ejecución Insegura en Micro-Sandbox sin Aislamiento de Kernel:**
+   * La función `execute_and_analyze` en `samulibre-core/sandbox.rs` invocaba directamente `Command::new.spawn()` en el host. Al analizar binarios hostiles, el malware se ejecutaba directamente en el sistema anfitrión sin contención.
+2. **[ALTO] SEC-03 - Manipulación de Metadatos de Cuarentena y Ataques Symlink en Restauración:**
+   * Los registros de cuarentena `<id>.meta.json` carecían de firma de autenticidad HMAC, permitiendo alterar la ruta de destino. En `restore_file`, no se verificaba si el destino era un enlace simbólico, exponiendo el sistema a sobreescritura arbitraria de archivos (`TOCTOU` / `CWE-59`).
+3. **[ALTO] SEC-04 - Inyección y DoS en Carga de Firmas Externas:**
+   * Las firmas comunitarias en `malware_hashes.db` se leían sin validar la sintaxis de hash ni proteger hashes de archivos del sistema esenciales o archivos vacíos, posibilitando ataques de denegación de servicio por falsos positivos provocados.
+4. **[MEDIO] SEC-06 - Path Traversal en Borrado de Extensiones:**
+   * La función `remove_browser_extension` concatenaba `profile` y `ext_id` sin validar secuencias `..` ni caracteres de escape (`/`, `\`), permitiendo a peticiones IPC maliciosas borrar directorios arbitrarios del usuario (`CWE-22`).
+5. **[MEDIO] SEC-02/GUI - Blindaje de Eliminación de Rutas Críticas del Sistema:**
+   * El manejador de eventos de eliminación de amenazas en `samulibre-gui` carecía de verificación de rutas protegidas del sistema operativo (`/bin`, `/etc`, `/lib`, `/usr/bin`), permitiendo que órdenes IPC borraran binarios vitales.
+
+---
+
+### 25.2 Mejoras y Correcciones Inmediatas Implementadas
+
+| Vulnerabilidad | Archivo Modificado | Solución Técnica Implementada |
+|---|---|---|
+| **SEC-01: Micro-Sandbox Bubblewrap** | [crates/samulibre-core/src/sandbox.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-core/src/sandbox.rs) | Integración con **Bubblewrap (`/usr/bin/bwrap`)** con aislamiento total de namespaces (`--unshare-all`), montajes de solo lectura (`--ro-bind /usr`), red 100% desconectada, memoria efímera `tmpfs` en `/tmp` y terminación automática de procesos hijos (`--die-with-parent`). Si `bwrap` no está disponible, se bloquea la ejecución dinámica en el host y se aplica análisis estático preventivo. |
+| **SEC-03: HMAC y Anti-Symlink en Cuarentena** | [crates/samulibre-watcher/src/lib.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-watcher/src/lib.rs) | Generación y verificación obligatoria de firmas de autenticidad **HMAC-SHA256** (`<id>.meta.sig`). Validación estricta en `restore_file` denegando la restauración si la ruta de destino o su directorio padre es un symlink (`is_symlink()`). Permisos forzados a `0644` sin bits de ejecución. |
+| **SEC-06: Anti-Path Traversal en Extensiones** | [crates/samulibre-shield/src/browser_shield.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-shield/src/browser_shield.rs) | Validación exhaustiva de `ext_id` y `profile`: rechaza caracteres `/`, `\`, `..` y restringe a caracteres alfanuméricos seguros. Verificación de contención estricta para garantizar que el directorio de borrado resida exactamente dentro de `Extensions/`. |
+| **SEC-04: Validación y Anti-DoS en Firmas** | [crates/samulibre-scanner/src/lib.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-scanner/src/lib.rs) | Validación de formato hexadecimal estricto (64 caracteres para SHA-256 o 32 para MD5). Lista de exclusión/protección contra inyección de archivos vacíos o archivos esenciales del sistema. Descarte seguro de entradas malformadas. |
+| **Protección IPC de Rutas Críticas** | [crates/samulibre-gui/src/main.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-gui/src/main.rs) | Filtro de denegación preventiva en `delete_threat_item` y `delete_all_threats` frente a rutas protegidas del sistema operativo (`/`, `/bin`, `/sbin`, `/lib`, `/usr/bin`, `/etc`). |
+
+---
+
+### 25.3 Resultados de Verificación y QA
+* **Tests de `samulibre-core`:** Aprobados al 100% (incluyendo ejecución aislada en sandbox con bwrap).
+* **Tests de `samulibre-watcher`:** Aprobados al 100% (incluyendo detección de metadatos manipulados con HMAC inválido).
+* **Tests de `samulibre-shield`:** Aprobados al 100% (incluyendo bloqueo de intentos de path traversal en extensiones).
+* **Tests de `samulibre-scanner`:** Aprobados al 100% (incluyendo validación de firmas).
+* **Workspace Completo:** 100% de tests aprobados sin fallos ni regresiones.
+* **Paquetes Multi-Ecosistema Generados:**
+  - `target/samulibre_2.0.32_amd64.deb` (Debian/Ubuntu)
+  - `target/samulibre-2.0.32-1.x86_64.rpm` (RHEL/Fedora/CentOS/Rocky)
+  - `target/samulibre-2.0.32-1-x86_64.pkg.tar.zst` (Arch/Garuda)

@@ -4,6 +4,7 @@
 #include "compute_engine.hpp"
 #include "signature_scanner.hpp"
 #include "ml_classifier.hpp"
+#include "resource_monitor.hpp"
 #include <vector>
 #include <queue>
 #include <mutex>
@@ -44,6 +45,10 @@ public:
     size_t get_slot_count() const { return slots_.size(); }
     size_t get_slot_capacity_bytes() const { return slot_capacity_bytes_; }
 
+    // Resource Controller and Telemetry Monitor
+    ResourceMonitor& get_resource_monitor() { return monitor_; }
+    const ResourceMonitor& get_resource_monitor() const { return monitor_; }
+
 private:
     struct PipelineSlot {
         uint32_t slot_id = 0;
@@ -63,6 +68,7 @@ private:
     GPUComputeEngine& engine_;
     SignatureScanner& scanner_;
     MLClassifier& classifier_;
+    ResourceMonitor monitor_;
     ResourceProfile profile_;
 
     std::vector<PipelineSlot> slots_;

@@ -16,6 +16,7 @@ set(CORE_SOURCES
     src/ml/elf_feature_extractor.cpp
     src/ml/ml_classifier.cpp
     src/core/batch_scheduler.cpp
+    src/core/resource_monitor.cpp
 )
 
 add_library(samulibre_gpu SHARED ${CORE_SOURCES})
@@ -43,3 +44,7 @@ add_test(NAME TestMLClassifier COMMAND test_ml_classifier)
 add_executable(test_batch_scheduler tests/test_batch_scheduler.cpp ${CORE_SOURCES})
 target_link_libraries(test_batch_scheduler PRIVATE ${CMAKE_DL_LIBS} pthread)
 add_test(NAME TestBatchScheduler COMMAND test_batch_scheduler)
+
+add_executable(test_resource_monitor tests/test_resource_monitor.cpp ${CORE_SOURCES})
+target_link_libraries(test_resource_monitor PRIVATE ${CMAKE_DL_LIBS} pthread)
+add_test(NAME TestResourceMonitor COMMAND test_resource_monitor)

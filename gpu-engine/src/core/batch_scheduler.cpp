@@ -11,7 +11,7 @@ namespace samulibre::gpu {
 BatchScheduler::BatchScheduler(GPUComputeEngine& engine,
                                SignatureScanner& scanner,
                                MLClassifier& classifier)
-    : engine_(engine), scanner_(scanner), classifier_(classifier), profile_(engine.get_resource_profile()) {
+    : engine_(engine), scanner_(scanner), classifier_(classifier), monitor_(engine.get_resource_profile()), profile_(engine.get_resource_profile()) {
     init_pipeline_slots();
 }
 
@@ -22,6 +22,7 @@ BatchScheduler::~BatchScheduler() {
 void BatchScheduler::set_profile(ResourceProfile profile) {
     if (profile_ == profile) return;
     profile_ = profile;
+    monitor_.set_profile(profile);
     release_pipeline_slots();
     init_pipeline_slots();
 }
@@ -249,6 +250,13 @@ BatchMetrics BatchScheduler::process_all(TaskCallback callback) {
     size_t slot_idx = 0;
 
     while (true) {
+        // 1. Cooperative cancellation & Emergency throttle check
+        if (monitor_.is_cancellation_requested() || monitor_.is_emergency_pause_active()) {
+            break;
+        }
+
+        monitor_.evaluate_and_throttle();
+
         ScanTask task;
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);

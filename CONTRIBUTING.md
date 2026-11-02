@@ -1,28 +1,66 @@
-# Contributing to SamuLibre 🛡️
+# GUÍA DE CONTRIBUCIÓN COMUNITARIA (CONTRIBUTING.MD) 🛡️
+## SamuLibre Linux EDR & Antivirus Project
 
-Thank you for your interest in making **SamuLibre** the premier open-source cybersecurity and EDR suite!
+¡Gracias por tu interés en contribuir a **SamuLibre Linux**, la suite de ciberseguridad abierta y de alto rendimiento para el ecosistema Linux!
 
-## How You Can Contribute
+---
 
-1. **Adding New Virtual Patch Rules (CVE Mitigations)**:
-   - Propose rules for unpatched vulnerabilities in Windows services, RPC, or kernel drivers in `crates/samulibre-patcher`.
-2. **Improving YARA-X Heuristics & Malware Signatures**:
-   - Add new malicious pattern rules or signatures in `crates/samulibre-scanner/src/lib.rs`.
-3. **Enhancing Platform Support**:
-   - Help port Linux/macOS equivalents for Endpoint Shield and packet inspection.
-4. **UI & Translation**:
-   - Add new languages to `data/ui/index.html`.
+## 1. CÓMO PUEDES COLABORAR
 
-## Development Guidelines
+1. **Nuevas Reglas de Mitigación y Virtual Patching eBPF (`crates/samulibre-patcher`):**
+   - Propón reglas para vulnerabilidades críticas recientemente publicadas (CISA KEV) o parches de mitigación a nivel de red y sysctl.
+2. **Firmas y Heurística de Detección (`crates/samulibre-scanner`):**
+   - Incorpora patrones YARA-X, indicadores de evasión o soporte para nuevos empaquetadores en `polymorphic.rs`.
+3. **Optimización de Aceleración GPU (`gpu-engine/`):**
+   - Optimiza kernels CUDA PTX, implementaciones OpenCL o vectorizaciones SIMD AVX2/AVX-512 en C++20.
+4. **Empaquetado y Distribución Linux:**
+   - Ayuda a mantener los paquetes nativos para Debian/Ubuntu (`.deb`), Fedora/RHEL (`.rpm`) y Arch Linux (`PKGBUILD`).
+5. **Documentación, Pruebas y Traducciones:**
+   - Mejora manuales de respuesta a incidentes, traduce la interfaz de usuario o agrega tests de estrés y fuzzing.
 
-- **Format Code**: Run `cargo fmt` before submitting PRs.
-- **Run Tests**: Ensure all tests pass with `cargo test --workspace`.
-- **Zero Telemetry Rule**: Under no circumstances should SamuLibre send telemetry, user identifiers, or private data to external servers without explicit consent.
+---
 
-## Submitting a Pull Request
+## 2. CONFIGURACIÓN DEL ENTORNO DE DESARROLLO
 
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feat/new-cve-rule`).
-3. Commit your changes (`git commit -m 'feat: add virtual patch for CVE-2026-XXXX'`).
-4. Push to the branch (`git push origin feat/new-cve-rule`).
-5. Open a Pull Request on GitHub.
+### 2.1. Requisitos Previos
+- **Rust:** Versión estable 1.85+ (`rustup default stable`).
+- **C++:** GCC 13+ o Clang 16+ con soporte C++20.
+- **Herramientas:** `git`, `pkg-config`, `libssl-dev`.
+
+### 2.2. Flujo de Compilación y Pruebas
+```bash
+# 1. Clonar el repositorio y crear una rama de trabajo
+git clone https://github.com/saghet/SamuLibreLinux.git
+cd SamuLibreLinux
+git checkout -b feat/mi-mejora
+
+# 2. Verificar que el workspace compile limpiamente
+cargo check --workspace
+
+# 3. Ejecutar la suite completa de pruebas
+cargo test --workspace
+
+# 4. Formatear el código según el estándar del proyecto
+cargo fmt --all
+```
+
+---
+
+## 3. ESTÁNDARES DE CALIDAD Y DIRECTIVAS DE SEGURIDAD
+
+- **Principio Zero-Telemetry:** Bajo ninguna circunstancia se aceptarán PRs que agreguen telemetría silenciosa o transmitan datos del usuario a servidores externos sin consentimiento explícito.
+- **Seguridad en Bloques `unsafe`:** Todo nuevo bloque `unsafe` debe estar justificado documentalmente con un comentario `// SAFETY:` demostrando por qué es estrictamente necesario (ej. llamadas al kernel POSIX o FFI C-ABI).
+- **Manejo de Errores Idiomático:** Evita el uso indiscriminado de `.unwrap()` o `.expect()` en el código productivo; utiliza `anyhow::Result` o errores tipados con `thiserror`.
+
+---
+
+## 4. ENVÍO DE PULL REQUESTS (PRS)
+
+1. Asegúrate de que todas las pruebas pasen con `cargo test --workspace`.
+2. Redacta mensajes de commit claros siguiendo la convención de [Conventional Commits](https://www.conventionalcommits.org/):
+   - `feat(...)`: nueva funcionalidad.
+   - `fix(...)`: corrección de un bug o vulnerabilidad.
+   - `docs(...)`: mejoras en la documentación.
+   - `perf(...)`: optimizaciones de rendimiento.
+   - `test(...)`: adición de pruebas automatizadas o fuzzing.
+3. Abre el Pull Request en GitHub describiendo el problema que resuelve y las pruebas ejecutadas.

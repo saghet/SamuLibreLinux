@@ -1,0 +1,51 @@
+SamuLibre Linux - Open Source Next-Generation Antivirus & EDR
+Copyright (C) 2024-2026 SamuLibre Security Team and Contributors.
+
+This product is developed by the SamuLibre Security Team (<https://samulibre.org>).
+
+===============================================================================
+LICENSING OVERVIEW
+===============================================================================
+
+SamuLibre Linux is licensed under a dual-licensing business model:
+
+1. COMMUNITY EDITION (OPEN SOURCE):
+   Licensed under the GNU General Public License as published by the Free
+   Software Foundation, either version 3 of the License, or (at your option)
+   any later version (GPL-3.0-or-later).
+   See the 'LICENSE' file for the complete text of this license.
+
+2. COMMERCIAL ENTERPRISE EDITION:
+   For commercial redistribution, OEM appliance embedding, closed-source
+   derivative works, or enterprise deployments requiring SLAs and warranties,
+   contact: licensing@samulibre.org.
+   See 'LICENSE-COMMERCIAL.md' for additional terms and options.
+
+===============================================================================
+TRADEMARK NOTICES
+===============================================================================
+
+"SamuLibre", the SamuLibre shield logo, and associated visual assets are
+trademarks of the SamuLibre Security Team.
+
+The GNU General Public License grants you rights to the source code and
+binaries, but does NOT grant you rights to use the SamuLibre trademarks in
+modified versions or commercial distributions without express written permission.
+For modified works, please remove the SamuLibre branding and logos as outlined
+in our Trademark Policy.
+
+===============================================================================
+THIRD-PARTY ACKNOWLEDGMENTS
+===============================================================================
+
+This software incorporates and interfaces with open source and third-party
+technologies:
+
+- Rust Programming Language (MIT / Apache-2.0)
+- Linux Kernel eBPF & fanotify subsystems (GPL-2.0 / Dual)
+- NVIDIA CUDA Driver API & NVML Telemetry interfaces (Khronos / NVIDIA)
+- OpenCL Standard by Khronos Group
+- SQLite Database Engine (Public Domain)
+
+An exhaustive, audited inventory of all 402 dependencies and their respective
+licenses is provided in the 'THIRD_PARTY_LICENSES.md' file.

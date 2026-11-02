@@ -54,7 +54,28 @@ cargo fmt --all
 
 ---
 
-## 4. ENVÍO DE PULL REQUESTS (PRS)
+## 4. ACUERDO DE LICENCIA DE COLABORADOR (CLA) Y FIRMA DCO
+
+Para mantener la viabilidad del modelo de licenciamiento dual de SamuLibre (versión comunitaria libre bajo **GPL-3.0-or-later** y licencias comerciales alternativas), **todas las contribuciones requieren la aceptación del [Contributor License Agreement (CLA)](CLA.md)**.
+
+### ¿Qué implica el CLA para ti?
+- **Tú conservas la propiedad y los derechos de autor (Copyright) sobre tu código.**
+- Otorgas a SamuLibre una licencia no exclusiva para distribuir tus aportaciones bajo GPL-3.0 y bajo términos comerciales a empresas.
+- Tu autoría y atribución quedarán registradas de manera permanente en el historial de Git.
+
+### Cómo firmar tus commits (Developer Certificate of Origin)
+Firma todos tus commits usando el modificador `-s` de Git:
+```bash
+git commit -s -m "feat(scanner): add heuristic detection for evasive loader"
+```
+Esto añadirá la línea de certificación:
+```text
+Signed-off-by: Tu Nombre Real <tu.email@dominio.com>
+```
+
+---
+
+## 5. ENVÍO DE PULL REQUESTS (PRS)
 
 1. Asegúrate de que todas las pruebas pasen con `cargo test --workspace`.
 2. Redacta mensajes de commit claros siguiendo la convención de [Conventional Commits](https://www.conventionalcommits.org/):

@@ -22,8 +22,9 @@ TEST_SCANNER = bin/test_pattern_scanner
 TEST_ML = bin/test_ml_classifier
 TEST_SCHEDULER = bin/test_batch_scheduler
 TEST_MONITOR = bin/test_resource_monitor
+BENCHMARK = bin/benchmark_suite
 
-all: $(LIB_TARGET) $(TEST_DETECTOR) $(TEST_COMPUTE) $(TEST_SCANNER) $(TEST_ML) $(TEST_SCHEDULER) $(TEST_MONITOR)
+all: $(LIB_TARGET) $(TEST_DETECTOR) $(TEST_COMPUTE) $(TEST_SCANNER) $(TEST_ML) $(TEST_SCHEDULER) $(TEST_MONITOR) $(BENCHMARK)
 
 $(LIB_TARGET): $(OBJS_CORE)
 	@mkdir -p lib
@@ -62,6 +63,14 @@ $(TEST_MONITOR): tests/test_resource_monitor.cpp $(OBJS_CORE)
 	@mkdir -p bin
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 	@echo "✓ Binario de prueba $@ compilado."
+
+$(BENCHMARK): tests/benchmark_suite.cpp $(OBJS_CORE)
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+	@echo "✓ Binario de benchmark $@ compilado."
+
+bench: $(BENCHMARK)
+	@./$(BENCHMARK)
 
 test: all
 	@echo "=== Ejecutando Test 1: Detector de Hardware GPU ==="

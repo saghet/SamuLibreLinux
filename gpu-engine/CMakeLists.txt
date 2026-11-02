@@ -49,3 +49,7 @@ add_test(NAME TestBatchScheduler COMMAND test_batch_scheduler)
 add_executable(test_resource_monitor tests/test_resource_monitor.cpp ${CORE_SOURCES})
 target_link_libraries(test_resource_monitor PRIVATE ${CMAKE_DL_LIBS} pthread)
 add_test(NAME TestResourceMonitor COMMAND test_resource_monitor)
+
+add_executable(benchmark_suite tests/benchmark_suite.cpp ${CORE_SOURCES})
+target_link_libraries(benchmark_suite PRIVATE ${CMAKE_DL_LIBS} pthread)
+add_test(NAME BenchmarkSuite COMMAND benchmark_suite)

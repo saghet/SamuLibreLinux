@@ -1146,3 +1146,41 @@ Se llevó a cabo un estudio de mercado analizando las suites de ciberseguridad, 
   * `target/samulibre_2.0.32_amd64.deb` (Ubuntu / Debian)
   * `target/samulibre-2.0.32-1.x86_64.rpm` (Fedora / RHEL)
   * `target/samulibre-2.0.32-1-x86_64.pkg.tar.zst` (Garuda / Arch)
+
+---
+
+## 32. Fase 12: Sistema Avanzado de Actualizaciones Multi-Fuente y Centro de Auditoría de Inteligencia de Amenazas
+
+### 32.1 Misión y Arquitectura del Threat Intelligence Update Manager
+
+Se ha diseñado e implementado una arquitectura industrial de actualización de firmas e inteligencia de amenazas para Linux, compuesta por:
+
+1. **Gestor de Proveedores Modular (`ThreatIntelProvider` trait):**
+   - **ClamAV:** Bases de firmas oficiales `main.cvd`, `daily.cvd`, `bytecode.cvd` y bases de hashes HDB locales.
+   - **MalwareBazaar (Abuse.ch):** Hashes SHA-256 de malware confirmado y familias asociadas (Mirai, Kinsing, XorDDos). Descarga de muestras estrictamente prohibida en endpoints operativos (aislada).
+   - **ThreatFox (Abuse.ch):** IOCs clasificados (hashes, dominios, IPs C2, URLs maliciosas).
+   - **URLhaus (Abuse.ch):** Alimentación del módulo de protección web y reputación de red.
+   - **YARA-Rules Linux:** Reglas comunitarias curadas para Linux ELF, webshells, ransomware y scripts maliciosos con validación sintáctica estricta previa a la compilación.
+   - **AlienVault OTX:** Integración de Pulses e indicadores con gestión segura de API Key.
+   - **MISP Feeds:** Conector preparado para servidores corporativos de inteligencia de amenazas.
+   - **VirusTotal v3:** Consulta de reputación de hashes respetando cuotas de API y sin subida no autorizada de muestras del usuario.
+
+2. **Normalización, Deduplicación y Whitelist (`normalizer.rs` y `whitelist.rs`):**
+   - Estructura unificada `ThreatIndicator` con nivel de severidad, confianza, familia y referencias.
+   - Fusión de indicadores idénticos provenientes de múltiples proveedores, incrementando su nivel de confianza y correlación.
+   - Filtro de falsos positivos que descarta IPs de loopback, redes privadas, dominios esenciales del sistema operativo y hashes nulos.
+
+3. **Almacenamiento Atómico y Resiliencia (`AtomicThreatStorage`):**
+   - Preparación de actualizaciones en staging temporal `.tmp_update_<op_id>`.
+   - Reemplazo atómico mediante `rename` del sistema de archivos, garantizando que el antivirus jamás quede sin firmas válidas o en estado corrupto.
+   - Respaldo automático en `backup_previous/` con capacidad de **Rollback Inmediato**.
+
+4. **Centro de Evidencias Técnicas y Sello Criptográfico (`UpdateAuditCenter`):**
+   - Registro persistente de cada operación bajo el formato `UP-<UUID>` o `ROLLBACK-<UUID>`.
+   - Sello criptográfico SHA-256 calculado a partir de los metadatos de la operación y el checksum de la base de firmas.
+   - Motores de exportación forense en un clic: JSON estructurado, CSV delimitado y reporte HTML5 autónomo.
+
+5. **Automatización Nativa y Empaquetado:**
+   - Unidades Systemd creadas: `data/samulibre-update.service` y `data/samulibre-update.timer` (temporizado cada 4 horas con 15 minutos de jitter aleatorio).
+   - Empaquetadas en `.deb` (Debian/Ubuntu), `.rpm` (RHEL/Fedora) y `.pkg.tar.zst` (Garuda/Arch).
+   - Integración completa con la interfaz gráfica (nuevo modal "Centro de Inteligencia & Evidencias") y en terminal (`samulibre update run/history/evidence/rollback/providers`).

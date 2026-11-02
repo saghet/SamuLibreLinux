@@ -28,9 +28,11 @@ package() {
     install -Dm644 "${srcdir}/samulibre.desktop" "${pkgdir}/usr/share/applications/samulibre.desktop"
     install -Dm644 "${srcdir}/icon.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/samulibre.png"
 
-    # Unidades de systemd (usuario y demonio de sistema)
+    # Unidades de systemd (usuario, demonio de sistema y temporizador de actualizaciones)
     install -Dm644 "${srcdir}/samulibre.service" "${pkgdir}/usr/lib/systemd/user/samulibre.service"
     install -Dm644 "${srcdir}/samulibred.service" "${pkgdir}/usr/lib/systemd/system/samulibred.service"
+    install -Dm644 "${srcdir}/samulibre-update.service" "${pkgdir}/usr/lib/systemd/system/samulibre-update.service"
+    install -Dm644 "${srcdir}/samulibre-update.timer" "${pkgdir}/usr/lib/systemd/system/samulibre-update.timer"
 
     # Recursos completos (UI, firmas, catálogo KB, reglas CVE, sandbox, canarios)
     mkdir -p "${pkgdir}/usr/share/samulibre"

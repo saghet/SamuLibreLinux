@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::*;
-use samulibre_core::SamuLibreCore;
+use samulibre_core::{SamuLibreCore, UpdateProfile, UpdateStatus};
 use samulibre_patcher::VirtualPatcher;
 use samulibre_scanner::MultiEngineScanner;
 use samulibre_shield::EndpointShield;
@@ -121,11 +121,58 @@ enum Commands {
         sub: PolicyCommands,
     },
 
+    /// Sistema de Actualizaciones Multi-Fuente y Centro de Auditoría de Inteligencia de Amenazas
+    Update {
+        #[command(subcommand)]
+        sub: UpdateCommands,
+    },
+
     /// Abre el menú interactivo en terminal (TUI)
     Interactive,
 
     /// Ejecuta una demostración en vivo de los tres pilares de protección
     Demo,
+}
+
+#[derive(Subcommand)]
+enum UpdateCommands {
+    /// Ejecuta una sincronización y actualización multi-fuente de inteligencia de amenazas
+    Run {
+        /// Perfil de actualización: normal | high | low | manual
+        #[arg(short, long, default_value = "normal")]
+        profile: String,
+
+        /// Proveedor específico (clamav, malware_bazaar, threatfox, urlhaus, yara_rules, alienvault_otx, misp, virustotal)
+        #[arg(short = 'P', long)]
+        provider: Option<String>,
+    },
+
+    /// Muestra el registro histórico y evidencias de las actualizaciones ejecutadas
+    History {
+        /// Número máximo de registros a listar
+        #[arg(short, long, default_value_t = 10)]
+        limit: usize,
+    },
+
+    /// Muestra el certificado y evidencia técnica detallada de una actualización
+    Evidence {
+        /// Identificador de operación (ej. UP-xxxx...)
+        operation_id: String,
+
+        /// Exportar evidencia a formato: json | csv | html
+        #[arg(short, long)]
+        export: Option<String>,
+
+        /// Ruta de destino del archivo exportado
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Revierte las bases de firmas e inteligencia a la versión anterior (Rollback)
+    Rollback,
+
+    /// Lista los 8 proveedores de inteligencia integrados y su disponibilidad
+    Providers,
 }
 
 #[derive(Subcommand)]
@@ -1060,6 +1107,171 @@ async fn main() -> Result<()> {
                 let policy_file = Path::new("data").join("policy.json");
                 fs::write(&policy_file, &p)?;
                 println!("{} Perfil de seguridad actualizado a: {}", "✔".green(), p.bold().yellow());
+            }
+        },
+
+        Commands::Update { sub } => {
+            let core = SamuLibreCore::new(&canary_dir, &vpn_dir, true);
+            match sub {
+                UpdateCommands::Run { profile, provider } => {
+                    println!("\n{}", "─── ACTUALIZACIÓN MULTI-FUENTE DE INTELIGENCIA DE AMENAZAS ───".bold().cyan());
+                    let prof = match profile.to_lowercase().as_str() {
+                        "high" | "highprotection" => UpdateProfile::HighProtection,
+                        "low" | "lowresource" => UpdateProfile::LowResource,
+                        "manual" => UpdateProfile::Manual,
+                        _ => UpdateProfile::Normal,
+                    };
+                    println!("  Perfil:                 {}", format!("{}", prof).bold().yellow());
+                    if let Some(ref p) = provider {
+                        println!("  Proveedor específico:   {}", p.bold().magenta());
+                    } else {
+                        println!("  Proveedores:            {}", "8 Fuentes de Inteligencia (ClamAV, Abuse.ch, YARA, OTX, MISP, VT)".cyan());
+                    }
+                    println!("  Modo:                   {}", "Descarga Segura HTTPS + Sustitución Atómica".green());
+                    println!("  Progreso:               Conectando y sincronizando con los feeds...");
+
+                    match core.update_threat_intelligence(Some(prof), provider.as_deref()) {
+                        Ok(evidence) => {
+                            let status_str = match evidence.status {
+                                UpdateStatus::Completada => "COMPLETADA CON ÉXITO".bold().green(),
+                                UpdateStatus::CompletadaParcialmente => "COMPLETADA PARCIALMENTE".bold().yellow(),
+                                UpdateStatus::SinCambios => "SIN CAMBIOS (ACTUALIZADA)".bold().cyan(),
+                                UpdateStatus::Fallida => "FALLIDA".bold().red(),
+                                UpdateStatus::Revertida => "REVERTIDA".bold().magenta(),
+                                UpdateStatus::EnProceso => "EN PROCESO".bold().blue(),
+                            };
+
+                            println!("\n{}", "─── CERTIFICADO DE AUDITORÍA Y EVIDENCIA TÉCNICA ───".bold().green());
+                            println!("  ID de Operación:        {}", evidence.operation_id.bold().white());
+                            println!("  Estado:                 {}", status_str);
+                            println!("  Duración:               {} ms", evidence.duration_ms);
+                            println!("  Distribución SO:        {}", evidence.linux_distro.bold().cyan());
+                            println!("  Versión SamuLibre:      {}", evidence.antivirus_version);
+                            println!("  Transición BD:          {} ➔ {}", evidence.previous_db_version, evidence.new_db_version.bold().yellow());
+                            println!("  Nuevos IOCs añadidos:   {}", evidence.new_indicators_added.to_string().bold().green());
+                            println!("  IOCs duplicados fusionados: {}", evidence.duplicate_indicators_merged);
+                            println!("  IOCs rechazados (Falso+): {}", evidence.rejected_indicators_count);
+                            println!("  Reglas YARA activas:    {}", evidence.yara_rules_updated.to_string().bold().cyan());
+                            println!("  Firmas totales en memoria: {}", evidence.signatures_updated.to_string().bold().green());
+                            println!("  Sello Criptográfico SHA-256: {}", evidence.evidence_hash_sha256.bold().bright_black());
+
+                            println!("\n  Desglose por Proveedor:");
+                            for prov in &evidence.providers {
+                                let p_status = match &prov.status {
+                                    samulibre_core::ProviderStatus::Success => "OK".green(),
+                                    samulibre_core::ProviderStatus::Failed(_) => "FALLO".red(),
+                                    samulibre_core::ProviderStatus::Skipped(_) => "OMITIDO".dimmed(),
+                                    samulibre_core::ProviderStatus::RateLimited => "LIMITADO".yellow(),
+                                };
+                                println!(
+                                    "    • {:<16} {:<10} (+{} IOCs, {} ms)",
+                                    prov.provider_id.bold(),
+                                    p_status,
+                                    prov.indicators_accepted,
+                                    prov.duration_ms
+                                );
+                            }
+                            println!("\n{} Base de firmas recargada atómicamente y operativa.", "✔".green());
+                        }
+                        Err(e) => {
+                            eprintln!("{} Error en la actualización: {}", "✖".red(), e);
+                        }
+                    }
+                }
+
+                UpdateCommands::History { limit } => {
+                    println!("\n{}", "─── HISTORIAL Y CENTRO DE AUDITORÍA DE ACTUALIZACIONES ───".bold().cyan());
+                    let list = core.get_threat_intel_evidence_list();
+                    if list.is_empty() {
+                        println!("No se registran operaciones previas en el Centro de Auditoría.");
+                    } else {
+                        for ev in list.iter().take(limit) {
+                            println!(
+                                "  {} {:<24} [{}] {:<6} ms | +{} IOCs | Reglas: {} | Sello: {}",
+                                "•".cyan(),
+                                ev.operation_id.bold(),
+                                ev.status,
+                                ev.duration_ms,
+                                ev.new_indicators_added,
+                                ev.yara_rules_updated,
+                                &ev.evidence_hash_sha256[..12]
+                            );
+                        }
+                        println!("\nTotal registros auditados: {}", list.len());
+                    }
+                }
+
+                UpdateCommands::Evidence { operation_id, export, output } => {
+                    let list = core.get_threat_intel_evidence_list();
+                    if let Some(ev) = list.iter().find(|e| e.operation_id == operation_id) {
+                        println!("\n{}", format!("─── EVIDENCIA TÉCNICA: {} ───", ev.operation_id).bold().green());
+                        println!("  Inicio:           {}", ev.started_at);
+                        println!("  Fin:              {}", ev.completed_at);
+                        println!("  Estado:           {:?}", ev.status);
+                        println!("  Perfil:           {}", ev.profile);
+                        println!("  SO:               {}", ev.linux_distro);
+                        println!("  IOCs Totales:     {}", ev.total_indicators_downloaded);
+                        println!("  Nuevos IOCs:      {}", ev.new_indicators_added);
+                        println!("  Fusionados:       {}", ev.duplicate_indicators_merged);
+                        println!("  Rechazados:       {}", ev.rejected_indicators_count);
+                        println!("  YARA actualizadas:{}", ev.yara_rules_updated);
+                        println!("  Firmas BD:        {}", ev.signatures_updated);
+                        println!("  Resumen:          {}", ev.verification_summary);
+                        println!("  Hash SHA-256:     {}", ev.evidence_hash_sha256);
+
+                        if let Some(fmt) = export {
+                            match core.export_threat_intel_evidence(&operation_id, &fmt) {
+                                Ok(content) => {
+                                    let out_path = output.unwrap_or_else(|| {
+                                        PathBuf::from(format!("evidencia_{}.{}", operation_id, fmt))
+                                    });
+                                    if let Err(e) = fs::write(&out_path, &content) {
+                                        eprintln!("{} Error al guardar archivo: {}", "✖".red(), e);
+                                    } else {
+                                        println!("\n{} Certificado exportado exitosamente a: {}", "✔".green(), out_path.display().to_string().bold());
+                                    }
+                                }
+                                Err(e) => eprintln!("{} Fallo al exportar evidencia: {}", "✖".red(), e),
+                            }
+                        }
+                    } else {
+                        eprintln!("{} Operación '{}' no encontrada en el Centro de Auditoría.", "✖".red(), operation_id);
+                    }
+                }
+
+                UpdateCommands::Rollback => {
+                    println!("\n{}", "─── ROLLBACK DE BASE DE DATOS DE INTELIGENCIA ───".bold().yellow());
+                    match core.rollback_threat_intelligence() {
+                        Ok(evidence) => {
+                            println!("{} Rollback ejecutado correctamente.", "✔".green());
+                            println!("  ID Operación:        {}", evidence.operation_id);
+                            println!("  Versión restaurada:  {}", evidence.new_db_version.bold().green());
+                            println!("  Firmas restauradas:  {}", evidence.signatures_updated);
+                            println!("  Sello SHA-256:       {}", evidence.evidence_hash_sha256);
+                        }
+                        Err(e) => eprintln!("{} Error al ejecutar rollback: {}", "✖".red(), e),
+                    }
+                }
+
+                UpdateCommands::Providers => {
+                    println!("\n{}", "─── PROVEEDORES DE INTELIGENCIA DE AMENAZAS INTEGRADOS ───".bold().cyan());
+                    let providers = core.list_threat_intel_providers();
+                    println!("Total proveedores soportados: {}\n", providers.len().to_string().bold());
+                    let details = [
+                        ("clamav", "Bases Oficiales ClamAV (main.cvd, daily.cvd, bytecode.cvd)"),
+                        ("malware_bazaar", "MalwareBazaar API (Abuse.ch - Hashes SHA-256 y familias de malware)"),
+                        ("threatfox", "ThreatFox API (Abuse.ch - IOCs, C2 IPs, Dominios, Hashes)"),
+                        ("urlhaus", "URLhaus API (Abuse.ch - URLs Maliciosas y Reputación Web)"),
+                        ("yara_rules", "Reglas YARA Curadas Linux (Mirai, Kinsing, WebShells, ELF Packers)"),
+                        ("alienvault_otx", "AlienVault OTX (Open Threat Exchange Pulses - API Key opcional)"),
+                        ("misp", "MISP Feed Gateway (Malware Information Sharing Platform)"),
+                        ("virustotal", "VirusTotal v3 API (Consulta reputacional de hashes sin subida de muestras)"),
+                    ];
+                    for (id, desc) in details {
+                        println!("  {} {:<18} {}", "•".green(), id.bold().white(), desc);
+                    }
+                    println!("\n{} Todas las fuentes procesadas 100% en local bajo el Zero-Cloud Mandate.", "✔".green());
+                }
             }
         },
 

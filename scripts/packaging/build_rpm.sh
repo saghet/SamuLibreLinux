@@ -50,6 +50,8 @@ assets = [
     f'{{ source = \"{os.path.join(root_dir, \"assets\", \"icon.png\")}\", dest = \"/usr/share/pixmaps/org.samulibre.samulibre.png\", mode = \"644\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibre.service\")}\", dest = \"/usr/lib/systemd/user/samulibre.service\", mode = \"644\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibred.service\")}\", dest = \"/usr/lib/systemd/system/samulibred.service\", mode = \"644\" }}',
+    f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibre-update.service\")}\", dest = \"/usr/lib/systemd/system/samulibre-update.service\", mode = \"644\" }}',
+    f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibre-update.timer\")}\", dest = \"/usr/lib/systemd/system/samulibre-update.timer\", mode = \"644\" }}',
 ]
 
 for size in ['16x16', '22x22', '24x24', '32x32', '48x48', '64x64', '128x128', '256x256', '512x512']:

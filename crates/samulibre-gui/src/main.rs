@@ -147,6 +147,9 @@ enum CustomUserEvent {
     UpdateHistoryLoaded {
         entries: Vec<samulibre_scanner::UpdateHistoryEntry>,
     },
+    ThreatIntelEvidencesLoaded {
+        evidences: Vec<samulibre_core::UpdateEvidence>,
+    },
     AuditReportLoaded {
         report: samulibre_core::SecurityAuditReport,
     },
@@ -2107,6 +2110,112 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         if let Ok(c) = core_for_ipc.lock() {
                             let entries = c.get_signature_update_history();
                             let _ = proxy_for_ipc.send_event(CustomUserEvent::UpdateHistoryLoaded { entries });
+                            let evidences = c.get_threat_intel_evidence_list();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatIntelEvidencesLoaded { evidences });
+                        }
+                    }
+
+                    "get_threat_intel_evidences" => {
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let evidences = c.get_threat_intel_evidence_list();
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatIntelEvidencesLoaded { evidences });
+                        }
+                    }
+
+                    "run_threat_intel_update" => {
+                        let proxy_update = proxy_for_ipc.clone();
+                        let core_update = Arc::clone(&core_for_ipc);
+                        let payload_str = msg.payload.unwrap_or_default();
+                        let profile_str = serde_json::from_str::<serde_json::Value>(&payload_str)
+                            .ok()
+                            .and_then(|v| v.get("profile").and_then(|p| p.as_str()).map(|s| s.to_string()))
+                            .unwrap_or_else(|| "normal".to_string());
+
+                        std::thread::spawn(move || {
+                            let prof = match profile_str.to_lowercase().as_str() {
+                                "high" | "highprotection" => samulibre_core::UpdateProfile::HighProtection,
+                                "low" | "lowresource" => samulibre_core::UpdateProfile::LowResource,
+                                "manual" => samulibre_core::UpdateProfile::Manual,
+                                _ => samulibre_core::UpdateProfile::Normal,
+                            };
+
+                            if let Ok(c) = core_update.lock() {
+                                match c.update_threat_intelligence(Some(prof), None) {
+                                    Ok(evidence) => {
+                                        let _ = proxy_update.send_event(CustomUserEvent::SignaturesUpdated {
+                                            total: evidence.signatures_updated,
+                                            new_added: evidence.new_indicators_added,
+                                            timestamp: evidence.completed_at,
+                                            feed: "Multi-Fuente Threat Intel (ClamAV, Abuse.ch, YARA, OTX, MISP, VT)".to_string(),
+                                        });
+                                        let evidences = c.get_threat_intel_evidence_list();
+                                        let _ = proxy_update.send_event(CustomUserEvent::ThreatIntelEvidencesLoaded { evidences });
+                                    }
+                                    Err(e) => {
+                                        let _ = proxy_update.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "Error en Actualización".to_string(),
+                                            details: format!("Fallo actualizando inteligencia: {}", e),
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    "rollback_threat_intel" => {
+                        let proxy_rb = proxy_for_ipc.clone();
+                        let core_rb = Arc::clone(&core_for_ipc);
+                        std::thread::spawn(move || {
+                            if let Ok(c) = core_rb.lock() {
+                                match c.rollback_threat_intelligence() {
+                                    Ok(evidence) => {
+                                        let _ = proxy_rb.send_event(CustomUserEvent::SignaturesUpdated {
+                                            total: evidence.signatures_updated,
+                                            new_added: 0,
+                                            timestamp: evidence.completed_at,
+                                            feed: "Rollback a versión previa".to_string(),
+                                        });
+                                        let evidences = c.get_threat_intel_evidence_list();
+                                        let _ = proxy_rb.send_event(CustomUserEvent::ThreatIntelEvidencesLoaded { evidences });
+                                    }
+                                    Err(e) => {
+                                        let _ = proxy_rb.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "Error en Rollback".to_string(),
+                                            details: format!("No se pudo revertir la base de datos: {}", e),
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    "export_threat_intel_evidence" => {
+                        let payload_str = msg.payload.unwrap_or_default();
+                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&payload_str) {
+                            let op_id = parsed["op_id"].as_str().unwrap_or("");
+                            let format = parsed["format"].as_str().unwrap_or("html");
+                            if let Ok(c) = core_for_ipc.lock() {
+                                match c.export_threat_intel_evidence(op_id, format) {
+                                    Ok(content) => {
+                                        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+                                        let downloads = Path::new(&home).join("Downloads");
+                                        let dest_dir = if downloads.exists() { downloads } else { PathBuf::from(&home) };
+                                        let file_name = format!("evidencia_{}.{}", op_id, format);
+                                        let dest_file = dest_dir.join(&file_name);
+                                        let _ = std::fs::write(&dest_file, content);
+                                        let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "Evidencia Exportada".to_string(),
+                                            details: format!("Certificado guardado en: {}", dest_file.display()),
+                                        });
+                                    }
+                                    Err(e) => {
+                                        let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                            title: "Error de Exportación".to_string(),
+                                            details: format!("Fallo al exportar evidencia {}: {}", op_id, e),
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -2424,6 +2533,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
 
             let history = c.get_signature_update_history();
             let _ = proxy_init.send_event(CustomUserEvent::UpdateHistoryLoaded { entries: history });
+
+            let evidences = c.get_threat_intel_evidence_list();
+            let _ = proxy_init.send_event(CustomUserEvent::ThreatIntelEvidencesLoaded { evidences });
 
             let audit = c.run_internal_security_audit();
             let _ = proxy_init.send_event(CustomUserEvent::AuditReportLoaded { report: audit });
@@ -2754,6 +2866,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let script = format!(
                     "if (window.onUpdateHistoryLoaded) {{ window.onUpdateHistoryLoaded({}); }}",
                     entries_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
+            Event::UserEvent(CustomUserEvent::ThreatIntelEvidencesLoaded { evidences }) => {
+                let evidences_json = serde_json::to_string(&evidences).unwrap_or_else(|_| "[]".to_string());
+                let script = format!(
+                    "if (window.onThreatIntelEvidencesLoaded) {{ window.onThreatIntelEvidencesLoaded({}); }}",
+                    evidences_json
                 );
                 let _ = webview.evaluate_script(&script);
             }

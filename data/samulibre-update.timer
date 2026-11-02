@@ -1,0 +1,15 @@
+[Unit]
+Description=SamuLibre Threat Intelligence Scheduled Update Timer
+Documentation=man:samulibre(8) https://samulibre.org
+After=network-online.target
+
+[Timer]
+# Ejecución 10 minutos tras el inicio del sistema
+OnBootSec=10min
+# Ejecución periódica cada 4 horas con 15 minutos de dispersión aleatoria
+OnUnitActiveSec=4h
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

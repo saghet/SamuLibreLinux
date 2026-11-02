@@ -17,6 +17,9 @@ pub use phishing::*;
 pub mod elf_analyzer;
 pub use elf_analyzer::*;
 
+pub mod threat_intel;
+pub use threat_intel::{ThreatIntelligenceUpdateManager, UpdateEvidence, UpdateProfile, UpdateStatus};
+
 /// Regla heurística / YARA para detección en memoria o en disco
 #[derive(Debug, Clone)]
 pub struct PatternRule {
@@ -872,6 +875,57 @@ impl MultiEngineScanner {
 
     pub fn rule_count(&self) -> usize {
         self.pattern_rules.len()
+    }
+
+    /// Recarga las firmas en memoria desde el almacenamiento persistente
+    pub fn reload_signatures_from_disk(&mut self) {
+        let sig_dir = get_signatures_storage_dir();
+        let sig_path = sig_dir.join("malware_hashes.db");
+        if let Ok(content) = fs::read_to_string(&sig_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                let mut parts = trimmed.split(':');
+                if let (Some(raw_hash), Some(raw_name)) = (parts.next(), parts.next()) {
+                    let hash = raw_hash.trim().to_lowercase();
+                    let name = raw_name.trim();
+                    if (hash.len() == 64 || hash.len() == 32) && !name.is_empty() {
+                        self.known_signatures.insert(hash, name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    /// Ejecuta la actualización inteligente multi-fuente mediante ThreatIntelligenceUpdateManager
+    pub fn update_threat_intelligence(
+        &mut self,
+        profile: Option<threat_intel::UpdateProfile>,
+        specific_provider_id: Option<&str>,
+    ) -> Result<threat_intel::UpdateEvidence> {
+        let mut manager = threat_intel::ThreatIntelligenceUpdateManager::new(get_signatures_storage_dir());
+        if let Some(prof) = profile {
+            manager.set_profile(prof);
+        }
+        let evidence = manager.run_update(specific_provider_id)?;
+        self.reload_signatures_from_disk();
+        Ok(evidence)
+    }
+
+    /// Revierte la base de datos de firmas al estado previo mediante rollback
+    pub fn rollback_threat_intelligence(&mut self) -> Result<threat_intel::UpdateEvidence> {
+        let manager = threat_intel::ThreatIntelligenceUpdateManager::new(get_signatures_storage_dir());
+        let evidence = manager.rollback()?;
+        self.reload_signatures_from_disk();
+        Ok(evidence)
+    }
+
+    /// Obtiene la lista de evidencias y auditorías técnicas registradas
+    pub fn get_update_evidence_list(&self) -> Result<Vec<threat_intel::UpdateEvidence>> {
+        let manager = threat_intel::ThreatIntelligenceUpdateManager::new(get_signatures_storage_dir());
+        manager.audit_center().get_all_evidence()
     }
 }
 

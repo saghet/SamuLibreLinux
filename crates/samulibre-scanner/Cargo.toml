@@ -16,3 +16,5 @@ regex = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
+uuid = { workspace = true }
+ureq = { version = "3.5.0", features = ["json"] }

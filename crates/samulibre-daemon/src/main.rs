@@ -236,6 +236,62 @@ async fn main() -> Result<()> {
                     IpcResponse::ok(&req.id, serde_json::to_value(&sockets).unwrap_or_default())
                 }
 
+                "update_threat_intelligence" => {
+                    let (profile_opt, provider_opt) = if let Some(ref p) = req.payload {
+                        let prof = p.get("profile").and_then(|v| v.as_str()).map(|s| match s.to_lowercase().as_str() {
+                            "high" | "highprotection" => samulibre_core::UpdateProfile::HighProtection,
+                            "low" | "lowresource" => samulibre_core::UpdateProfile::LowResource,
+                            "manual" => samulibre_core::UpdateProfile::Manual,
+                            _ => samulibre_core::UpdateProfile::Normal,
+                        });
+                        let prov = p.get("provider").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        (prof, prov)
+                    } else {
+                        (None, None)
+                    };
+
+                    let c = core.lock().await;
+                    match c.update_threat_intelligence(profile_opt, provider_opt.as_deref()) {
+                        Ok(evidence) => IpcResponse::ok(&req.id, serde_json::to_value(&evidence).unwrap_or_default()),
+                        Err(e) => IpcResponse::err(&req.id, format!("Fallo en actualización de inteligencia: {}", e)),
+                    }
+                }
+
+                "rollback_threat_intelligence" => {
+                    let c = core.lock().await;
+                    match c.rollback_threat_intelligence() {
+                        Ok(evidence) => IpcResponse::ok(&req.id, serde_json::to_value(&evidence).unwrap_or_default()),
+                        Err(e) => IpcResponse::err(&req.id, format!("Fallo en rollback de firmas: {}", e)),
+                    }
+                }
+
+                "get_threat_intel_evidence" => {
+                    let c = core.lock().await;
+                    let list = c.get_threat_intel_evidence_list();
+                    IpcResponse::ok(&req.id, serde_json::to_value(&list).unwrap_or_default())
+                }
+
+                "export_threat_intel_evidence" => {
+                    let op_id = req.payload.as_ref()
+                        .and_then(|p| p.get("op_id").and_then(|v| v.as_str()))
+                        .unwrap_or("");
+                    let format = req.payload.as_ref()
+                        .and_then(|p| p.get("format").and_then(|v| v.as_str()))
+                        .unwrap_or("html");
+
+                    let c = core.lock().await;
+                    match c.export_threat_intel_evidence(op_id, format) {
+                        Ok(content) => IpcResponse::ok(&req.id, serde_json::json!({ "op_id": op_id, "format": format, "content": content })),
+                        Err(e) => IpcResponse::err(&req.id, format!("Fallo al exportar evidencia: {}", e)),
+                    }
+                }
+
+                "get_threat_intel_providers" => {
+                    let c = core.lock().await;
+                    let providers = c.list_threat_intel_providers();
+                    IpcResponse::ok(&req.id, serde_json::to_value(&providers).unwrap_or_default())
+                }
+
                 _ => IpcResponse::err(&req.id, format!("Acción '{}' no implementada en el daemon", req.action)),
             }
         }

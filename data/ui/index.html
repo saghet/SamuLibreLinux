@@ -746,10 +746,10 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="openUpdateHistoryModal()" class="px-3.5 py-2 glass-panel text-white font-medium text-xs rounded-xl hover:bg-white/10 active:scale-95 transition-all flex items-center gap-2 border border-white/10">
-              <span>📋</span> Ver Historial Horario
+            <button onclick="openUpdateHistoryModal()" class="px-3.5 py-2 glass-panel text-white font-medium text-xs rounded-xl hover:bg-white/10 active:scale-95 transition-all flex items-center gap-2 border border-cyan-500/30 text-cyan-300">
+              <span>🌐</span> Centro de Inteligencia & Evidencias
             </button>
-            <button onclick="triggerUpdateSignatures()" class="px-4 py-2 bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg hover:bg-blue-400 active:scale-95 transition-all flex items-center gap-2">
+            <button onclick="runThreatIntelUpdate()" class="px-4 py-2 bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg hover:bg-blue-400 active:scale-95 transition-all flex items-center gap-2">
               <span>🔄</span> Actualizar Ahora
             </button>
           </div>
@@ -3394,6 +3394,128 @@
     }
 
     let cachedUpdateHistory = [];
+    let cachedThreatIntelEvidences = [];
+
+    window.onThreatIntelEvidencesLoaded = function(evidences) {
+      cachedThreatIntelEvidences = evidences || [];
+      renderThreatIntelEvidences();
+    };
+
+    function renderThreatIntelEvidences() {
+      const container = document.getElementById('threatIntelEvidencesList');
+      if (!container) return;
+
+      if (cachedThreatIntelEvidences.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-gray-400 text-xs">
+            <p>No se han registrado operaciones en el Centro de Auditoría todavía.</p>
+            <p class="text-[11px] text-gray-500 mt-1">Haz clic en "Sincronizar Inteligencia Ahora" para iniciar la primera actualización multi-fuente.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      cachedThreatIntelEvidences.forEach(ev => {
+        const item = document.createElement('div');
+        item.className = 'glass-card p-3.5 rounded-2xl border border-white/10 space-y-2.5 hover:border-cyan-500/30 transition-all';
+
+        const isSuccess = ev.status === 'Completada';
+        const isRollback = ev.status === 'Revertida';
+        const statusBadgeColor = isSuccess 
+          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+          : (isRollback ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30');
+
+        let providersListHtml = '';
+        if (ev.providers && ev.providers.length > 0) {
+          providersListHtml = `
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-2 border-t border-white/5 text-[10px]">
+              ${ev.providers.map(p => {
+                const isPкторомOk = p.status === 'Success';
+                const isSkipped = typeof p.status === 'object' && p.status && p.status.Skipped;
+                const statusClass = isPкторомOk ? 'text-emerald-400' : (isSkipped ? 'text-gray-500' : 'text-amber-400');
+                const statusText = isPкторомOk ? '✔ +' + p.indicators_accepted : (isSkipped ? 'Omitido' : '⚠ Fallo');
+                return `
+                  <div class="bg-black/25 px-2 py-1 rounded-lg flex items-center justify-between">
+                    <span class="text-gray-300 font-mono">${escapeHtml(p.provider_id)}</span>
+                    <span class="${statusClass} font-semibold">${statusText}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }
+
+        const sealShort = (ev.evidence_hash_sha256 && ev.evidence_hash_sha256.length >= 16) 
+          ? ev.evidence_hash_sha256.substring(0, 16) + '...' 
+          : 'Sello Criptográfico';
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs font-bold text-white">${escapeHtml(ev.operation_id)}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full border font-semibold ${statusBadgeColor}">
+                ${escapeHtml(ev.status)}
+              </span>
+              <span class="text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-full font-mono">
+                ${escapeHtml(ev.linux_distro || 'Linux')}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="exportThreatIntelEvidence('${ev.operation_id}', 'html')" class="px-2 py-0.5 bg-white/5 hover:bg-white/15 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30 rounded-lg transition-all" title="Descargar Certificado HTML5">
+                📄 HTML
+              </button>
+              <button onclick="exportThreatIntelEvidence('${ev.operation_id}', 'json')" class="px-2 py-0.5 bg-white/5 hover:bg-white/15 text-[10px] font-semibold text-cyan-300 border border-cyan-500/30 rounded-lg transition-all" title="Descargar Evidencia JSON">
+                { } JSON
+              </button>
+              <button onclick="exportThreatIntelEvidence('${ev.operation_id}', 'csv')" class="px-2 py-0.5 bg-white/5 hover:bg-white/15 text-[10px] font-semibold text-purple-300 border border-purple-500/30 rounded-lg transition-all" title="Descargar Métricas CSV">
+                📊 CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-gray-300">
+            <span class="text-gray-400 font-mono">${escapeHtml(ev.started_at)} (${ev.duration_ms} ms)</span>
+            <div class="flex items-center gap-2">
+              <span class="text-emerald-400 font-semibold">+${ev.new_indicators_added} nuevos IOCs</span>
+              <span class="text-gray-400">|</span>
+              <span class="text-gray-300 font-mono">${ev.signatures_updated} firmas BD</span>
+              <span class="text-gray-400">|</span>
+              <span class="text-purple-300">${ev.yara_rules_updated} reglas YARA</span>
+            </div>
+          </div>
+
+          <p class="text-[10px] text-gray-400 italic">${escapeHtml(ev.verification_summary || '')}</p>
+
+          ${providersListHtml}
+
+          <div class="flex items-center justify-between pt-1 text-[9px] text-gray-500 font-mono">
+            <span>Sello SHA-256: <span class="text-gray-400">${escapeHtml(sealShort)}</span></span>
+            <span class="text-cyan-400/80">BD: ${escapeHtml((ev.new_db_version || '').substring(0, 12))}...</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function runThreatIntelUpdate() {
+      const select = document.getElementById('threatIntelProfileSelect');
+      const profile = select ? select.value : 'normal';
+      showToast('Actualizando Inteligencia', `Consultando 8 fuentes de Threat Intel con perfil [${profile.toUpperCase()}]...`);
+      sendIpc('run_threat_intel_update', { profile: profile });
+    }
+
+    function rollbackThreatIntel() {
+      if (confirm('¿Desea revertir la base de datos de firmas a la versión previa respaldada en backup_previous?')) {
+        showToast('Rollback en Progreso', 'Restaurando copia de seguridad atómica anterior...');
+        sendIpc('rollback_threat_intel');
+      }
+    }
+
+    function exportThreatIntelEvidence(opId, format) {
+      showToast('Exportando Evidencia', `Generando informe de auditoría ${format.toUpperCase()} para ${opId}...`);
+      sendIpc('export_threat_intel_evidence', { op_id: opId, format: format });
+    }
 
     window.onUpdateHistoryLoaded = function(entries) {
       cachedUpdateHistory = entries || [];
@@ -3440,6 +3562,7 @@
       const modal = document.getElementById('modalUpdateHistory');
       if (modal) modal.classList.remove('hidden');
       sendIpc('get_update_history');
+      sendIpc('get_threat_intel_evidences');
     }
 
     function closeUpdateHistoryModal() {
@@ -4161,17 +4284,18 @@
     };
   </script>
 
-  <!-- Modal Flotante: Historial de Actualizaciones de Firmas (Cada Hora) -->
-  <div id="modalUpdateHistory" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 hidden">
-    <div class="glass-panel bg-[#11141F]/95 max-w-2xl w-full rounded-3xl border border-white/15 p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+  <!-- Modal Flotante: Centro de Inteligencia de Amenazas y Evidencias Técnicas -->
+  <div id="modalUpdateHistory" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel bg-[#11141F]/95 max-w-4xl w-full rounded-3xl border border-cyan-500/30 p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+      <!-- Encabezado del Centro de Inteligencia -->
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
-            📋
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+            🌐
           </div>
           <div>
-            <h3 class="text-sm font-semibold text-white">Historial de Actualización de Firmas</h3>
-            <p class="text-xs text-gray-400">Registro cronológico de sincronizaciones automáticas cada hora (3600s).</p>
+            <h3 class="text-sm font-bold text-white">Centro de Inteligencia de Amenazas & Auditoría de Evidencias</h3>
+            <p class="text-xs text-gray-400">Actualización inteligente multi-fuente verificable (8 Fuentes) con sustitución atómica y sello criptográfico SHA-256.</p>
           </div>
         </div>
         <button onclick="closeUpdateHistoryModal()" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-all">
@@ -4179,19 +4303,95 @@
         </button>
       </div>
 
-      <!-- Lista de Entradas del Historial -->
-      <div id="updateHistoryList" class="flex-1 overflow-y-auto space-y-3 pr-2">
+      <!-- Barra de Proveedores y Fuentes Integradas -->
+      <div class="glass-card p-3 rounded-2xl border border-white/5 space-y-2">
+        <div class="flex items-center justify-between text-xs text-gray-400">
+          <span class="font-semibold text-white">Fuentes de Inteligencia Activas (8 Proveedores)</span>
+          <span class="text-emerald-400 font-mono text-[11px]">✔ Zero-Cloud Mandate (Procesamiento 100% Local)</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">ClamAV Oficial</span>
+            <span class="text-emerald-400 font-mono text-[10px]">CVD/HDB</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">MalwareBazaar</span>
+            <span class="text-cyan-400 font-mono text-[10px]">Abuse.ch</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">ThreatFox IOCs</span>
+            <span class="text-cyan-400 font-mono text-[10px]">Abuse.ch</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">URLhaus Shield</span>
+            <span class="text-cyan-400 font-mono text-[10px]">Web Rep</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">YARA Linux Rules</span>
+            <span class="text-purple-400 font-mono text-[10px]">ELF/Mirai</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">AlienVault OTX</span>
+            <span class="text-indigo-400 font-mono text-[10px]">Pulses</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">MISP Feeds</span>
+            <span class="text-amber-400 font-mono text-[10px]">Enterprise</span>
+          </div>
+          <div class="bg-black/30 p-2 rounded-xl border border-white/5 flex items-center justify-between">
+            <span class="text-gray-300 font-medium">VirusTotal v3</span>
+            <span class="text-blue-400 font-mono text-[10px]">Hash Rep</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Configuración y Acciones Rápidas -->
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-300 font-medium">Perfil de Actualización:</label>
+          <select id="threatIntelProfileSelect" class="bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+            <option value="normal" selected>MODO NORMAL (Equilibrado)</option>
+            <option value="high">MODO ALTA PROTECCIÓN (Frecuente)</option>
+            <option value="low">MODO BAJO CONSUMO (Esencial)</option>
+            <option value="manual">MODO MANUAL (Bajo demanda)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="rollbackThreatIntel()" class="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-xl active:scale-95 transition-all flex items-center gap-1.5">
+            <span>↩</span> Rollback Seguro
+          </button>
+          <button onclick="runThreatIntelUpdate()" class="px-4 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-1.5">
+            <span>🔄</span> Sincronizar Inteligencia Ahora
+          </button>
+        </div>
+      </div>
+
+      <!-- Pestañas de Vista -->
+      <div class="flex items-center gap-2 border-b border-white/10 pb-2">
+        <button onclick="document.getElementById('threatIntelEvidencesList').classList.remove('hidden'); document.getElementById('updateHistoryList').classList.add('hidden');" class="px-3 py-1 bg-white/10 text-cyan-300 text-xs font-semibold rounded-lg hover:bg-white/15 transition-all">
+          Certificados y Evidencias Forenses
+        </button>
+        <button onclick="document.getElementById('threatIntelEvidencesList').classList.add('hidden'); document.getElementById('updateHistoryList').classList.remove('hidden');" class="px-3 py-1 bg-white/5 text-gray-400 text-xs font-semibold rounded-lg hover:bg-white/10 hover:text-white transition-all">
+          Historial Cronológico Básico
+        </button>
+      </div>
+
+      <!-- Lista de Evidencias Técnicas -->
+      <div id="threatIntelEvidencesList" class="flex-1 overflow-y-auto space-y-3 pr-2">
+        <!-- Renderizado dinámicamente con sellos SHA-256 -->
+      </div>
+
+      <!-- Lista de Entradas del Historial Tradicional -->
+      <div id="updateHistoryList" class="flex-1 overflow-y-auto space-y-3 pr-2 hidden">
         <!-- Renderizado dinámicamente -->
       </div>
 
       <!-- Pie del Modal -->
       <div class="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
         <span class="flex items-center gap-2 text-emerald-400">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Actualizador programado cada 60 min
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Daemon samulibre-update.timer activo cada 4 horas
         </span>
-        <button onclick="triggerUpdateSignatures()" class="px-3.5 py-1.5 bg-blue-500 text-white font-medium text-xs rounded-xl hover:bg-blue-400 transition-all">
-          Forzar Sincronización Ahora
-        </button>
+        <span class="text-[11px] text-gray-500 font-mono">Directorio Seguro: /var/lib/samulibre/threat_intel</span>
       </div>
     </div>
   </div>

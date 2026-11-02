@@ -37,6 +37,8 @@ install -m 644 samulibre.desktop %{buildroot}/usr/share/applications/samulibre.d
 install -m 644 icon.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/samulibre.png
 install -m 644 samulibre.service %{buildroot}/usr/lib/systemd/user/samulibre.service
 install -m 644 samulibred.service %{buildroot}/usr/lib/systemd/system/samulibred.service
+install -m 644 samulibre-update.service %{buildroot}/usr/lib/systemd/system/samulibre-update.service
+install -m 644 samulibre-update.timer %{buildroot}/usr/lib/systemd/system/samulibre-update.timer
 cp -r ui/* %{buildroot}/usr/share/samulibre/data/ui/
 if [ -d signatures ]; then
     cp -r signatures/* %{buildroot}/usr/share/samulibre/data/signatures/ || true
@@ -51,6 +53,8 @@ fi
 /usr/share/samulibre/data/ui/*
 /usr/lib/systemd/user/samulibre.service
 /usr/lib/systemd/system/samulibred.service
+/usr/lib/systemd/system/samulibre-update.service
+/usr/lib/systemd/system/samulibre-update.timer
 
 %post
 update-desktop-database -q /usr/share/applications || true

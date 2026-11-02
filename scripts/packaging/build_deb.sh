@@ -36,6 +36,8 @@ cp data/samulibre.desktop "${PKG_DIR}/usr/share/applications/samulibre.desktop"
 cp data/samulibre.desktop "${PKG_DIR}/usr/share/applications/org.samulibre.samulibre.desktop"
 cp data/samulibre.service "${PKG_DIR}/usr/lib/systemd/user/samulibre.service"
 cp data/samulibred.service "${PKG_DIR}/usr/lib/systemd/system/samulibred.service"
+cp data/samulibre-update.service "${PKG_DIR}/usr/lib/systemd/system/samulibre-update.service"
+cp data/samulibre-update.timer "${PKG_DIR}/usr/lib/systemd/system/samulibre-update.timer"
 
 # Multi-resolución de iconos y SVG escalable
 echo "==> [Ubuntu/Debian] Generando e instalando iconos multirresolución Freedesktop..."

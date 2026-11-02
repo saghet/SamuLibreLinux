@@ -1,0 +1,26 @@
+[Unit]
+Description=SamuLibre Threat Intelligence Multi-Source Updater
+Documentation=man:samulibre(8) https://samulibre.org
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/samulibre update run --profile normal
+StandardOutput=journal
+StandardError=journal
+User=root
+Group=root
+
+# Hardening y Contención Estricta Systemd
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/samulibre /run/samulibre
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

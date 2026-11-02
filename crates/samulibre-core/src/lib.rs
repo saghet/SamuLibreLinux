@@ -28,6 +28,11 @@ pub use event_db::*;
 pub mod ipc;
 pub use ipc::*;
 
+pub use samulibre_scanner::threat_intel::{
+    IndicatorType, ProviderEvidence, ProviderStatus, ThreatIndicator, ThreatSeverity,
+    UpdateEvidence, UpdateProfile, UpdateStatus,
+};
+
 pub struct SamuLibreCore {
     pub patcher: Arc<Mutex<VirtualPatcher>>,
     pub shield: Arc<Mutex<EndpointShield>>,
@@ -37,6 +42,7 @@ pub struct SamuLibreCore {
     pub copilot: Arc<Mutex<CyberCopilotEngine>>,
     pub sandbox: Arc<Mutex<MicroSandbox>>,
     pub reputation: Arc<Mutex<CommunityReputationEngine>>,
+    pub event_db: Arc<SecurityEventDatabase>,
     alerts_history: Arc<Mutex<Vec<ThreatAlert>>>,
     _active_watcher: Arc<Mutex<Option<samulibre_watcher::RecommendedWatcher>>>,
 }
@@ -52,6 +58,12 @@ impl SamuLibreCore {
         let sandbox = Arc::new(Mutex::new(MicroSandbox::new(Path::new("data").join("sandbox"))));
         let reputation = Arc::new(Mutex::new(CommunityReputationEngine::new()));
 
+        let db_path = Path::new("data").join("events.db");
+        let event_db = Arc::new(SecurityEventDatabase::new(&db_path).unwrap_or_else(|_| {
+            let tmp_db = std::env::temp_dir().join("samulibre_fallback_events.db");
+            SecurityEventDatabase::new(&tmp_db).expect("Failed to initialize fallback event db")
+        }));
+
         Self {
             patcher,
             shield,
@@ -61,6 +73,7 @@ impl SamuLibreCore {
             copilot,
             sandbox,
             reputation,
+            event_db,
             alerts_history: Arc::new(Mutex::new(Vec::new())),
             _active_watcher: Arc::new(Mutex::new(None)),
         }
@@ -882,6 +895,100 @@ impl SamuLibreCore {
             anti_tamper_active: anti_tamper_status.is_active,
             tamper_attempts_detected: anti_tamper_status.tamper_attempts_detected,
         }
+    }
+
+    // =========================================================================
+    // --- Sistema Avanzado de Actualizaciones Multi-Fuente y Centro de Auditoría ---
+    // =========================================================================
+
+    /// Ejecuta una actualización multi-fuente de firmas e inteligencia de amenazas
+    pub fn update_threat_intelligence(
+        &self,
+        profile: Option<UpdateProfile>,
+        target_provider: Option<&str>,
+    ) -> Result<UpdateEvidence> {
+        let mut scanner = self
+            .scanner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Scanner lock error: {}", e))?;
+        let evidence = scanner.update_threat_intelligence(profile, target_provider)?;
+        let payload = serde_json::to_string(&evidence).ok();
+        let _ = self.event_db.log_audit_event(
+            "THREAT_INTEL_UPDATE",
+            if evidence.status == UpdateStatus::Completada {
+                "INFO"
+            } else {
+                "WARN"
+            },
+            "ThreatIntelManager",
+            &format!(
+                "Actualización multi-fuente finalizada. Op: {}, Estado: {:?}, Nuevos IOCs: {}, Firmas actualizadas: {}, Reglas YARA: {}",
+                evidence.operation_id,
+                evidence.status,
+                evidence.new_indicators_added,
+                evidence.signatures_updated,
+                evidence.yara_rules_updated
+            ),
+            payload.as_deref(),
+        );
+        Ok(evidence)
+    }
+
+    /// Revierte las firmas e indicadores de inteligencia a la versión anterior (Rollback seguro)
+    pub fn rollback_threat_intelligence(&self) -> Result<UpdateEvidence> {
+        let mut scanner = self
+            .scanner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Scanner lock error: {}", e))?;
+        let evidence = scanner
+            .rollback_threat_intelligence()
+            .map_err(|e| anyhow::anyhow!(e))?;
+        let _ = self.event_db.log_audit_event(
+            "THREAT_INTEL_ROLLBACK",
+            "WARN",
+            "ThreatIntelManager",
+            &format!("Rollback de base de inteligencia ejecutado con éxito (Op: {})", evidence.operation_id),
+            None,
+        );
+        Ok(evidence)
+    }
+
+    /// Obtiene el registro histórico de operaciones y evidencias de actualización
+    pub fn get_threat_intel_evidence_list(&self) -> Vec<UpdateEvidence> {
+        if let Ok(scanner) = self.scanner.lock() {
+            scanner.get_update_evidence_list().unwrap_or_default()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Exporta una evidencia técnica de actualización en formato JSON, CSV o HTML
+    pub fn export_threat_intel_evidence(&self, op_id: &str, format: &str) -> Result<String> {
+        let storage_dir = samulibre_scanner::get_signatures_storage_dir();
+        let audit_center = samulibre_scanner::threat_intel::UpdateAuditCenter::new(&storage_dir);
+        match format.to_lowercase().as_str() {
+            "json" => audit_center.export_json(op_id),
+            "csv" => audit_center.export_csv(op_id),
+            "html" => audit_center.export_html_report(op_id),
+            _ => Err(anyhow::anyhow!(
+                "Formato no soportado: {}. Use 'json', 'csv' o 'html'.",
+                format
+            )),
+        }
+    }
+
+    /// Lista los 8 proveedores de inteligencia integrados y soportados
+    pub fn list_threat_intel_providers(&self) -> Vec<&'static str> {
+        vec![
+            "clamav",
+            "malware_bazaar",
+            "threatfox",
+            "urlhaus",
+            "yara_rules",
+            "alienvault_otx",
+            "misp",
+            "virustotal",
+        ]
     }
 }
 

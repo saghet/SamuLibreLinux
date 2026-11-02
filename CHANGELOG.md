@@ -6,6 +6,31 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-02
 
+### 🌐 Sistema Avanzado de Actualizaciones Multi-Fuente y Centro de Auditoría de Inteligencia de Amenazas (Fase 12)
+- **8 Conectores de Inteligencia de Amenazas (Threat Intelligence Providers):**
+  - **Fuente 1: ClamAV:** Soporte e ingesta oficial de firmas CVD (`main.cvd`, `daily.cvd`, `bytecode.cvd`) y bases HDB locales.
+  - **Fuente 2: MalwareBazaar (Abuse.ch):** Consulta automatizada de hashes de malware confirmados, mapeo de familias (Kinsing, Mirai, XorDDos) e IOCs basados en SHA-256 (sin descargas inseguras de binarios en el endpoint).
+  - **Fuente 3: ThreatFox (Abuse.ch):** Ingesta clasificada de IOCs (hashes de archivos, dominios maliciosos, IPs de servidores C2 y URLs peligrosas).
+  - **Fuente 4: URLhaus (Abuse.ch):** Alimentación de dominios y URLs de distribución de malware para el escudo web y protección de red.
+  - **Fuente 5: YARA-Rules Curadas Linux:** Ingesta de reglas comunitarias y especializadas para malware ELF, webshells, ransomware y loaders, con validación sintáctica estricta antes de compilar.
+  - **Fuente 6: AlienVault OTX:** Conector para Pulses e indicadores con control seguro de API Key.
+  - **Fuente 7: MISP Feeds:** Pasarela de integración empresarial con servidores MISP corporativos.
+  - **Fuente 8: VirusTotal v3:** Consulta reputacional de hashes vía API v3 respetando límites de cuota, sin subida automática de archivos confidenciales.
+- **Threat Intelligence Update Manager & Sustitución Atómica:**
+  - Descargador seguro HTTPS con streaming y verificación continua de tamaño y certificados.
+  - Staging en directorio temporal (`.tmp_update_<op_id>`) y swap atómico hacia producción (`rename`), impidiendo estados inconsistentes de la base de firmas.
+  - Soporte de Rollback seguro inmediato hacia `backup_previous/` ante anomalías o petición del operador.
+  - Normalización, deduplicación multidimensional y lista blanca de falsos positivos (rechazo de IPs privadas, dominios esenciales y hashes nulos).
+- **Centro de Evidencias Técnicas & Sello Criptográfico SHA-256:**
+  - Registro auditable de cada operación (`UP-<UUID>` / `ROLLBACK-<UUID>`) con duración, distribución Linux detectada, métricas de IOCs, desglose por proveedor y resumen de verificación.
+  - Cálculo de hash SHA-256 inmutable para cada evidencia técnica.
+  - Motores de exportación forense en un clic: JSON estructurado, CSV delimitado y certificado autónomo en HTML5.
+- **Automatización e Integración con Systemd:**
+  - Servicio `samulibre-update.service` y temporizador `samulibre-update.timer` (cada 4h con 15m de jitter) integrados en el empaquetado para Debian (`.deb`), Red Hat (`.rpm`) y Arch (`.pkg.tar.zst`).
+- **Integración Completa en CLI y GUI:**
+  - Subcomandos de terminal `samulibre update run`, `samulibre update history`, `samulibre update evidence`, `samulibre update rollback` y `samulibre update providers`.
+  - Nueva vista modal interactiva "Centro de Inteligencia & Evidencias" en la interfaz gráfica.
+
 ### 🎨 Auditoría UI/UX Full Stack, Estudio de Mercado y Localización 100% Linux (Fase 11)
 - **Eliminación del Menú Redundante "Auditoría Interna 100/100":**
   - Removido el botón `nav-audit` de la barra de navegación lateral y la vista asociada `view-audit`, despejando la interfaz de paneles autoreferenciales innecesarios para el uso operativo diario.

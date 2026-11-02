@@ -18,3 +18,8 @@ samulibre-gui.exe
 *.WebView2/
 samulibre_report.*
 data/policy.json
+*.db
+*.db-shm
+*.db-wal
+crates/samulibre-android/data/
+data/signatures/backup_previous/

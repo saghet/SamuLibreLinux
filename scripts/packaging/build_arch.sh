@@ -25,6 +25,8 @@ cp data/samulibre.desktop "${WORK_DIR}/src/"
 cp assets/icon.png "${WORK_DIR}/src/"
 cp data/samulibre.service "${WORK_DIR}/src/"
 cp data/samulibred.service "${WORK_DIR}/src/"
+cp data/samulibre-update.service "${WORK_DIR}/src/"
+cp data/samulibre-update.timer "${WORK_DIR}/src/"
 
 # Recursos completos (UI, firmas, catálogo KB, reglas CVE, sandbox, canarios)
 bash scripts/packaging/stage_data.sh "${WORK_DIR}/src/data"

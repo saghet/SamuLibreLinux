@@ -96,6 +96,18 @@ elif [ -d "${SCRIPT_DIR}/../../data/ui" ]; then
     (cd "${SCRIPT_DIR}/../.." && bash scripts/packaging/stage_data.sh "${APP_DATA_DIR}/data")
 fi
 
+if [ "${IS_ROOT}" = true ]; then
+    echo "==> Configurando unidades systemd (demonio y temporizador de actualizaciones)..."
+    mkdir -p /usr/lib/systemd/system
+    if [ -f "${SCRIPT_DIR}/../../data/samulibred.service" ]; then
+        cp "${SCRIPT_DIR}/../../data/samulibred.service" /usr/lib/systemd/system/
+        cp "${SCRIPT_DIR}/../../data/samulibre-update.service" /usr/lib/systemd/system/
+        cp "${SCRIPT_DIR}/../../data/samulibre-update.timer" /usr/lib/systemd/system/
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable --now samulibre-update.timer 2>/dev/null || true
+    fi
+fi
+
 echo "==> Instalando acceso directo de escritorio e iconos..."
 if [ -f "${SCRIPT_DIR}/samulibre.desktop" ]; then
     cp "${SCRIPT_DIR}/samulibre.desktop" "${DESKTOP_DIR}/samulibre.desktop"

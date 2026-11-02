@@ -509,6 +509,7 @@ impl VirtualPatcher {
 
     /// Obtiene las KBs (HotFixes) instaladas en el sistema operativo Windows
     pub fn get_installed_kbs(&self) -> HashSet<String> {
+        #[allow(unused_mut)]
         let mut installed = HashSet::new();
 
         #[cfg(target_os = "windows")]
@@ -962,6 +963,7 @@ impl VirtualPatcher {
     /// Consulta actualizaciones pendientes a través de la API local de Windows Update Agent (WUA)
     /// aplicando filtrado estricto por Categoría y Palabras Clave para evitar falsos positivos de definiciones o apps
     pub fn fetch_pending_windows_updates(&self) -> HashSet<String> {
+        #[allow(unused_mut)]
         let mut pending = HashSet::new();
 
         #[cfg(target_os = "windows")]
@@ -1313,7 +1315,7 @@ pub fn get_windows_os_info() -> Option<OsVersionInfo> {
 }
 
 /// Comprueba si un servicio existe registrado en Windows
-pub fn is_service_installed(service_name: &str) -> bool {
+pub fn is_service_installed(_service_name: &str) -> bool {
     #[cfg(target_os = "windows")]
     {
         let mut cmd = Command::new("reg");
@@ -1327,10 +1329,10 @@ pub fn is_service_installed(service_name: &str) -> bool {
 }
 
 /// Evalúa si un CVE específico ya está mitigado nativamente por la versión del sistema operativo o si el sistema es inmune
-pub fn check_cve_native_mitigation(cve: &str, os_info: Option<&OsVersionInfo>) -> Option<(bool, String)> {
+pub fn check_cve_native_mitigation(cve: &str, _os_info: Option<&OsVersionInfo>) -> Option<(bool, String)> {
     #[cfg(target_os = "windows")]
     {
-        if let Some(os) = os_info {
+        if let Some(os) = _os_info {
             match cve {
                 "CVE-2024-38063" => {
                     if os.build_number > 26100 || (os.build_number == 26100 && os.ubr >= 1591) || (os.build_number >= 22621 && os.ubr >= 4037) {
@@ -1570,11 +1572,11 @@ fn revert_mitigation_helper(dry_run: bool, strategy: &MitigationStrategy) -> Res
             }
             info!("Regla de firewall {} eliminada (parche nativo instalado).", rule_name);
         }
-        MitigationStrategy::RegistryHardening { key_path, value_name, revert_value, .. } => {
+        MitigationStrategy::RegistryHardening { key_path, value_name, revert_value: _revert_value, .. } => {
             #[cfg(target_os = "windows")]
             {
                 let mut cmd = Command::new("reg");
-                cmd.args(["add", key_path, "/v", value_name, "/d", revert_value, "/f"]);
+                cmd.args(["add", key_path, "/v", value_name, "/d", _revert_value, "/f"]);
                 cmd.creation_flags(0x08000000);
                 let _ = cmd.output();
             }

@@ -27,7 +27,9 @@ extern "system" {
     ) -> i32;
 }
 
+#[allow(dead_code)]
 const INTERNET_OPTION_SETTINGS_CHANGED: u32 = 39;
+#[allow(dead_code)]
 const INTERNET_OPTION_REFRESH: u32 = 37;
 
 /// Notifica inmediatamente a Windows y a todos los navegadores (Chrome, Edge, etc.)
@@ -41,10 +43,10 @@ pub fn notify_windows_proxy_changed() {
 }
 
 /// Modifica el proxy del sistema operativo en HKCU y refresca WinINet
-pub fn set_windows_system_proxy(enable: bool, proxy_server: &str) -> Result<()> {
+pub fn set_windows_system_proxy(_enable: bool, _proxy_server: &str) -> Result<()> {
     #[cfg(target_os = "windows")]
     {
-        let enable_val = if enable { "1" } else { "0" };
+        let enable_val = if _enable { "1" } else { "0" };
 
         let mut cmd_enable = Command::new("reg");
         cmd_enable.args([
@@ -61,7 +63,7 @@ pub fn set_windows_system_proxy(enable: bool, proxy_server: &str) -> Result<()> 
         cmd_enable.creation_flags(CREATE_NO_WINDOW);
         let _ = cmd_enable.output();
 
-        if enable {
+        if _enable {
             let mut cmd_server = Command::new("reg");
             cmd_server.args([
                 "add",
@@ -71,7 +73,7 @@ pub fn set_windows_system_proxy(enable: bool, proxy_server: &str) -> Result<()> 
                 "/t",
                 "REG_SZ",
                 "/d",
-                proxy_server,
+                _proxy_server,
                 "/f",
             ]);
             cmd_server.creation_flags(CREATE_NO_WINDOW);

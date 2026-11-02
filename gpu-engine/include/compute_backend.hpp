@@ -45,6 +45,27 @@ public:
     virtual float get_gpu_temperature_c() = 0;
     virtual const char* get_backend_name() const = 0;
     virtual BackendType get_backend_type() const = 0;
+
+    // Custom Kernel Execution (GPU Native)
+    virtual bool supports_custom_kernels() const { return false; }
+    virtual bool load_kernel_module(const char* ptx_code, void** out_module) { 
+        (void)ptx_code; (void)out_module; return false; 
+    }
+    virtual void unload_kernel_module(void* module) { 
+        (void)module; 
+    }
+    virtual bool get_kernel_function(void* module, const char* name, void** out_function) { 
+        (void)module; (void)name; (void)out_function; return false; 
+    }
+    virtual bool launch_kernel(void* function,
+                               unsigned int grid_x, unsigned int grid_y, unsigned int grid_z,
+                               unsigned int block_x, unsigned int block_y, unsigned int block_z,
+                               unsigned int shared_mem_bytes, void* stream, void** kernel_params) {
+        (void)function; (void)grid_x; (void)grid_y; (void)grid_z;
+        (void)block_x; (void)block_y; (void)block_z;
+        (void)shared_mem_bytes; (void)stream; (void)kernel_params;
+        return false;
+    }
 };
 
 } // namespace samulibre::gpu

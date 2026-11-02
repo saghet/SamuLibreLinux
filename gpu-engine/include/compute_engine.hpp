@@ -36,6 +36,24 @@ public:
     // Fallback trigger (called on unrecoverable GPU driver error)
     void force_fallback_to_cpu(const std::string& reason);
 
+    // Custom Kernel Execution Delegation
+    bool supports_custom_kernels() const { return backend_ && backend_->supports_custom_kernels(); }
+    bool load_kernel_module(const char* ptx_code, void** out_module) {
+        return backend_ ? backend_->load_kernel_module(ptx_code, out_module) : false;
+    }
+    void unload_kernel_module(void* module) {
+        if (backend_) backend_->unload_kernel_module(module);
+    }
+    bool get_kernel_function(void* module, const char* name, void** out_function) {
+        return backend_ ? backend_->get_kernel_function(module, name, out_function) : false;
+    }
+    bool launch_kernel(void* function,
+                       unsigned int grid_x, unsigned int grid_y, unsigned int grid_z,
+                       unsigned int block_x, unsigned int block_y, unsigned int block_z,
+                       unsigned int shared_mem_bytes, void* stream, void** kernel_params) {
+        return backend_ ? backend_->launch_kernel(function, grid_x, grid_y, grid_z, block_x, block_y, block_z, shared_mem_bytes, stream, kernel_params) : false;
+    }
+
     // Raw backend access
     IComputeBackend* get_raw_backend() const { return backend_.get(); }
 

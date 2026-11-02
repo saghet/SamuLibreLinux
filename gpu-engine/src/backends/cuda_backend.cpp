@@ -42,10 +42,17 @@ bool CUDABackend::load_cuda_symbols() {
     cuStreamDestroy_v2_ = (int (*)(void*))dlsym(lib_handle_, "cuStreamDestroy_v2");
     cuStreamSynchronize_ = (int (*)(void*))dlsym(lib_handle_, "cuStreamSynchronize");
     cuMemGetInfo_v2_ = (int (*)(size_t*, size_t*))dlsym(lib_handle_, "cuMemGetInfo_v2");
+    cuModuleLoadData_ = (int (*)(void**, const void*))dlsym(lib_handle_, "cuModuleLoadData");
+    cuModuleUnload_ = (int (*)(void*))dlsym(lib_handle_, "cuModuleUnload");
+    cuModuleGetFunction_ = (int (*)(void**, void*, const char*))dlsym(lib_handle_, "cuModuleGetFunction");
+    cuLaunchKernel_ = (int (*)(void*, unsigned int, unsigned int, unsigned int,
+                              unsigned int, unsigned int, unsigned int,
+                              unsigned int, void*, void**, void**))dlsym(lib_handle_, "cuLaunchKernel");
 
     return (cuInit_ && cuDeviceGet_ && cuCtxCreate_v2_ && cuMemAlloc_v2_ && cuMemFree_v2_ &&
             cuMemAllocHost_v2_ && cuMemFreeHost_ && cuMemcpyHtoDAsync_v2_ && cuMemcpyDtoHAsync_v2_ &&
-            cuStreamCreate_ && cuStreamDestroy_v2_ && cuStreamSynchronize_);
+            cuStreamCreate_ && cuStreamDestroy_v2_ && cuStreamSynchronize_ &&
+            cuModuleLoadData_ && cuModuleGetFunction_ && cuLaunchKernel_);
 }
 
 bool CUDABackend::initialize(const GPUDeviceInfo& device) {
@@ -207,6 +214,52 @@ float CUDABackend::get_gpu_temperature_c() {
     }
 
     return 48.0f; // Safe baseline approximation
+}
+
+bool CUDABackend::load_kernel_module(const char* ptx_code, void** out_module) {
+    if (!initialized_ || !cuModuleLoadData_ || !ptx_code || !out_module) return false;
+    int res = cuModuleLoadData_(out_module, ptx_code);
+    if (res != 0) {
+        std::cerr << "[CUDABackend] cuModuleLoadData falló con código " << res << std::endl;
+        *out_module = nullptr;
+        return false;
+    }
+    return true;
+}
+
+void CUDABackend::unload_kernel_module(void* module) {
+    if (!module || !cuModuleUnload_) return;
+    cuModuleUnload_(module);
+}
+
+bool CUDABackend::get_kernel_function(void* module, const char* name, void** out_function) {
+    if (!module || !cuModuleGetFunction_ || !name || !out_function) return false;
+    int res = cuModuleGetFunction_(out_function, module, name);
+    if (res != 0) {
+        std::cerr << "[CUDABackend] cuModuleGetFunction (" << name << ") falló con código " << res << std::endl;
+        *out_function = nullptr;
+        return false;
+    }
+    return true;
+}
+
+bool CUDABackend::launch_kernel(void* function,
+                                unsigned int grid_x, unsigned int grid_y, unsigned int grid_z,
+                                unsigned int block_x, unsigned int block_y, unsigned int block_z,
+                                unsigned int shared_mem_bytes, void* stream, void** kernel_params) {
+    if (!initialized_ || !cuLaunchKernel_ || !function) return false;
+    int res = cuLaunchKernel_(function,
+                              grid_x, grid_y, grid_z,
+                              block_x, block_y, block_z,
+                              shared_mem_bytes,
+                              stream,
+                              kernel_params,
+                              nullptr);
+    if (res != 0) {
+        std::cerr << "[CUDABackend] cuLaunchKernel falló con código " << res << std::endl;
+        return false;
+    }
+    return true;
 }
 
 } // namespace samulibre::gpu

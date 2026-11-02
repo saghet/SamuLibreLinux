@@ -31,6 +31,16 @@ public:
     const char* get_backend_name() const override { return "NVIDIA_CUDA_Native"; }
     BackendType get_backend_type() const override { return BackendType::CUDA; }
 
+    // Custom Kernel Execution
+    bool supports_custom_kernels() const override { return true; }
+    bool load_kernel_module(const char* ptx_code, void** out_module) override;
+    void unload_kernel_module(void* module) override;
+    bool get_kernel_function(void* module, const char* name, void** out_function) override;
+    bool launch_kernel(void* function,
+                       unsigned int grid_x, unsigned int grid_y, unsigned int grid_z,
+                       unsigned int block_x, unsigned int block_y, unsigned int block_z,
+                       unsigned int shared_mem_bytes, void* stream, void** kernel_params) override;
+
 private:
     bool load_cuda_symbols();
 
@@ -58,6 +68,12 @@ private:
     int (*cuStreamDestroy_v2_)(void*) = nullptr;
     int (*cuStreamSynchronize_)(void*) = nullptr;
     int (*cuMemGetInfo_v2_)(size_t*, size_t*) = nullptr;
+    int (*cuModuleLoadData_)(void**, const void*) = nullptr;
+    int (*cuModuleUnload_)(void*) = nullptr;
+    int (*cuModuleGetFunction_)(void**, void*, const char*) = nullptr;
+    int (*cuLaunchKernel_)(void*, unsigned int, unsigned int, unsigned int,
+                           unsigned int, unsigned int, unsigned int,
+                           unsigned int, void*, void**, void**) = nullptr;
 };
 
 } // namespace samulibre::gpu

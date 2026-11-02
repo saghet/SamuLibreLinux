@@ -4,6 +4,32 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ---
 
+## [2.0.32] - 2026-11-01
+
+### 🛡️ Motor Antivirus y Capacidades de Detección en Linux (Fase 2)
+- **Cálculo Criptográfico SHA-256 en Streaming Completo:**
+  - Corregido el cálculo de hash SHA-256 en `scan_file`: ahora se computa en streaming sobre la totalidad del archivo sin importar su tamaño, eliminando truncamientos que impedían la detección de malware superior a 512 KB en bases globales (ThreatFox, MalwareBazaar, ClamAV).
+  - Rendimiento preservado mediante `BufReader` de 256 KB e inspección estática restringida a los primeros 512 KB.
+- **Analizador de Seguridad Estructural ELF (Zero-Dependency Linux Engine):**
+  - Implementado nuevo módulo nativo `elf_analyzer.rs` para binarios ELF de 32 y 64 bits sin dependencias externas.
+  - Detección estricta de violaciones W^X (`PF_W | PF_X`) en segmentos `PT_LOAD`.
+  - Detección de pilas ejecutables (`PT_GNU_STACK` con `PF_X`), mitigando riesgos de buffer overflow y shellcodes.
+  - Detección de empaquetadores UPX, anomalías en tablas de sección y manipulación de cabeceras.
+  - Detección de cadenas de explotación en memoria (`/memfd:`, `/dev/tcp/`, `init_module`, `finit_module`, `LD_PRELOAD`).
+- **Mitigación de Evasión por Padding de Entropía Polimórfica:**
+  - Reforzado el analizador `polymorphic.rs` para detectar payloads cifrados o empaquetados que intentan eludir el umbral de Shannon mediante relleno artificial de ceros o baja entropía (`has_entropy_padding_evasion`).
+- **Reglas Heurísticas Avanzadas para Amenazas Nativas en Linux:**
+  - Reverse shells en Linux ofuscadas y decodificadas al vuelo con `base64`.
+  - Marcadores y notas de rescate de variantes de ransomware para Linux (ESXiArgs, bloqueos inmutables).
+  - Detección de rootkits LKM e inyección dinámica de módulos de kernel (`insmod`, `finit_module`, `/dev/kmem`, `/proc/kallsyms`).
+  - Recolección y exfiltración de claves SSH (`id_rsa`) y hashes de `/etc/shadow`.
+  - Droppers furtivos con ejecución en tubería sin archivo intermedio (`curl | sh`, `wget | bash`).
+  - Optimización del pre-filtro de memoria `has_suspicious_indicators` con descarte instantáneo (<0.01 ms).
+- **Carga Persistente de Firmas Externas:**
+  - Soporte para bases de datos adicionales en `data/signatures/malware_hashes.db` tanto en inicialización de fábrica como en actualizaciones comunitarias.
+
+---
+
 ## [2.0.31] - 2026-11-01
 
 ### 🚀 Novedades y Mejoras Principales

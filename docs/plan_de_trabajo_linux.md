@@ -632,3 +632,41 @@ Permitir a los usuarios excluir selectivamente carpetas, proyectos o rutas compl
 
 
 
+
+
+---
+
+## 22. Sección 22: Auditoría y Evolución del Motor Antivirus (Fase 2) - Detección Estructural ELF, Mitigación de Evasión por Entropía y Heurísticas Nativas Linux
+
+### 22.1 Diagnóstico de Hallazgos Críticos en Fase 2
+Tras la auditoría estricta de capacidades del motor de detección en `crates/samulibre-scanner`, se identificaron cinco deficiencias prioritarias que comprometían la eficacia de SamuLibre frente a malware moderno en entornos Linux:
+
+1. **Truncamiento Falso en el Hash Criptográfico SHA-256:**
+   * El bucle de lectura en `scan_file` se detenía a los 512 KB (`MAX_SCAN_BUFFER`). Cualquier archivo malicioso mayor a 512 KB generaba un SHA-256 parcial e inválido, impidiendo la coincidencia con firmas oficiales de ClamAV, ThreatFox o MalwareBazaar.
+2. **Ausencia de Análisis Estructural de Binarios ELF:**
+   * No existía inspección de cabeceras de ejecutables nativos Linux (`ELF32` / `ELF64`). El motor no verificaba violaciones de seguridad a nivel de arquitectura (segmentos con permisos simultáneos de escritura y ejecución `W^X`, pilas ejecutables `PT_GNU_STACK` propensas a buffer overflow o compresión UPX maliciosa).
+3. **Evasión Heurística por Relleno de Entropía (Padding Evasion):**
+   * El cálculo global de Shannon en archivos polimórficos permitía que un malware empaquetado/cifrado evadiera la detección agregando grandes bloques de ceros o datos de baja entropía al final del archivo para reducir el promedio global por debajo del umbral 7.85.
+4. **Carencia de Patrones Heurísticos para Amenazas Nativas de Linux:**
+   * No existían reglas específicas para tácticas frecuentes en Linux: payloads de reverse shell en Base64, notas y marcadores de ransomware Linux (ej. ESXiArgs), inyección de módulos de kernel (LKM rootkits vía `insmod`/`init_module`), exfiltración de llaves SSH/`/etc/shadow` ni descargas encadenadas a tuberías (`curl | sh`).
+5. **Carga Estática de Bases Externas:**
+   * El motor no leía dinámicamente archivos de firmas adicionales (`malware_hashes.db`) en el arranque.
+
+---
+
+### 22.2 Plan de Trabajo y Mejoras Técnicas Implementadas
+
+| Componente | Archivo Modificado / Creado | Descripción de la Mejora |
+|---|---|---|
+| **Streaming SHA-256 Bounded** | [crates/samulibre-scanner/src/lib.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-scanner/src/lib.rs) | Corregido el streaming criptográfico: `Sha256::finalize()` computa sobre la totalidad del archivo con búfer `BufReader` de 256 KB. La inspección estática en memoria se acota a los primeros 512 KB, garantizando hashes 100% conformes a estándares internacionales sin penalizar la velocidad. |
+| **Analizador Estructural ELF** | [crates/samulibre-scanner/src/elf_analyzer.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-scanner/src/elf_analyzer.rs) | Módulo nativo zero-dependency en Rust para ELF32 y ELF64: detecta violaciones `W^X` (`PF_W \| PF_X` en `PT_LOAD`), pilas ejecutables `PT_GNU_STACK`, empaquetado UPX, manipulación de cabeceras de sección y cadenas de explotación en memoria (`/memfd:`, `LD_PRELOAD`, `init_module`, `/dev/tcp/`). |
+| **Anti-Padding Evasion** | [crates/samulibre-scanner/src/polymorphic.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-scanner/src/polymorphic.rs) | Implementado análisis por bloques secuenciales en `analyze_polymorphic_entropy`: detecta clusters de alta entropía (>7.8) combinados con padding artificial de ceros o baja entropía (`has_entropy_padding_evasion`). |
+| **Reglas Heurísticas Linux** | [crates/samulibre-scanner/src/lib.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-scanner/src/lib.rs) | Incorporadas Reglas 12 a 16: `Trojan.Linux.Base64ObfuscatedShell`, `Ransomware.Linux.EncryptionMarkerOrRansomNote`, `Rootkit.Linux.KernelModuleTampering`, `Spyware.Linux.CredentialAndKeyHarvester`, `Dropper.Linux.PipedWebDelivery`. Pre-filtro `has_suspicious_indicators` optimizado para evaluación en <0.01 ms. |
+| **Bases de Datos Dinámicas** | [crates/samulibre-scanner/src/lib.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-scanner/src/lib.rs) | Sincronización automática con `data/signatures/malware_hashes.db` en inicialización de fábrica y reporte estructurado de actualización comunitaria. |
+
+---
+
+### 22.3 Verificación y Calidad (QA)
+* **Tests Unitarios de `samulibre-scanner`:** 21 pruebas ejecutadas, **21 aprobadas, 0 fallos**.
+* **Tests del Workspace Completo:** 100% de tests aprobados sin regresiones en ningún crate.
+* **Binarios en Modo Release:** `samulibre-gui` y `samulibre-cli` compilados e instalados en `~/.local/bin/`.

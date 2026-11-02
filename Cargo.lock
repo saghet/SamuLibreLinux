@@ -2262,7 +2262,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-ai"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2276,7 +2276,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-android"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2295,7 +2295,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-cli"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "clap",
@@ -2314,7 +2314,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-core"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2334,7 +2334,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-gui"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2365,7 +2365,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-patcher"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2379,7 +2379,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-scanner"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2395,7 +2395,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-shield"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2412,7 +2412,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-types"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "chrono",
  "serde",
@@ -2422,7 +2422,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-vpn"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2434,7 +2434,7 @@ dependencies = [
 
 [[package]]
 name = "samulibre-watcher"
-version = "2.0.31"
+version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",

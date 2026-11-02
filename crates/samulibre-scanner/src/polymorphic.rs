@@ -110,11 +110,13 @@ pub struct PolymorphicProfile {
     pub overall_entropy: f64,
     pub high_entropy_blocks: usize,
     pub total_blocks: usize,
+    pub has_entropy_padding_evasion: bool,
     pub reason: Option<String>,
 }
 
 /// Analiza un archivo en bloques de 1024 bytes en busca de secciones de alta entropía
-/// intercaladas con código ofuscador característico de troyanos polimórficos.
+/// intercaladas con código ofuscador característico de troyanos polimórficos,
+/// mitigando además técnicas de evasión por relleno (Entropy Padding).
 pub fn analyze_polymorphic_entropy(data: &[u8], file_name: &str) -> PolymorphicProfile {
     if data.len() < 1024 {
         return PolymorphicProfile {
@@ -122,6 +124,7 @@ pub fn analyze_polymorphic_entropy(data: &[u8], file_name: &str) -> PolymorphicP
             overall_entropy: calculate_shannon_entropy(data),
             high_entropy_blocks: 0,
             total_blocks: 1,
+            has_entropy_padding_evasion: false,
             reason: None,
         };
     }
@@ -129,17 +132,27 @@ pub fn analyze_polymorphic_entropy(data: &[u8], file_name: &str) -> PolymorphicP
     let overall = calculate_shannon_entropy(data);
     let mut high_entropy_blocks = 0usize;
     let mut total_blocks = 0usize;
+    let mut consecutive_high = 0usize;
+    let mut max_consecutive_high = 0usize;
+    let mut zero_padding_blocks = 0usize;
 
     for chunk in data.chunks(1024) {
         total_blocks += 1;
         let e = calculate_shannon_entropy(chunk);
-        if e > 7.15 {
+        if e > 7.20 {
             high_entropy_blocks += 1;
+            consecutive_high += 1;
+            if consecutive_high > max_consecutive_high {
+                max_consecutive_high = consecutive_high;
+            }
+        } else {
+            consecutive_high = 0;
+            if e < 1.0 {
+                zero_padding_blocks += 1;
+            }
         }
     }
 
-    // Un archivo binario (.exe, .dll, .so, .bin) con más del 65% de bloques con entropía > 7.15
-    // suele ser un payload empaquetado o cifrado polimórficamente.
     let is_exec = file_name.ends_with(".exe")
         || file_name.ends_with(".dll")
         || file_name.ends_with(".so")
@@ -149,9 +162,21 @@ pub fn analyze_polymorphic_entropy(data: &[u8], file_name: &str) -> PolymorphicP
         || data.starts_with(b"\x7fELF");
 
     let ratio = high_entropy_blocks as f64 / total_blocks.max(1) as f64;
-    let is_poly = is_exec && ratio >= 0.65 && overall > 7.2;
+    let is_standard_poly = is_exec && ratio >= 0.65 && overall > 7.2;
 
-    let reason = if is_poly {
+    // Detección de Evasión por Entropy Padding:
+    // Binario que contiene un payload denso cifrado (>= 4 KB consecutivos con H > 7.2)
+    // diluido artificialmente con relleno de baja entropía / ceros (>= 4 KB)
+    let is_padding_evasion = is_exec && max_consecutive_high >= 4 && zero_padding_blocks >= 4;
+
+    let is_poly = is_standard_poly || is_padding_evasion;
+
+    let reason = if is_padding_evasion {
+        Some(format!(
+            "Payload empaquetado con técnica de evasión por relleno (Entropy Padding): sección cifrada continua de {} KB camuflada con {} KB de padding.",
+            max_consecutive_high, zero_padding_blocks
+        ))
+    } else if is_standard_poly {
         Some(format!(
             "Payload empaquetado con patrón polimórfico detectado: entropía total {:.2}, {:.1}% de bloques con cifrado denso.",
             overall,
@@ -166,6 +191,7 @@ pub fn analyze_polymorphic_entropy(data: &[u8], file_name: &str) -> PolymorphicP
         overall_entropy: overall,
         high_entropy_blocks,
         total_blocks,
+        has_entropy_padding_evasion: is_padding_evasion,
         reason,
     }
 }
@@ -219,6 +245,24 @@ mod tests {
         let profile = analyze_polymorphic_entropy(&packed_pe, "packed_trojan.exe");
         assert!(profile.is_likely_polymorphic);
         assert!(profile.overall_entropy > 7.2);
+    }
+
+    #[test]
+    fn test_entropy_padding_evasion_mitigation() {
+        let mut binary = b"\x7fELF\x02\x01\x01\x00".to_vec();
+        // 4 KB de código cifrado denso
+        let mut dense_payload = vec![0u8; 4096];
+        for (i, b) in dense_payload.iter_mut().enumerate() {
+            *b = ((i * 197 + 83) % 256) as u8;
+        }
+        binary.extend_from_slice(&dense_payload);
+        // 8 KB de relleno con ceros (Entropy Padding para reducir el ratio global a < 35%)
+        let zero_padding = vec![0u8; 8192];
+        binary.extend_from_slice(&zero_padding);
+
+        let profile = analyze_polymorphic_entropy(&binary, "evasive_loader.elf");
+        assert!(profile.is_likely_polymorphic, "Debe detectar técnica de evasión por Entropy Padding");
+        assert!(profile.has_entropy_padding_evasion);
     }
 }
 

@@ -294,13 +294,13 @@
         </div>
 
         <!-- Tarjeta de Progreso de Escaneo Real en Vivo -->
-        <div id="realScanProgressCard" class="glass-card p-6 rounded-3xl relative overflow-hidden hidden space-y-4 border border-blue-500/25 bg-blue-500/[0.04]">
+        <div id="realScanProgressCard" class="glass-card p-6 rounded-3xl relative overflow-hidden hidden space-y-4 border border-blue-500/25 bg-blue-500/[0.04] transition-all duration-300">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-sm font-bold animate-pulse">⚡</div>
+              <div id="scanStatusIcon" class="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-sm font-bold animate-pulse">⚡</div>
               <div>
-                <h4 class="text-sm font-semibold text-white">Escaneo Profundo en Ejecución</h4>
-                <p class="text-xs text-gray-400">Analizando archivos reales en memoria, Downloads, Desktop, Temp...</p>
+                <h4 id="scanStatusTitle" class="text-sm font-semibold text-white">Escaneo Profundo en Ejecución</h4>
+                <p id="scanStatusSubtitle" class="text-xs text-gray-400">Analizando archivos reales en memoria, Downloads, Desktop, Temp...</p>
               </div>
             </div>
             <div class="text-right">
@@ -317,7 +317,7 @@
           <!-- Ticker del Archivo Actual en Tiempo Real -->
           <div class="flex items-center justify-between text-[11px] font-mono text-gray-400">
             <div class="truncate max-w-xl flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="scanProgressDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span id="scanCurrentPathText" class="truncate text-gray-300">Iniciando motor multi-hilo...</span>
             </div>
             <div id="scanThreatsText" class="text-emerald-400 font-semibold font-sans whitespace-nowrap ml-4">0 amenazas</div>
@@ -325,10 +325,10 @@
 
           <!-- Control de Detención de Análisis Manual -->
           <div class="flex items-center justify-between pt-1 border-t border-white/5">
-            <button id="btnCancelScan" onclick="cancelManualScan()" class="px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm">
+            <button id="btnCancelScan" onclick="handleScanButtonAction()" class="px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm">
               <span>⏹️</span> <span>Detener Análisis</span>
             </button>
-            <span class="text-[10px] text-gray-400 font-mono">Interrupción segura e inmediata</span>
+            <span id="scanStatusHint" class="text-[10px] text-gray-400 font-mono">Interrupción segura e inmediata</span>
           </div>
         </div>
 
@@ -2266,17 +2266,69 @@
       sendIpc('toggle_cookie_shield', newState ? 'true' : 'false');
     }
 
+    let isRealScanActive = false;
+
     function showScanProgressUI() {
+      isRealScanActive = true;
       const card = document.getElementById('realScanProgressCard');
       if (card) {
         card.classList.remove('hidden');
-        document.getElementById('scanCurrentPathText').textContent = 'Iniciando escaneo multi-hilo en memoria y disco...';
-        document.getElementById('scanCountText').textContent = '0';
-        document.getElementById('scanThreatsText').textContent = '0 amenazas';
-        document.getElementById('scanProgressBar').style.width = '8%';
+        card.className = 'glass-card p-6 rounded-3xl relative overflow-hidden space-y-4 border border-blue-500/25 bg-blue-500/[0.04] transition-all duration-300';
       }
+      const icon = document.getElementById('scanStatusIcon');
+      if (icon) {
+        icon.className = 'w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-sm font-bold animate-pulse';
+        icon.textContent = '⚡';
+      }
+      const title = document.getElementById('scanStatusTitle');
+      if (title) title.textContent = 'Escaneo Profundo en Ejecución';
+      const sub = document.getElementById('scanStatusSubtitle');
+      if (sub) sub.textContent = 'Analizando archivos reales en memoria, Downloads, Desktop, Temp...';
+      const count = document.getElementById('scanCountText');
+      if (count) count.textContent = '0';
+      const threats = document.getElementById('scanThreatsText');
+      if (threats) {
+        threats.className = 'text-emerald-400 font-semibold font-sans whitespace-nowrap ml-4';
+        threats.textContent = '0 amenazas';
+      }
+      const pbar = document.getElementById('scanProgressBar');
+      if (pbar) {
+        pbar.className = 'h-full bg-gradient-to-r from-blue-500 via-teal-400 to-emerald-400 rounded-full transition-all duration-150';
+        pbar.style.width = '8%';
+      }
+      const dot = document.getElementById('scanProgressDot');
+      if (dot) {
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+      }
+      const pathEl = document.getElementById('scanCurrentPathText');
+      if (pathEl) pathEl.textContent = 'Iniciando escaneo multi-hilo en memoria y disco...';
+      const btn = document.getElementById('btnCancelScan');
+      if (btn) {
+        btn.disabled = false;
+        btn.className = 'px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
+        btn.innerHTML = '<span>⏹️</span> <span>Detener Análisis</span>';
+      }
+      const hint = document.getElementById('scanStatusHint');
+      if (hint) hint.textContent = 'Interrupción segura e inmediata';
     }
     window.showScanProgressUI = showScanProgressUI;
+
+    function hideScanProgressUI() {
+      const card = document.getElementById('realScanProgressCard');
+      if (card) {
+        card.classList.add('hidden');
+      }
+      isRealScanActive = false;
+    }
+    window.hideScanProgressUI = hideScanProgressUI;
+
+    function handleScanButtonAction() {
+      if (isRealScanActive) {
+        cancelManualScan();
+      } else {
+        hideScanProgressUI();
+      }
+    }
 
     function triggerQuickScan() {
       showScanProgressUI();
@@ -2288,56 +2340,105 @@
       const btn = document.getElementById('btnCancelScan');
       if (btn) {
         btn.disabled = true;
+        btn.className = 'px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm';
         btn.innerHTML = '<span>⏳</span> <span>Deteniendo...</span>';
       }
+      const title = document.getElementById('scanStatusTitle');
+      if (title) title.textContent = '⏹️ Deteniendo Análisis...';
+      const sub = document.getElementById('scanStatusSubtitle');
+      if (sub) sub.textContent = 'Interrumpiendo tareas de análisis en memoria y disco...';
       const currentPathEl = document.getElementById('scanCurrentPathText');
       if (currentPathEl) {
         currentPathEl.textContent = '⏹️ Deteniendo análisis manual a petición del usuario...';
       }
       sendIpc('cancel_scan');
-
-      // Guardrail reactivo de resguardo: si el evento IPC tardase en propagarse, restaurar el botón y el estado en 1 segundo
-      setTimeout(() => {
-        const b = document.getElementById('btnCancelScan');
-        if (b && b.disabled) {
-          b.disabled = false;
-          b.innerHTML = '<span>⏹️</span> <span>Detener Análisis</span>';
-        }
-        const p = document.getElementById('scanCurrentPathText');
-        if (p && p.textContent.includes('Deteniendo')) {
-          p.textContent = '⏹️ Análisis detenido por el usuario.';
-        }
-      }, 1000);
     }
 
     window.onScanProgressUpdate = function(filesScanned, currentFile, threatsFound, isDone) {
       const card = document.getElementById('realScanProgressCard');
-      if (card) {
-        card.classList.remove('hidden');
-        document.getElementById('scanCountText').textContent = filesScanned.toLocaleString();
-        document.getElementById('scanCurrentPathText').textContent = isDone ? currentFile : ('Analizando: ' + currentFile);
+      if (!card) return;
+      card.classList.remove('hidden');
 
-        // Cálculo dinámico de ancho de barra
-        const progressPercent = isDone ? 100 : Math.min(95, Math.floor(filesScanned / 15) + 10);
-        document.getElementById('scanProgressBar').style.width = progressPercent + '%';
+      const countEl = document.getElementById('scanCountText');
+      if (countEl) countEl.textContent = filesScanned.toLocaleString();
 
-        const threatsEl = document.getElementById('scanThreatsText');
+      const pathEl = document.getElementById('scanCurrentPathText');
+      if (pathEl) pathEl.textContent = isDone ? currentFile : ('Analizando: ' + currentFile);
+
+      const threatsEl = document.getElementById('scanThreatsText');
+      if (threatsEl) {
         if (threatsFound > 0) {
           threatsEl.className = 'text-red-400 font-semibold font-sans whitespace-nowrap ml-4';
-          threatsEl.textContent = threatsFound + ' amenazas detectadas';
+          threatsEl.textContent = threatsFound + ' amenaza(s) detectada(s)';
         } else {
           threatsEl.className = 'text-emerald-400 font-semibold font-sans whitespace-nowrap ml-4';
           threatsEl.textContent = '0 amenazas';
         }
+      }
 
-        const btn = document.getElementById('btnCancelScan');
-        if (isDone) {
+      const pbar = document.getElementById('scanProgressBar');
+      const progressPercent = isDone ? 100 : Math.min(95, Math.floor(filesScanned / 15) + 10);
+      if (pbar) pbar.style.width = progressPercent + '%';
+
+      const icon = document.getElementById('scanStatusIcon');
+      const title = document.getElementById('scanStatusTitle');
+      const sub = document.getElementById('scanStatusSubtitle');
+      const dot = document.getElementById('scanProgressDot');
+      const btn = document.getElementById('btnCancelScan');
+      const hint = document.getElementById('scanStatusHint');
+
+      if (!isDone) {
+        isRealScanActive = true;
+      } else {
+        isRealScanActive = false;
+        if (dot) dot.classList.remove('animate-pulse');
+
+        const isCancelled = currentFile.includes('detenido') || currentFile.includes('Cancelado') || currentFile.includes('Detenido');
+
+        if (isCancelled) {
+          if (icon) {
+            icon.className = 'w-9 h-9 rounded-xl bg-gray-500/15 text-gray-300 flex items-center justify-center text-sm font-bold';
+            icon.textContent = '⏹️';
+          }
+          if (title) title.textContent = '⏹️ Escaneo Detenido por el Usuario';
+          if (sub) sub.textContent = 'El análisis fue interrumpido. No se detectaron fallos en el motor.';
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<span>⏹️</span> <span>Detener Análisis</span>';
+            btn.className = 'px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
+            btn.innerHTML = '<span>✕</span> <span>Cerrar Panel</span>';
           }
-          sendIpc('get_threat_history');
+          if (hint) hint.textContent = 'Interrupción finalizada con éxito';
+        } else if (threatsFound > 0) {
+          if (icon) {
+            icon.className = 'w-9 h-9 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center text-sm font-bold';
+            icon.textContent = '⚠️';
+          }
+          if (title) title.textContent = '⚠️ Escaneo Finalizado: Amenazas Detectadas';
+          if (sub) sub.textContent = `${threatsFound} amenaza(s) encontradas. Revise el historial para actuar.`;
+          if (pbar) pbar.className = 'h-full bg-gradient-to-r from-amber-500 to-red-500 rounded-full transition-all duration-150';
+          if (btn) {
+            btn.disabled = false;
+            btn.className = 'px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
+            btn.innerHTML = '<span>✕</span> <span>Cerrar Panel</span>';
+          }
+          if (hint) hint.textContent = 'Atención requerida';
+        } else {
+          if (icon) {
+            icon.className = 'w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-sm font-bold';
+            icon.textContent = '✓';
+          }
+          if (title) title.textContent = '✓ Escaneo Finalizado: Sistema Limpio';
+          if (sub) sub.textContent = 'Todos los archivos seleccionados verificados sin malware ni anomalías.';
+          if (pbar) pbar.className = 'h-full bg-emerald-500 rounded-full transition-all duration-150';
+          if (btn) {
+            btn.disabled = false;
+            btn.className = 'px-3.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
+            btn.innerHTML = '<span>✓</span> <span>Aceptar / Cerrar</span>';
+          }
+          if (hint) hint.textContent = '100% Verificado';
         }
+
+        sendIpc('get_threat_history');
       }
     };
 

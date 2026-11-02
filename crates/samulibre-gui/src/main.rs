@@ -1358,13 +1358,6 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                     "cancel_scan" => {
                         IS_SCAN_CANCELLED.store(true, Ordering::SeqCst);
                         samulibre_scanner::set_cancel_flag(true);
-                        IS_SCAN_IN_PROGRESS.store(false, Ordering::SeqCst);
-                        let _ = proxy_for_ipc.send_event(CustomUserEvent::ScanProgress {
-                            files_scanned: 0,
-                            current_file: "⏹️ Análisis detenido por el usuario.".to_string(),
-                            threats_found: 0,
-                            is_done: true,
-                        });
                         let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
                             title: "⏹️ Deteniendo Análisis".to_string(),
                             details: "Cancelación solicitada por el usuario. Deteniendo análisis...".to_string(),
@@ -3555,6 +3548,8 @@ fn execute_scan_loop(
     proxy: EventLoopProxy<CustomUserEvent>,
     scanner_mutex: Arc<Mutex<samulibre_scanner::MultiEngineScanner>>,
 ) {
+    IS_SCAN_CANCELLED.store(false, Ordering::SeqCst);
+    samulibre_scanner::set_cancel_flag(false);
     let scanner_arc = if let Ok(s) = scanner_mutex.lock() {
         Arc::new(s.clone())
     } else {
@@ -3635,11 +3630,11 @@ fn execute_scan_loop(
             })
             .filter_map(|e| e.ok())
         {
-            if IS_SCAN_CANCELLED.load(Ordering::Relaxed) {
+            if IS_SCAN_CANCELLED.load(Ordering::Relaxed) || samulibre_scanner::is_cancelled() {
                 IS_SCAN_IN_PROGRESS.store(false, Ordering::SeqCst);
                 let _ = proxy.send_event(CustomUserEvent::ScanProgress {
-                    files_scanned: 0,
-                    current_file: "Análisis detenido por el usuario.".to_string(),
+                    files_scanned: candidate_paths.len(),
+                    current_file: "⏹️ Análisis detenido por el usuario.".to_string(),
                     threats_found: 0,
                     is_done: true,
                 });

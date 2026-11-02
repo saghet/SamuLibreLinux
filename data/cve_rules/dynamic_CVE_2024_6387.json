@@ -1,25 +1,22 @@
 {
-  "id": "VP-LINUX-REGRESSHION",
+  "id": "VP-AI-CVE_2024_6387",
   "cve": "CVE-2024-6387",
-  "title": "regreSSHion: OpenSSH Server Signal Handler Race Condition RCE",
-  "description": "Condición de carrera asíncrona en el manejador de señales SIGALRM de sshd (glibc) que permite ejecución de código remoto como root sin autenticación.",
+  "title": "[IA Patch] Arch Linux Security Advisory: openssh 9.8p1-1 (regreSSHion)",
+  "description": "Mitigación virtual preventiva sintetizada por IA local para KBASA-202407-1: Aviso de seguridad analizado para KBASA-202407-1. Se estableció centinela conductual preventivo en Linux.",
   "severity": "Critical",
-  "target_component": "openssh-server (sshd)",
+  "target_component": "Linux Subsystem Generic",
   "required_kb": [
-    "USN-6859-1",
-    "ASA-202407-1"
+    "KBASA-202407-1"
   ],
   "strategy": {
-    "NetworkFirewall": {
-      "rule_name": "SamuLibre_VPatch_CVE-2024-6387_SSHD",
-      "port": 22,
-      "protocol": "TCP",
-      "direction": "in"
+    "BehavioralBlock": {
+      "target_process": "sh",
+      "forbidden_call": "untrusted_exec_KBASA-202407-1"
     }
   },
-  "status": "Unmitigated",
-  "detected_at": "2026-11-02T10:00:00Z",
+  "status": "NativePatchInstalled",
+  "detected_at": "2026-11-02T17:44:59.389213525Z",
   "patched_at": null,
   "unpatched_at": null,
-  "status_reason": null
+  "status_reason": "Corregido nativamente: OpenSSH (10.6p1) actualizado con parche contra regreSSHion."
 }

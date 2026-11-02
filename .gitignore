@@ -23,3 +23,5 @@ data/policy.json
 *.db-wal
 crates/samulibre-android/data/
 data/signatures/backup_previous/
+data/exclusions.json
+data/scheduled_scan.json

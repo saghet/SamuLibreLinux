@@ -1,23 +1,22 @@
 {
-  "id": "VP-LINUX-DIRTYPIPE",
+  "id": "VP-AI-CVE_2022_0847",
   "cve": "CVE-2022-0847",
-  "title": "Dirty Pipe: Linux Kernel Arbitrary File Overwrite & LPE",
-  "description": "Fallo en el subsistema de pipes del kernel Linux (splice/pipe.c) que permite a usuarios no privilegiados escribir en archivos de sólo lectura (incluyendo /etc/passwd o ejecutables SUID).",
-  "severity": "Critical",
-  "target_component": "kernel/fs/pipe.c",
+  "title": "[IA Patch] Ubuntu Security Notice: Dirty Pipe Linux Kernel splice() Privilege Escalation",
+  "description": "Mitigación virtual preventiva sintetizada por IA local para KBUSN-5316-1: Aviso de seguridad analizado para KBUSN-5316-1. Se estableció centinela conductual preventivo en Linux.",
+  "severity": "High",
+  "target_component": "Linux Subsystem Generic",
   "required_kb": [
-    "USN-5316-1"
+    "KBUSN-5316-1"
   ],
   "strategy": {
-    "KernelSysctlHardening": {
-      "parameter": "fs.protected_regular",
-      "safe_value": "2",
-      "revert_value": "0"
+    "BehavioralBlock": {
+      "target_process": "sh",
+      "forbidden_call": "untrusted_exec_KBUSN-5316-1"
     }
   },
-  "status": "Unmitigated",
-  "detected_at": "2026-11-02T10:00:00Z",
+  "status": "NativePatchInstalled",
+  "detected_at": "2026-11-02T17:44:59.388920338Z",
   "patched_at": null,
   "unpatched_at": null,
-  "status_reason": null
+  "status_reason": "Corregido nativamente: Kernel Linux 7.2.11-zen1-1-zen incluye parche upstream para splice/pipe (Dirty Pipe)."
 }

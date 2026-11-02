@@ -1,23 +1,22 @@
 {
-  "id": "VP-LINUX-NFTABLES-UAF",
+  "id": "VP-AI-CVE_2024_1086",
   "cve": "CVE-2024-1086",
-  "title": "Netfilter nf_tables: Use-After-Free Local Privilege Escalation",
-  "description": "Fallo crítico use-after-free en nf_tables del kernel Linux que permite ejecución arbitraria en el espacio del kernel y escalamiento a root a través de user namespaces no privilegiados.",
-  "severity": "Critical",
-  "target_component": "net/netfilter/nf_tables_api.c",
+  "title": "[IA Patch] Red Hat Advisory: Netfilter nf_tables Use-After-Free Privilege Escalation",
+  "description": "Mitigación virtual preventiva sintetizada por IA local para KBRHSA-2024:1486: Aviso de seguridad analizado para KBRHSA-2024:1486. Se estableció centinela conductual preventivo en Linux.",
+  "severity": "High",
+  "target_component": "Linux Subsystem Generic",
   "required_kb": [
-    "RHSA-2024:1486"
+    "KBRHSA-2024:1486"
   ],
   "strategy": {
-    "KernelSysctlHardening": {
-      "parameter": "kernel.unprivileged_userns_clone",
-      "safe_value": "0",
-      "revert_value": "1"
+    "BehavioralBlock": {
+      "target_process": "sh",
+      "forbidden_call": "untrusted_exec_KBRHSA-2024:1486"
     }
   },
-  "status": "Unmitigated",
-  "detected_at": "2026-11-02T10:00:00Z",
+  "status": "NativePatchInstalled",
+  "detected_at": "2026-11-02T17:44:59.389048827Z",
   "patched_at": null,
   "unpatched_at": null,
-  "status_reason": null
+  "status_reason": "Corregido nativamente: Kernel Linux 7.2.11-zen1-1-zen incluye parche upstream contra use-after-free en nf_tables."
 }

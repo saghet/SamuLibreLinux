@@ -1,12 +1,12 @@
 {
   "id": "VP-AI-CVE_2021_4034",
   "cve": "CVE-2021-4034",
-  "title": "[IA Patch] Ubuntu & Debian Security Notice: Polkit pkexec (PwnKit)",
-  "description": "Mitigación virtual preventiva sintetizada para USN-5252-1: Se analizó vulnerabilidad en polkit (pkexec). Parche de seguridad oficial confirmado en el sistema operativo.",
-  "severity": "Critical",
+  "title": "[IA Patch] Ubuntu & Debian Security Notice: Polkit pkexec Local Privilege Escalation (PwnKit)",
+  "description": "Mitigación virtual preventiva sintetizada por IA local para KBUSN-5252-1: Vulnerabilidad PwnKit en pkexec de Linux. Se estableció mitigación conductual de variables de entorno y verificación de versión.",
+  "severity": "High",
   "target_component": "polkit (/usr/bin/pkexec)",
   "required_kb": [
-    "USN-5252-1"
+    "KBUSN-5252-1"
   ],
   "strategy": {
     "BehavioralBlock": {
@@ -15,8 +15,8 @@
     }
   },
   "status": "NativePatchInstalled",
-  "detected_at": "2026-11-02T15:46:56.427846614Z",
+  "detected_at": "2026-11-02T17:44:59.388474893Z",
   "patched_at": null,
   "unpatched_at": null,
-  "status_reason": "Mitigación activa y paquete de seguridad USN-5252 verificado en el sistema."
+  "status_reason": "Mitigación activa y parche oficial verificado (paquete polkit 128) contra PwnKit (USN-5252 / RHSA-2022:0267)."
 }

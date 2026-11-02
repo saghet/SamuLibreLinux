@@ -15,7 +15,7 @@
     }
   },
   "status": "NativePatchInstalled",
-  "detected_at": "2026-11-02T17:10:02.151917736Z",
+  "detected_at": "2026-11-02T17:44:59.389281686Z",
   "patched_at": null,
   "unpatched_at": null,
   "status_reason": "Corregido nativamente: biblioteca glibc parcheada contra desbordamiento en GLIBC_TUNABLES."

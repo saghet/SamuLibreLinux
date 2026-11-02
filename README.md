@@ -21,11 +21,11 @@
 [![Download Windows EXE](https://img.shields.io/badge/📥_Windows_EXE-samulibre.exe-2ea44f?style=for-the-badge&logo=windows)](https://github.com/saghet/SamuLibre/releases/latest)
 [![Download Ubuntu DEB](https://img.shields.io/badge/📦_Ubuntu%2FDebian_DEB-.deb-E95420?style=for-the-badge&logo=ubuntu)](https://github.com/saghet/SamuLibre/releases/latest)
 [![Download Linux Tarball](https://img.shields.io/badge/📦_Universal_Linux-.tar.gz-black?style=for-the-badge&logo=linux)](https://github.com/saghet/SamuLibre/releases/latest)
-[![Download Android APK](https://img.shields.io/badge/📱_Android_APK-v1.99.15-3DDC84?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibre/releases/latest)
+[![Download Android APK](https://img.shields.io/badge/📱_Android_APK-v2.0.31-3DDC84?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibre/releases/latest)
 
 <br/>
 
-[English](README.md) • [Español](#-resumen-en-español) • [Architecture](#-architecture) • [Linux Setup](#-linux-installation-ubuntu-red-hat-garuda) • [Quickstart](#-quickstart)
+[English](README.md) • [Español](#-resumen-en-español) • [Architecture](#-architecture) • [Linux Setup](#-linux-installation-ubuntu-red-hat-garuda) • [Plan de Trabajo Linux (Docs)](docs/plan_de_trabajo_linux.md) • [Quickstart](#-quickstart)
 
 </div>
 

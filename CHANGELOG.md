@@ -4,6 +4,27 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ---
 
+## [2.0.31] - 2026-11-01
+
+### 🚀 Novedades y Mejoras Principales
+- **Exclusión Personalizada de Directorios y Archivos:**
+  - Integrado soporte de exclusiones a nivel de motor en `MultiEngineScanner` (`set_exclusions`, `add_exclusion`, `remove_exclusion`, `is_path_excluded`).
+  - Poda anticipada en `WalkDir`: omite la navegación y lectura de directorios excluidos en escaneo de carpetas, rápido, completo y programado.
+  - Sincronización en tiempo real con el vigilante Centinela (`RealTimeWatcher`) para descartar eventos en rutas confiables.
+  - Tarjeta interactiva en la interfaz gráfica con selector nativo de carpetas (`kdialog` / `zenity`), entrada manual de rutas y eliminación con un solo clic.
+- **Estabilidad de GUI y Ciclo de Apertura/Cierre en Linux:**
+  - Configurado flag `--minimized` en `samulibre.service` y `samulibre.desktop` para arranque silencioso en segundo plano.
+  - Prioridad `nice 19` acotada al hilo de trabajo mediante `SYS_gettid`, blindando el rendimiento del bucle principal de GTK y WebKit.
+  - Control de finalización limpia con `SuccessExitStatus=0`.
+- **Telemetría de Hardware en Vivo:**
+  - Monitoreo continuo de uso de CPU (normalizado por núcleos), consumo de memoria RAM del proceso y telemetría dinámica de GPU y VRAM mediante `nvidia-smi` en el pie de la barra lateral.
+- **Empaquetado Nativo para Distribuciones Linux:**
+  - Soporte de compilación y empaquetado automatizado para Ubuntu/Debian (`.deb`) y Red Hat/Fedora/Rocky (`.rpm`).
+- **Plan de Trabajo Integral:**
+  - Documentación técnica y bitácora de arquitectura de 21 secciones disponible en `docs/plan_de_trabajo_linux.md`.
+
+---
+
 ## [1.99.15] - 2026-10-20
 
 ### 🚀 Novedades y Mejoras Principales

@@ -4,6 +4,7 @@
 #include "elf_feature_extractor.hpp"
 #include "compute_engine.hpp"
 #include "signature_scanner.hpp"
+#include "scoped_device_buffer.hpp"
 #include <memory>
 #include <mutex>
 
@@ -53,6 +54,11 @@ private:
     void* cuda_module_ = nullptr;
     void* ml_kernel_fn_ = nullptr;
     bool gpu_ml_ready_ = false;
+
+    // Persistent GPU scratch memory arena (PERF-02 & ARCH-01)
+    std::unique_ptr<ScopedDeviceBuffer> persistent_d_feats_;
+    std::unique_ptr<ScopedDeviceBuffer> persistent_d_scores_;
+    size_t persistent_batch_capacity_ = 0;
 
     // Embedded Pre-Trained Weights (Multilayer Perceptron 32 -> 64 -> 32 -> 1)
     // Modeled on static Linux malware analysis datasets (VirusShare Linux ELF / DikeDataset)

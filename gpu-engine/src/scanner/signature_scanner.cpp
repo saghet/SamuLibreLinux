@@ -338,14 +338,12 @@ double SignatureScanner::calculate_entropy_cpu(const uint8_t* data, size_t size)
 }
 
 double SignatureScanner::calculate_entropy_gpu(const uint8_t* data, size_t size) {
-    void* d_data = engine_.allocate_device_buffer(size);
-    if (!d_data) return calculate_entropy_cpu(data, size);
+    ScopedDeviceBuffer buf_data(engine_, size);
+    ScopedDeviceBuffer buf_hist(engine_, 256 * sizeof(uint32_t));
+    if (!buf_data.valid() || !buf_hist.valid()) return calculate_entropy_cpu(data, size);
 
-    void* d_hist = engine_.allocate_device_buffer(256 * sizeof(uint32_t));
-    if (!d_hist) {
-        engine_.free_device_buffer(d_data);
-        return calculate_entropy_cpu(data, size);
-    }
+    void* d_data = buf_data.get();
+    void* d_hist = buf_hist.get();
 
     std::vector<uint32_t> zero_hist(256, 0);
     engine_.transfer_to_device(d_hist, zero_hist.data(), 256 * sizeof(uint32_t));
@@ -363,8 +361,6 @@ double SignatureScanner::calculate_entropy_gpu(const uint8_t* data, size_t size)
                                          0, nullptr, kernel_args);
 
     if (!launched) {
-        engine_.free_device_buffer(d_data);
-        engine_.free_device_buffer(d_hist);
         return calculate_entropy_cpu(data, size);
     }
 
@@ -372,9 +368,6 @@ double SignatureScanner::calculate_entropy_gpu(const uint8_t* data, size_t size)
 
     std::vector<uint32_t> host_hist(256, 0);
     engine_.transfer_to_host(host_hist.data(), d_hist, 256 * sizeof(uint32_t));
-
-    engine_.free_device_buffer(d_data);
-    engine_.free_device_buffer(d_hist);
 
     double entropy = 0.0;
     double total = static_cast<double>(size);
@@ -453,29 +446,27 @@ BatchScanResult SignatureScanner::scan_gpu_cuda(const uint8_t* data, size_t size
         return result;
     }
 
-    // Allocate GPU buffers
-    void* d_data = engine_.allocate_device_buffer(size);
-    if (!d_data) return result;
+    // Allocate GPU buffers with RAII (ARCH-01 fix)
+    ScopedDeviceBuffer buf_data(engine_, size);
+    if (!buf_data.valid()) return result;
 
     size_t pat_bytes = flat_patterns.size() * sizeof(FlatGPUPattern);
-    void* d_pats = engine_.allocate_device_buffer(pat_bytes);
-    if (!d_pats) {
-        engine_.free_device_buffer(d_data);
-        return result;
-    }
+    ScopedDeviceBuffer buf_pats(engine_, pat_bytes);
+    if (!buf_pats.valid()) return result;
 
     uint32_t max_matches = 1024;
     size_t match_bytes = max_matches * sizeof(GPUMatchEntry);
-    void* d_matches = engine_.allocate_device_buffer(match_bytes);
-    void* d_count = engine_.allocate_device_buffer(sizeof(uint32_t));
+    ScopedDeviceBuffer buf_matches(engine_, match_bytes);
+    ScopedDeviceBuffer buf_count(engine_, sizeof(uint32_t));
 
-    if (!d_matches || !d_count) {
-        engine_.free_device_buffer(d_data);
-        engine_.free_device_buffer(d_pats);
-        if (d_matches) engine_.free_device_buffer(d_matches);
-        if (d_count) engine_.free_device_buffer(d_count);
+    if (!buf_matches.valid() || !buf_count.valid()) {
         return result;
     }
+
+    void* d_data = buf_data.get();
+    void* d_pats = buf_pats.get();
+    void* d_matches = buf_matches.get();
+    void* d_count = buf_count.get();
 
     // Transfer inputs
     uint32_t zero = 0;
@@ -505,11 +496,7 @@ BatchScanResult SignatureScanner::scan_gpu_cuda(const uint8_t* data, size_t size
                                    0, nullptr, kernel_args);
 
     if (!ok) {
-        engine_.free_device_buffer(d_data);
-        engine_.free_device_buffer(d_pats);
-        engine_.free_device_buffer(d_matches);
-        engine_.free_device_buffer(d_count);
-        return result; // Triggers CPU fallback
+        return result; // Triggers CPU fallback (buffers freed automatically by RAII)
     }
 
     engine_.synchronize();
@@ -522,12 +509,6 @@ BatchScanResult SignatureScanner::scan_gpu_cuda(const uint8_t* data, size_t size
     if (match_count > 0) {
         engine_.transfer_to_host(gpu_matches.data(), d_matches, match_count * sizeof(GPUMatchEntry));
     }
-
-    // Cleanup GPU memory
-    engine_.free_device_buffer(d_data);
-    engine_.free_device_buffer(d_pats);
-    engine_.free_device_buffer(d_matches);
-    engine_.free_device_buffer(d_count);
 
     // Map matches to metadata
     {

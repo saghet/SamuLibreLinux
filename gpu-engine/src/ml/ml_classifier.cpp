@@ -221,17 +221,25 @@ float MLClassifier::run_inference_gpu(const float* features, size_t batch_size) 
         return run_inference_cpu(features);
     }
 
+    std::lock_guard<std::mutex> lock(classifier_mutex_);
+
     size_t feat_bytes = batch_size * MLFeatureVector::DIMENSION * sizeof(float);
-    size_t score_bytes = batch_size * sizeof(float);
 
-    void* d_feats = engine_.allocate_device_buffer(feat_bytes);
-    void* d_scores = engine_.allocate_device_buffer(score_bytes);
+    // Ensure persistent workspace capacity (preallocate for up to 1024 samples)
+    if (!persistent_d_feats_ || persistent_batch_capacity_ < batch_size) {
+        size_t alloc_batch = std::max<size_t>(batch_size, 1024);
+        persistent_d_feats_ = std::make_unique<ScopedDeviceBuffer>(engine_, alloc_batch * MLFeatureVector::DIMENSION * sizeof(float));
+        persistent_d_scores_ = std::make_unique<ScopedDeviceBuffer>(engine_, alloc_batch * sizeof(float));
+        persistent_batch_capacity_ = (persistent_d_feats_->valid() && persistent_d_scores_->valid()) ? alloc_batch : 0;
+    }
 
-    if (!d_feats || !d_scores) {
-        if (d_feats) engine_.free_device_buffer(d_feats);
-        if (d_scores) engine_.free_device_buffer(d_scores);
+    if (!persistent_d_feats_ || !persistent_d_feats_->valid() ||
+        !persistent_d_scores_ || !persistent_d_scores_->valid()) {
         return run_inference_cpu(features);
     }
+
+    void* d_feats = persistent_d_feats_->get();
+    void* d_scores = persistent_d_scores_->get();
 
     engine_.transfer_to_device(d_feats, features, feat_bytes);
 
@@ -248,8 +256,6 @@ float MLClassifier::run_inference_gpu(const float* features, size_t batch_size) 
                                    0, nullptr, kernel_args);
 
     if (!ok) {
-        engine_.free_device_buffer(d_feats);
-        engine_.free_device_buffer(d_scores);
         return run_inference_cpu(features);
     }
 
@@ -257,9 +263,6 @@ float MLClassifier::run_inference_gpu(const float* features, size_t batch_size) 
 
     float score = 0.0f;
     engine_.transfer_to_host(&score, d_scores, sizeof(float));
-
-    engine_.free_device_buffer(d_feats);
-    engine_.free_device_buffer(d_scores);
 
     return std::clamp(score, 0.0f, 1.0f);
 }

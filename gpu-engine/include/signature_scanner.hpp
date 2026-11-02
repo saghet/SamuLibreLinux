@@ -2,6 +2,7 @@
 
 #include "pattern_types.hpp"
 #include "compute_engine.hpp"
+#include "scoped_device_buffer.hpp"
 #include <vector>
 #include <memory>
 #include <mutex>

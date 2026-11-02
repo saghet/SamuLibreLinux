@@ -139,6 +139,86 @@ void BatchScheduler::clear_queue() {
     std::swap(task_queue_, empty);
 }
 
+TaskScanReport BatchScheduler::execute_task_cpu_fallback(const ScanTask& task) {
+    TaskScanReport report;
+    report.task_id = task.task_id;
+    report.file_path = task.file_path;
+    report.stream_id = 0;
+    report.backend_used = "CPU_AVX2_Fallback";
+
+    const uint8_t* scan_data = nullptr;
+    size_t scan_size = 0;
+    std::vector<uint8_t> file_disk_buffer;
+
+    if (!task.inline_data.empty()) {
+        scan_data = task.inline_data.data();
+        scan_size = task.inline_data.size();
+    } else if (!task.file_path.empty()) {
+        std::ifstream file(task.file_path, std::ios::binary | std::ios::ate);
+        if (file.is_open()) {
+            std::streamsize fsize = file.tellg();
+            file.seekg(0, std::ios::beg);
+            if (fsize > 0) {
+                size_t to_read = std::min(static_cast<size_t>(fsize), MAX_SCAN_FILE_SIZE);
+                try {
+                    file_disk_buffer.resize(to_read);
+                    if (file.read(reinterpret_cast<char*>(file_disk_buffer.data()), to_read)) {
+                        scan_data = file_disk_buffer.data();
+                        scan_size = to_read;
+                    }
+                } catch (const std::bad_alloc&) {
+                    report.final_verdict = "CLEAN";
+                    return report;
+                }
+            }
+        }
+    }
+
+    report.file_size = scan_size;
+    if (!scan_data || scan_size == 0) {
+        report.final_verdict = "CLEAN";
+        return report;
+    }
+
+    // Direct Host CPU execution for micro-files
+    auto start_total = std::chrono::high_resolution_clock::now();
+
+    auto scan_res = scanner_.scan_buffer(scan_data, scan_size, static_cast<int>(task.task_id));
+    report.shannon_entropy = scan_res.entropy_shannon;
+    report.is_suspicious_packed = scan_res.is_suspicious_packed;
+    report.pattern_matches = scan_res.matches;
+
+    auto ml_res = classifier_.classify_buffer(scan_data, scan_size, task.file_path, task.task_id);
+    report.ml_risk_probability = ml_res.risk_probability;
+    report.ml_classification = ml_res.classification_label;
+    report.ml_contributing_features = ml_res.contributing_features;
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    report.gpu_compute_time_ms = 0.0;
+    report.pcie_dma_time_ms = 0.0;
+    report.total_duration_ms = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+
+    // Zero-Trust Correlation Engine
+    if (!report.pattern_matches.empty()) {
+        report.final_verdict = "MALICIOUS";
+        report.quarantine_recommended = true;
+    } else if (report.ml_classification == "MALICIOUS" && (report.is_suspicious_packed || report.shannon_entropy >= 7.20)) {
+        report.final_verdict = "MALICIOUS";
+        report.quarantine_recommended = true;
+    } else if (report.ml_classification == "MALICIOUS") {
+        report.final_verdict = "SUSPICIOUS";
+        report.quarantine_recommended = false;
+    } else if (report.ml_classification == "SUSPICIOUS" || report.is_suspicious_packed) {
+        report.final_verdict = "SUSPICIOUS";
+        report.quarantine_recommended = false;
+    } else {
+        report.final_verdict = "CLEAN";
+        report.quarantine_recommended = false;
+    }
+
+    return report;
+}
+
 TaskScanReport BatchScheduler::execute_task_on_slot(const ScanTask& task, PipelineSlot& slot) {
     TaskScanReport report;
     report.task_id = task.task_id;
@@ -179,6 +259,12 @@ TaskScanReport BatchScheduler::execute_task_on_slot(const ScanTask& task, Pipeli
     if (!scan_data || scan_size == 0) {
         report.final_verdict = "CLEAN";
         return report;
+    }
+
+    // Intelligent Scheduling Policy (INFO-01 & PERF-01):
+    // Micro-files (< 32 KB) have higher throughput on Host CPU due to zero PCIe bus latency
+    if (!engine_.is_gpu_accelerated() || scan_size < 32768) {
+        return execute_task_cpu_fallback(task);
     }
 
     auto start_total = std::chrono::high_resolution_clock::now();

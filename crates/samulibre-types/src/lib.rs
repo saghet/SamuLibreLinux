@@ -364,4 +364,33 @@ pub struct AndroidPackageInfo {
     pub sha256: Option<String>,
 }
 
+/// Reporte de telemetría y postura de seguridad emitido hacia la consola central corporativa (Fase III)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetEndpointReport {
+    pub endpoint_id: String,
+    pub hostname: String,
+    pub os_name: String,
+    pub os_version: String,
+    pub kernel_version: String,
+    pub agent_version: String,
+    pub last_seen: DateTime<Utc>,
+    pub threats_detected_count: usize,
+    pub active_virtual_patches_count: usize,
+    pub isolated_processes_count: usize,
+    pub is_real_time_shield_active: bool,
+    pub risk_ports_open: Vec<u16>,
+}
+
+/// Política corporativa distribuida desde la consola central a los endpoints Linux
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetCorporatePolicy {
+    pub policy_id: String,
+    pub policy_version: u32,
+    pub mandatory_exclusions: Vec<String>,
+    pub blocked_ports: Vec<u16>,
+    pub real_time_protection_enforced: bool,
+    pub signature_update_interval_mins: u32,
+    pub isolation_mode_on_critical_threat: bool,
+}
+
 

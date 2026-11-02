@@ -22,6 +22,7 @@ pub mod credentials;
 pub mod fileless;
 pub mod ransomware_predictive;
 pub mod linux_monitor;
+pub mod ebpf_telemetry;
 
 pub use adaptive_firewall::*;
 pub use anti_tamper::*;
@@ -30,6 +31,7 @@ pub use credentials::*;
 pub use fileless::*;
 pub use ransomware_predictive::*;
 pub use linux_monitor::*;
+pub use ebpf_telemetry::*;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;

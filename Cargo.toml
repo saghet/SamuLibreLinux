@@ -11,6 +11,7 @@ members = [
     "crates/samulibre-watcher",
     "crates/samulibre-ai",
     "crates/samulibre-android",
+    "crates/samulibre-daemon",
 ]
 resolver = "2"
 
@@ -39,3 +40,5 @@ thiserror = "1.0"
 sysinfo = "0.31"
 notify = "6.1"
 uuid = { version = "1.10", features = ["v4", "serde"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+libc = "0.2"

@@ -14,7 +14,7 @@ ARCH="x86_64"
 RPM_NAME="samulibre-${VERSION}-1.${ARCH}.rpm"
 
 echo "==> [Red Hat/Fedora] Compilando binarios de SamuLibre ${VERSION} en release..."
-cargo build --release -p samulibre-gui -p samulibre-cli
+cargo build --release -p samulibre-daemon -p samulibre-gui -p samulibre-cli
 
 echo "==> [Red Hat/Fedora] Preparando activos, datos y metadatos RPM..."
 STAGE_DIR="${ROOT_DIR}/target/rpm_data"
@@ -39,6 +39,7 @@ stage_dir = '${STAGE_DIR}'
 icons_dir = '${ICONS_DIR}'
 
 assets = [
+    f'{{ source = \"{os.path.join(root_dir, \"target\", \"release\", \"samulibred\")}\", dest = \"/usr/bin/samulibred\", mode = \"755\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"target\", \"release\", \"samulibre-gui\")}\", dest = \"/usr/bin/samulibre-gui\", mode = \"755\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"target\", \"release\", \"samulibre-cli\")}\", dest = \"/usr/bin/samulibre-cli\", mode = \"755\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibre.desktop\")}\", dest = \"/usr/share/applications/samulibre.desktop\", mode = \"644\" }}',
@@ -48,6 +49,7 @@ assets = [
     f'{{ source = \"{os.path.join(root_dir, \"assets\", \"icon.png\")}\", dest = \"/usr/share/pixmaps/samulibre.png\", mode = \"644\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"assets\", \"icon.png\")}\", dest = \"/usr/share/pixmaps/org.samulibre.samulibre.png\", mode = \"644\" }}',
     f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibre.service\")}\", dest = \"/usr/lib/systemd/user/samulibre.service\", mode = \"644\" }}',
+    f'{{ source = \"{os.path.join(root_dir, \"data\", \"samulibred.service\")}\", dest = \"/usr/lib/systemd/system/samulibred.service\", mode = \"644\" }}',
 ]
 
 for size in ['16x16', '22x22', '24x24', '32x32', '48x48', '64x64', '128x128', '256x256', '512x512']:

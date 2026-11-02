@@ -74,6 +74,12 @@ else
     exit 1
 fi
 
+if [ -f "${SCRIPT_DIR}/samulibred" ]; then
+    install -Dm755 "${SCRIPT_DIR}/samulibred" "${INSTALL_PREFIX}/bin/samulibred"
+elif [ -f "${SCRIPT_DIR}/../../target/release/samulibred" ]; then
+    install -Dm755 "${SCRIPT_DIR}/../../target/release/samulibred" "${INSTALL_PREFIX}/bin/samulibred"
+fi
+
 if [ -f "${SCRIPT_DIR}/samulibre-cli" ]; then
     install -Dm755 "${SCRIPT_DIR}/samulibre-cli" "${INSTALL_PREFIX}/bin/samulibre-cli"
 elif [ -f "${SCRIPT_DIR}/../../target/release/samulibre-cli" ]; then

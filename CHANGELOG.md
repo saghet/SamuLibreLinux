@@ -6,6 +6,18 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-01
 
+### 🏗️ Arquitectura Modular y Desacoplada (Fases I, II y III - Hoja de Ruta de Arquitectura)
+- **Fase I (Inmediata) - IPC UNIX Domain Socket & Almacén SQLite WAL:**
+  - Extraído el canal de comunicación IPC hacia un socket UNIX local (`/run/samulibre/samulibre.sock` con fallback dinámico en `/tmp/samulibre.sock`), reemplazando la dependencia en memoria compartida o acoplamiento monolítico por un protocolo JSON-RPC asíncrono tipado.
+  - Consolidado el motor de persistencia de eventos de seguridad en SQLite con modo WAL (*Write-Ahead Logging*), soportando transacciones ACID de alto rendimiento, consultas forenses con filtros por severidad/fecha, estadísticas agregadas y gestión de exclusiones.
+- **Fase II (Medio Plazo) - Demonio de Sistema Privilegiado (`samulibred`):**
+  - Desplegado el nuevo binario de servicio de sistema `samulibred`, transfiriendo las operaciones con privilegios (bloqueo iptables por PID, lectura de `/proc` de otros usuarios, cuarentena del sistema) a un demonio protegido con `PR_SET_DUMPABLE=0`.
+  - Creada la unidad systemd endurecida `data/samulibred.service` con capacidades mínimas (`AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_PTRACE CAP_DAC_READ_SEARCH`), `ProtectSystem=strict`, `ProtectHome=read-only` y contención de memoria a 256MB.
+  - Transformado `samulibre-gui` en un cliente puramente visual sin privilegios de superusuario.
+- **Fase III (Largo Plazo) - Telemetría Kernel eBPF y Consola Central:**
+  - Diseñado el gestor de telemetría eBPF (`EbpfTelemetryManager`) en `samulibre-shield` para supervisión granular de llamadas al kernel (`sys_enter_execve`, `sys_enter_connect`, `sys_enter_unlinkat`, `lsm_task_kill`), con detección en tiempo de ejecución de BTF/eBPF y fallback transparente a `/proc` e `inotify`.
+  - Estructurados los modelos de datos de gestión corporativa de flota (`FleetEndpointReport`, `FleetCorporatePolicy`) en `samulibre-types`.
+
 ### 🔒 Autoprotección, Hardening y Correcciones de Seguridad Críticas (Fase 5)
 - **Confinamiento de Kernel en Micro-Sandbox (`bwrap`):**
   - Remediada la vulnerabilidad crítica de ejecución no confinada en el host. Implementado aislamiento mediante **Bubblewrap** (`--unshare-all`, `--ro-bind /usr`, `--tmpfs /tmp`, red 100% aislada, `--die-with-parent`). Bloqueo preventivo de ejecución dinámica en el host si `bwrap` no está disponible.

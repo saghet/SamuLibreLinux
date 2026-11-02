@@ -14,7 +14,7 @@ ARCH="amd64"
 PKG_DIR="target/debian/samulibre_${VERSION}_${ARCH}"
 
 echo "==> [Ubuntu/Debian] Compilando binarios de SamuLibre ${VERSION} en release..."
-cargo build --release -p samulibre-gui -p samulibre-cli
+cargo build --release -p samulibre-daemon -p samulibre-gui -p samulibre-cli
 
 echo "==> [Ubuntu/Debian] Preparando árbol de directorios de empaquetado..."
 rm -rf "${PKG_DIR}"
@@ -23,16 +23,19 @@ mkdir -p "${PKG_DIR}/usr/bin"
 mkdir -p "${PKG_DIR}/usr/share/applications"
 mkdir -p "${PKG_DIR}/usr/share/pixmaps"
 mkdir -p "${PKG_DIR}/usr/lib/systemd/user"
+mkdir -p "${PKG_DIR}/usr/lib/systemd/system"
 
 echo "==> [Ubuntu/Debian] Copiando binarios y accesos de escritorio..."
+cp target/release/samulibred "${PKG_DIR}/usr/bin/samulibred"
 cp target/release/samulibre-gui "${PKG_DIR}/usr/bin/samulibre-gui"
 cp target/release/samulibre-cli "${PKG_DIR}/usr/bin/samulibre-cli"
 ln -sf samulibre-cli "${PKG_DIR}/usr/bin/samulibre"
-chmod 755 "${PKG_DIR}/usr/bin/samulibre-gui" "${PKG_DIR}/usr/bin/samulibre-cli"
+chmod 755 "${PKG_DIR}/usr/bin/samulibred" "${PKG_DIR}/usr/bin/samulibre-gui" "${PKG_DIR}/usr/bin/samulibre-cli"
 
 cp data/samulibre.desktop "${PKG_DIR}/usr/share/applications/samulibre.desktop"
 cp data/samulibre.desktop "${PKG_DIR}/usr/share/applications/org.samulibre.samulibre.desktop"
 cp data/samulibre.service "${PKG_DIR}/usr/lib/systemd/user/samulibre.service"
+cp data/samulibred.service "${PKG_DIR}/usr/lib/systemd/system/samulibred.service"
 
 # Multi-resolución de iconos y SVG escalable
 echo "==> [Ubuntu/Debian] Generando e instalando iconos multirresolución Freedesktop..."

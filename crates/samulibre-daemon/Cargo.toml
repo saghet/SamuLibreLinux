@@ -1,0 +1,30 @@
+[package]
+name = "samulibre-daemon"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "samulibred"
+path = "src/main.rs"
+
+[dependencies]
+samulibre-types = { path = "../samulibre-types" }
+samulibre-core = { path = "../samulibre-core" }
+samulibre-shield = { path = "../samulibre-shield" }
+samulibre-scanner = { path = "../samulibre-scanner" }
+samulibre-watcher = { path = "../samulibre-watcher" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+clap = { workspace = true }
+colored = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

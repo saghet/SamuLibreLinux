@@ -20,3 +20,5 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
+rusqlite = { workspace = true }
+libc = { workspace = true }

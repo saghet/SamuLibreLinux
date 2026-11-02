@@ -22,6 +22,12 @@ pub use sandbox::*;
 pub mod reputation;
 pub use reputation::*;
 
+pub mod event_db;
+pub use event_db::*;
+
+pub mod ipc;
+pub use ipc::*;
+
 pub struct SamuLibreCore {
     pub patcher: Arc<Mutex<VirtualPatcher>>,
     pub shield: Arc<Mutex<EndpointShield>>,

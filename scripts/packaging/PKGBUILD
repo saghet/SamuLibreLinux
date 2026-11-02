@@ -19,6 +19,7 @@ options=('!strip' '!debug')
 
 package() {
     # Binarios
+    install -Dm755 "${srcdir}/samulibred" "${pkgdir}/usr/bin/samulibred"
     install -Dm755 "${srcdir}/samulibre-gui" "${pkgdir}/usr/bin/samulibre-gui"
     install -Dm755 "${srcdir}/samulibre-cli" "${pkgdir}/usr/bin/samulibre-cli"
     ln -sf samulibre-cli "${pkgdir}/usr/bin/samulibre"
@@ -27,8 +28,9 @@ package() {
     install -Dm644 "${srcdir}/samulibre.desktop" "${pkgdir}/usr/share/applications/samulibre.desktop"
     install -Dm644 "${srcdir}/icon.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/samulibre.png"
 
-    # Unidad de systemd
+    # Unidades de systemd (usuario y demonio de sistema)
     install -Dm644 "${srcdir}/samulibre.service" "${pkgdir}/usr/lib/systemd/user/samulibre.service"
+    install -Dm644 "${srcdir}/samulibred.service" "${pkgdir}/usr/lib/systemd/system/samulibred.service"
 
     # Recursos completos (UI, firmas, catálogo KB, reglas CVE, sandbox, canarios)
     mkdir -p "${pkgdir}/usr/share/samulibre"

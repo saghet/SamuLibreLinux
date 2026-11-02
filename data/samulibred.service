@@ -1,0 +1,41 @@
+[Unit]
+Description=SamuLibre Linux Security & EDR System Daemon
+Documentation=https://github.com/samulibre/samulibre
+After=network.target local-fs.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/samulibred --socket /run/samulibre/samulibre.sock --db /var/lib/samulibre/events.db
+Restart=on-failure
+RestartSec=5s
+SuccessExitStatus=0
+
+# Configuración de Seguridad y Restricción de Privilegios
+RuntimeDirectory=samulibre
+RuntimeDirectoryMode=0755
+StateDirectory=samulibre
+StateDirectoryMode=0750
+
+# Linux Capabilities mínimas requeridas (no necesita permisos arbitrarios de superusuario)
+AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+
+# Endurecimiento de Seguridad de systemd
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/samulibre /run/samulibre
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryMax=256M
+CPUWeight=20
+
+Environment=RUST_LOG=info
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

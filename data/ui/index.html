@@ -914,6 +914,47 @@
             </table>
           </div>
         </div>
+
+        <!-- Tarjeta de Gestión de Exclusiones de Directorios y Archivos -->
+        <div class="glass-card p-5 rounded-2xl space-y-4 border border-amber-500/20 bg-amber-500/[0.02]">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🚫</span>
+              <div>
+                <h4 class="text-xs font-semibold text-white">Carpetas y Rutas Excluidas del Escaneo</h4>
+                <p class="text-[11px] text-gray-400">Las rutas configuradas aquí son omitidas automáticamente por el escáner y la vigilancia en tiempo real.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="browseAndAddExclusionFolder()" class="px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-xl hover:bg-amber-500/30 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+                <span>📂</span> Seleccionar Carpeta...
+              </button>
+            </div>
+          </div>
+
+          <!-- Formulario manual para añadir ruta -->
+          <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-2 border-t border-white/5">
+            <div class="relative flex-1">
+              <input type="text" id="customExclusionInput" placeholder="Ejemplo: /home/usuario/proyectos o C:\Desarrollo\Codigo" class="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/50 font-mono transition-colors">
+            </div>
+            <button onclick="addManualExclusion()" class="px-4 py-2 bg-white/10 text-gray-200 hover:text-white border border-white/10 text-xs font-medium rounded-xl hover:bg-white/15 active:scale-95 transition-all flex items-center gap-1.5 whitespace-nowrap">
+              <span>➕</span> Añadir Ruta
+            </button>
+          </div>
+
+          <!-- Lista de Rutas Excluidas -->
+          <div class="overflow-hidden rounded-xl border border-white/5 bg-black/20">
+            <div class="p-3 text-[11px] font-mono text-gray-400 border-b border-white/5 flex items-center justify-between">
+              <span>Directorios y Rutas Activas (<span id="exclusionsCountBadge" class="text-amber-400 font-bold">0</span>)</span>
+              <span class="text-[10px] text-gray-500">Poda inmediata en árbol WalkDir & Sentinel</span>
+            </div>
+            <div id="exclusionsListContainer" class="divide-y divide-white/5 max-h-52 overflow-y-auto font-mono text-xs">
+              <div class="p-4 text-center text-gray-500 text-xs">
+                No hay directorios excluidos. Todo el sistema está protegido bajo análisis.
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ================= VISTA 5: VPN & PRIVACIDAD ================= -->
@@ -1521,6 +1562,8 @@
         sendIpc('get_quarantine_records');
         sendIpc('get_threat_history');
         sendIpc('get_autostart_status');
+        sendIpc('get_exclusions');
+        sendIpc('get_exclusions');
       }
     }
 
@@ -2801,6 +2844,69 @@
       renderThreatHistory();
     };
 
+    let cachedExclusions = [];
+
+    function browseAndAddExclusionFolder() {
+      showToast('Seleccionar Directorio', 'Abriendo diálogo del sistema de archivos...');
+      sendIpc('browse_and_add_exclusion_folder');
+    }
+
+    function addManualExclusion() {
+      const input = document.getElementById('customExclusionInput');
+      if (!input) return;
+      const val = input.value.trim();
+      if (!val) {
+        showToast('Ruta Requerida', 'Ingresa una ruta de archivo o directorio válida.');
+        return;
+      }
+      sendIpc('add_exclusion', val);
+      input.value = '';
+    }
+
+    function removeExclusion(pathStr) {
+      if (!pathStr) return;
+      if (confirm(`¿Deseas volver a incluir "${pathStr}" en los escaneos de seguridad?`)) {
+        sendIpc('remove_exclusion', pathStr);
+      }
+    }
+
+    window.onExclusionsLoaded = function(list) {
+      cachedExclusions = Array.isArray(list) ? list : [];
+      renderExclusionsList();
+    };
+
+    function renderExclusionsList() {
+      const container = document.getElementById('exclusionsListContainer');
+      const badge = document.getElementById('exclusionsCountBadge');
+      if (badge) badge.textContent = cachedExclusions.length;
+      if (!container) return;
+
+      if (cachedExclusions.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 text-center text-gray-500 text-xs">
+            No hay directorios excluidos. Todo el sistema está protegido bajo análisis.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = cachedExclusions.map((p) => {
+        const safeDisplay = String(p).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const safeArg = encodeURIComponent(String(p));
+        return `
+          <div class="flex items-center justify-between p-2.5 px-3 hover:bg-white/5 transition-colors group">
+            <div class="flex items-center gap-2.5 min-w-0 pr-2">
+              <span class="text-amber-400 text-sm flex-shrink-0">📁</span>
+              <span class="text-gray-300 truncate text-[11px] font-mono" title="${safeDisplay}">${safeDisplay}</span>
+            </div>
+            <button onclick="removeExclusion(decodeURIComponent('${safeArg}'))" class="px-2.5 py-1 text-[10px] rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center gap-1 active:scale-95 transition-all flex-shrink-0">
+              <span>🗑️</span> <span class="hidden sm:inline">Eliminar</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
     function refreshThreatHistory() {
       sendIpc('get_threat_history');
       showToast('Actualizando Historial', 'Consultando registro persistente de amenazas...');
@@ -3966,6 +4072,7 @@
         sendIpc('get_quarantine_records');
         sendIpc('get_threat_history');
         sendIpc('get_autostart_status');
+        sendIpc('get_exclusions');
       }, 1200);
 
       // Fase 4: Telemetría de persistencia y sockets (+2000ms en tiempo ocioso)

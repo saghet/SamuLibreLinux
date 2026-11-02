@@ -27,6 +27,7 @@ pub struct PatternRule {
 pub struct MultiEngineScanner {
     known_signatures: HashMap<String, String>, // Hash (SHA256) -> ThreatName
     pattern_rules: Vec<PatternRule>,
+    excluded_paths: Vec<PathBuf>,
 }
 
 pub fn get_signatures_storage_dir() -> PathBuf {
@@ -50,10 +51,72 @@ impl MultiEngineScanner {
         let mut scanner = Self {
             known_signatures: HashMap::new(),
             pattern_rules: Vec::new(),
+            excluded_paths: Vec::new(),
         };
         scanner.load_default_signatures();
         scanner.load_default_pattern_rules();
         scanner
+    }
+
+    /// Asigna la lista de rutas y directorios excluidos por el usuario
+    pub fn set_exclusions(&mut self, paths: Vec<PathBuf>) {
+        self.excluded_paths = paths;
+    }
+
+    /// Añade un directorio o archivo a la lista de exclusiones
+    pub fn add_exclusion(&mut self, path: impl AsRef<Path>) {
+        let p = path.as_ref().to_path_buf();
+        if !self.excluded_paths.contains(&p) {
+            self.excluded_paths.push(p);
+        }
+    }
+
+    /// Remueve una exclusión existente
+    pub fn remove_exclusion(&mut self, path: impl AsRef<Path>) {
+        let p = path.as_ref();
+        self.excluded_paths.retain(|item| item != p);
+    }
+
+    /// Obtiene las rutas excluidas actuales
+    pub fn get_exclusions(&self) -> &[PathBuf] {
+        &self.excluded_paths
+    }
+
+    /// Comprueba si una ruta determinada o alguno de sus directorios padre están excluidos
+    pub fn is_path_excluded(&self, path: impl AsRef<Path>) -> bool {
+        if self.excluded_paths.is_empty() {
+            return false;
+        }
+        let target = path.as_ref();
+        let target_canon = target.canonicalize().unwrap_or_else(|_| target.to_path_buf());
+        let target_str = target.to_string_lossy().to_lowercase();
+        let target_canon_str = target_canon.to_string_lossy().to_lowercase();
+
+        for excl in &self.excluded_paths {
+            let excl_canon = excl.canonicalize().unwrap_or_else(|_| excl.to_path_buf());
+            let excl_str = excl.to_string_lossy().to_lowercase();
+            let excl_canon_str = excl_canon.to_string_lossy().to_lowercase();
+
+            // Coincidencia exacta
+            if target == excl || target_canon == excl_canon || target_str == excl_str || target_canon_str == excl_canon_str {
+                return true;
+            }
+
+            // Pertenencia a un directorio excluido
+            if target_canon.starts_with(&excl_canon) || target.starts_with(excl) {
+                return true;
+            }
+
+            let excl_prefix = if excl_str.ends_with(std::path::MAIN_SEPARATOR) {
+                excl_str
+            } else {
+                format!("{}{}", excl_str, std::path::MAIN_SEPARATOR)
+            };
+            if target_str.starts_with(&excl_prefix) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Carga firmas conocidas de prueba y de malware real (ej. EICAR y hashes comunes)
@@ -200,6 +263,18 @@ impl MultiEngineScanner {
                 status: FileScanStatus::AccessDenied,
                 detection_name: None,
                 engine: "SamuLibre Multi-Engine".to_string(),
+                scan_time_ms: 0,
+            });
+        }
+
+        // Comprobación de exclusión personalizada definida por el usuario
+        if self.is_path_excluded(path_ref) {
+            return Ok(ScanResult {
+                file_path: path_ref.to_string_lossy().to_string(),
+                sha256: String::new(),
+                status: FileScanStatus::Clean,
+                detection_name: Some("Omitido: Ruta o directorio excluido por el usuario".to_string()),
+                engine: "ExclusionEngine".to_string(),
                 scan_time_ms: 0,
             });
         }
@@ -1020,5 +1095,30 @@ mod tests {
         let res = scanner.scan_bytes(&pdf_data, "invoice.pdf");
         assert_eq!(res.status, FileScanStatus::Infected);
         assert!(res.detection_name.unwrap().contains("Exploit.PDF.ActiveScriptOrLaunchTrigger"));
+    }
+
+    #[test]
+    fn test_scanner_directory_and_file_exclusions() {
+        let mut scanner = MultiEngineScanner::new();
+        let excluded_dir = std::env::temp_dir().join(format!("samu_excl_test_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&excluded_dir);
+        let sub_file = excluded_dir.join("test_file.bin");
+        let _ = std::fs::write(&sub_file, b"sample_data");
+
+        scanner.add_exclusion(&excluded_dir);
+        assert!(scanner.is_path_excluded(&excluded_dir));
+        assert!(scanner.is_path_excluded(&sub_file));
+
+        let other_file = std::env::temp_dir().join(format!("samu_non_excl_{}.bin", std::process::id()));
+        let _ = std::fs::write(&other_file, b"clean");
+        assert!(!scanner.is_path_excluded(&other_file));
+
+        let res = scanner.scan_file(&sub_file).expect("scan_file should succeed");
+        assert_eq!(res.status, FileScanStatus::Clean);
+        assert!(res.detection_name.unwrap().contains("Omitido: Ruta o directorio excluido"));
+
+        let _ = std::fs::remove_file(&sub_file);
+        let _ = std::fs::remove_dir_all(&excluded_dir);
+        let _ = std::fs::remove_file(&other_file);
     }
 }

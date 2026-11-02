@@ -332,6 +332,7 @@ impl RealTimeWatcher {
         F: Fn(ThreatAlert) + Send + Sync + 'static,
     {
         let scanner_clone = Arc::clone(&self.scanner);
+        let scanner_cb = Arc::clone(&scanner_clone);
         let vault_clone = Arc::clone(&self.vault);
         let cache_clone = Arc::clone(&self.clean_cache);
         let recent_events: Arc<Mutex<HashMap<PathBuf, std::time::Instant>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -354,6 +355,13 @@ impl RealTimeWatcher {
                                     || path_str.contains(".rustup")
                                 {
                                     continue;
+                                }
+
+                                // Omitir inmediatamente eventos en rutas excluidas por el usuario
+                                if let Ok(s) = scanner_cb.lock() {
+                                    if s.is_path_excluded(&path) {
+                                        continue;
+                                    }
                                 }
                                 if path.is_file() && is_high_risk_extension(&path) {
                                     // Debounce temporal: filtrar eventos repetidos dentro de 200 ms

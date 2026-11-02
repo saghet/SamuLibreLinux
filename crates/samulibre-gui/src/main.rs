@@ -7,7 +7,7 @@ use tray_icon::menu::{Menu, MenuItem, PredefinedMenuItem, MenuEvent};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -202,6 +202,9 @@ enum CustomUserEvent {
     },
     AutostartStatusLoaded {
         enabled: bool,
+    },
+    ExclusionsLoaded {
+        exclusions: Vec<String>,
     },
     Quit,
 }
@@ -529,6 +532,87 @@ fn set_windows_autostart(enable: bool) -> Result<(), String> {
     }
 }
 
+fn get_exclusions_file_path() -> PathBuf {
+    get_project_root().join("data").join("exclusions.json")
+}
+
+fn load_exclusions() -> Vec<String> {
+    let p = get_exclusions_file_path();
+    if p.exists() {
+        if let Ok(content) = fs::read_to_string(&p) {
+            if let Ok(list) = serde_json::from_str::<Vec<String>>(&content) {
+                return list;
+            }
+        }
+    }
+    Vec::new()
+}
+
+fn save_exclusions(exclusions: &[String]) {
+    let p = get_exclusions_file_path();
+    if let Some(parent) = p.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(json) = serde_json::to_string_pretty(exclusions) {
+        let _ = fs::write(&p, json);
+    }
+}
+
+fn is_path_excluded(path: &Path, exclusions: &[String]) -> bool {
+    if exclusions.is_empty() {
+        return false;
+    }
+    let p_canon = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let p_str = path.to_string_lossy().to_lowercase();
+    let p_canon_str = p_canon.to_string_lossy().to_lowercase();
+
+    for excl in exclusions {
+        let trimmed = excl.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let excl_path = Path::new(trimmed);
+        let excl_canon = excl_path.canonicalize().unwrap_or_else(|_| excl_path.to_path_buf());
+        let e_str = trimmed.to_lowercase();
+        let e_canon_str = excl_canon.to_string_lossy().to_lowercase();
+
+        if p_str == e_str || p_canon_str == e_canon_str || path == excl_path || p_canon == excl_canon {
+            return true;
+        }
+        if p_canon.starts_with(&excl_canon) || path.starts_with(excl_path) {
+            return true;
+        }
+
+        let e_prefix = if e_canon_str.ends_with(std::path::MAIN_SEPARATOR) {
+            e_canon_str
+        } else {
+            format!("{}{}", e_canon_str, std::path::MAIN_SEPARATOR)
+        };
+        if p_canon_str.starts_with(&e_prefix) {
+            return true;
+        }
+
+        let e_raw_prefix = if e_str.ends_with('/') || e_str.ends_with('\\') {
+            e_str
+        } else {
+            format!("{}/", e_str)
+        };
+        if p_str.starts_with(&e_raw_prefix) {
+            return true;
+        }
+    }
+    false
+}
+
+fn sync_scanner_exclusions(core: &Arc<Mutex<samulibre_core::SamuLibreCore>>, exclusions: &[String]) {
+    let paths: Vec<PathBuf> = exclusions.iter().map(PathBuf::from).collect();
+    if let Ok(c) = core.lock() {
+        if let Ok(mut s) = c.scanner.lock() {
+            s.set_exclusions(paths);
+        }
+    }
+}
+
 fn get_threat_history_path() -> PathBuf {
     get_project_root().join("data").join("threat_history.json")
 }
@@ -776,6 +860,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
         }
     }
 
+    let initial_exclusions = load_exclusions();
+    sync_scanner_exclusions(&core, &initial_exclusions);
+
     let core_for_ipc = Arc::clone(&core);
     let core_for_actions = Arc::clone(&core);
 
@@ -1020,11 +1107,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     is_done: false,
                                 });
 
+                                let exclusions = load_exclusions();
                                 let mut candidate_paths = Vec::new();
                                 for entry in WalkDir::new(&folder)
                                     .max_depth(30)
                                     .into_iter()
                                     .filter_entry(|e| {
+                                        if is_path_excluded(e.path(), &exclusions) {
+                                            return false;
+                                        }
                                         let name = e.file_name().to_string_lossy();
                                         let path_str = e.path().to_string_lossy();
                                         let lower_p = path_str.to_lowercase();
@@ -1047,6 +1138,12 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                         break;
                                     }
                                     if entry.file_type().is_file() {
+                if is_path_excluded(entry.path(), &exclusions) {
+                    continue;
+                }
+                                        if is_path_excluded(entry.path(), &exclusions) {
+                                            continue;
+                                        }
                                         let p_str = entry.path().to_string_lossy();
                                         let lower_p = p_str.to_lowercase();
                                         if lower_p.contains("samulibre")
@@ -1118,8 +1215,12 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     return;
                                 };
 
+                                let exclusions = load_exclusions();
                                 let mut candidate_paths = Vec::new();
                                 for path in paths_to_scan {
+                                    if is_path_excluded(&path, &exclusions) {
+                                        continue;
+                                    }
                                     if path.is_file() {
                                         candidate_paths.push(path);
                                     } else if path.is_dir() {
@@ -1127,6 +1228,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                             .max_depth(30)
                                             .into_iter()
                                             .filter_entry(|e| {
+                                        if is_path_excluded(e.path(), &exclusions) {
+                                            return false;
+                                        }
                                                 let name = e.file_name().to_string_lossy();
                                                 let path_str = e.path().to_string_lossy();
                                                 let lower_p = path_str.to_lowercase();
@@ -1149,6 +1253,12 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                                 break;
                                             }
                                             if entry.file_type().is_file() {
+                if is_path_excluded(entry.path(), &exclusions) {
+                    continue;
+                }
+                                        if is_path_excluded(entry.path(), &exclusions) {
+                                            continue;
+                                        }
                                                 let p_str = entry.path().to_string_lossy();
                                                 let lower_p = p_str.to_lowercase();
                                                 if lower_p.contains("samulibre")
@@ -1400,15 +1510,11 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                             } else {
                                 (payload_str.clone(), payload_str)
                             };
-                            let excl_path = get_project_root().join("data").join("exclusions.json");
-                            let mut exclusions: Vec<String> = if let Ok(data) = fs::read_to_string(&excl_path) {
-                                serde_json::from_str(&data).unwrap_or_default()
-                            } else {
-                                Vec::new()
-                            };
+                            let mut exclusions = load_exclusions();
                             if !exclusions.contains(&path_str) {
                                 exclusions.push(path_str.clone());
-                                let _ = fs::write(&excl_path, serde_json::to_string_pretty(&exclusions).unwrap_or_default());
+                                save_exclusions(&exclusions);
+                                sync_scanner_exclusions(&core_for_ipc, &exclusions);
                             }
                             let mut history = load_threat_history();
                             for item in history.iter_mut() {
@@ -1418,11 +1524,75 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                             }
                             save_threat_history(&history);
                             let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::ExclusionsLoaded { exclusions });
                             let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
                                 title: "✔ Archivo Excluido".to_string(),
                                 details: format!("'{}' añadido a la lista de confianza/exclusiones.", path_str),
                             });
                         }
+                    }
+
+                    "get_exclusions" => {
+                        let exclusions = load_exclusions();
+                        let _ = proxy_for_ipc.send_event(CustomUserEvent::ExclusionsLoaded { exclusions });
+                    }
+
+                    "add_exclusion" => {
+                        if let Some(payload_str) = msg.payload {
+                            let path_str = payload_str.trim().to_string();
+                            if !path_str.is_empty() {
+                                let mut exclusions = load_exclusions();
+                                if !exclusions.contains(&path_str) {
+                                    exclusions.push(path_str.clone());
+                                    save_exclusions(&exclusions);
+                                    sync_scanner_exclusions(&core_for_ipc, &exclusions);
+                                    let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                        title: "✔ Exclusión Registrada".to_string(),
+                                        details: format!("Ruta '{}' excluida del análisis.", path_str),
+                                    });
+                                }
+                                let _ = proxy_for_ipc.send_event(CustomUserEvent::ExclusionsLoaded { exclusions });
+                            }
+                        }
+                    }
+
+                    "remove_exclusion" => {
+                        if let Some(payload_str) = msg.payload {
+                            let path_str = payload_str.trim().to_string();
+                            let mut exclusions = load_exclusions();
+                            let initial_len = exclusions.len();
+                            exclusions.retain(|x| x != &path_str && x.trim() != path_str.trim());
+                            if exclusions.len() != initial_len {
+                                save_exclusions(&exclusions);
+                                sync_scanner_exclusions(&core_for_ipc, &exclusions);
+                                let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                                    title: "✔ Exclusión Removida".to_string(),
+                                    details: format!("La ruta '{}' volverá a ser analizada.", path_str),
+                                });
+                            }
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::ExclusionsLoaded { exclusions });
+                        }
+                    }
+
+                    "browse_and_add_exclusion_folder" => {
+                        let proxy_folder = proxy_for_ipc.clone();
+                        let core_folder = Arc::clone(&core_for_ipc);
+                        std::thread::spawn(move || {
+                            if let Some(folder) = open_native_folder_dialog() {
+                                let folder_str = folder.to_string_lossy().to_string();
+                                let mut exclusions = load_exclusions();
+                                if !exclusions.contains(&folder_str) {
+                                    exclusions.push(folder_str.clone());
+                                    save_exclusions(&exclusions);
+                                    sync_scanner_exclusions(&core_folder, &exclusions);
+                                    let _ = proxy_folder.send_event(CustomUserEvent::RealTimeAlert {
+                                        title: "✔ Directorio Excluido".to_string(),
+                                        details: format!("La carpeta '{}' y sus subdirectorios han sido excluidos.", folder_str),
+                                    });
+                                }
+                                let _ = proxy_folder.send_event(CustomUserEvent::ExclusionsLoaded { exclusions });
+                            }
+                        });
                     }
 
                     "ignore_threat_item" => {
@@ -2246,6 +2416,9 @@ fn run_app(app_root: PathBuf) -> Result<()> {
             let history = load_threat_history();
             let _ = proxy_init.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
 
+            let exclusions = load_exclusions();
+            let _ = proxy_init.send_event(CustomUserEvent::ExclusionsLoaded { exclusions });
+
             let pc_features = c.get_pc_advanced_features_status();
             let _ = proxy_init.send_event(CustomUserEvent::PcAdvancedStatusLoaded { status: pc_features });
         }
@@ -2769,6 +2942,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let _ = webview.evaluate_script(&script);
             }
 
+            Event::UserEvent(CustomUserEvent::ExclusionsLoaded { exclusions }) => {
+                let json = serde_json::to_string(&exclusions).unwrap_or_else(|_| "[]".to_string());
+                let script = format!(
+                    "if (window.onExclusionsLoaded) {{ window.onExclusionsLoaded({}); }}",
+                    json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
             Event::UserEvent(CustomUserEvent::Quit) => {
                 #[cfg(target_os = "windows")]
                 {
@@ -3080,15 +3262,19 @@ fn execute_scan_loop(
         is_done: false,
     });
 
+    let exclusions = load_exclusions();
     let mut candidate_paths = Vec::new();
     for dir in dirs {
-        if !dir.exists() {
+        if !dir.exists() || is_path_excluded(&dir, &exclusions) {
             continue;
         }
         for entry in WalkDir::new(&dir)
             .max_depth(25)
             .into_iter()
             .filter_entry(|e| {
+                if is_path_excluded(e.path(), &exclusions) {
+                    return false;
+                }
                 let name = e.file_name().to_string_lossy();
                 let path_str = e.path().to_string_lossy();
                 let lower_p = path_str.to_lowercase();
@@ -3118,6 +3304,9 @@ fn execute_scan_loop(
                 return;
             }
             if entry.file_type().is_file() {
+                if is_path_excluded(entry.path(), &exclusions) {
+                    continue;
+                }
                 let p_str = entry.path().to_string_lossy();
                 let lower_p = p_str.to_lowercase();
                 if lower_p.contains("samulibre")

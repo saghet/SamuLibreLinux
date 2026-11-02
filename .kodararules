@@ -1,0 +1,13 @@
+# 🥋 Kodara Project Rules & Sovereign Architecture
+# Estándar Google Antigravity — Aislamiento Estricto de Workspaces
+
+ProjectName: SamulibreLinux
+ProjectRoot: /home/saghet/Documents/SamulibreLinux
+IsolationPolicy: STRICT_ZERO_BLEED
+SecurityLevel: HIGH
+
+[RULES]:
+1. Confinamiento de Ejecución: Todas las compilaciones (cargo, npm, python, etc.) y mutaciones de código fuente deben ejecutarse exclusivamente dentro de esta raíz.
+2. Aislamiento de Memoria: Las lecciones aprendidas y memorias tácticas registradas en este espacio pertenecen únicamente a SamulibreLinux.
+3. Prohibición de Contaminación Cruzada: Queda prohibida la invocación de herramientas o scripts que alteren directorios de otros proyectos.
+4. Verificación de Integridad: Antes de ejecutar planes físicos, validar siempre que los archivos existan dentro de /home/saghet/Documents/SamulibreLinux.

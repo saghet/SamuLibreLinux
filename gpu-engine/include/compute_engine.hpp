@@ -33,6 +33,11 @@ public:
     bool transfer_to_host(void* dst_host, const void* src_device, size_t bytes, void* stream = nullptr);
     bool synchronize();
 
+    // Stream operations for overlapping PCIe transfers and kernel execution
+    void* create_stream() { return backend_ ? backend_->create_stream() : nullptr; }
+    void destroy_stream(void* stream) { if (backend_) backend_->destroy_stream(stream); }
+    bool synchronize_stream(void* stream) { return backend_ ? backend_->synchronize_stream(stream) : false; }
+
     // Fallback trigger (called on unrecoverable GPU driver error)
     void force_fallback_to_cpu(const std::string& reason);
 

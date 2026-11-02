@@ -15,6 +15,7 @@ set(CORE_SOURCES
     src/scanner/signature_scanner.cpp
     src/ml/elf_feature_extractor.cpp
     src/ml/ml_classifier.cpp
+    src/core/batch_scheduler.cpp
 )
 
 add_library(samulibre_gpu SHARED ${CORE_SOURCES})
@@ -38,3 +39,7 @@ add_test(NAME TestPatternScanner COMMAND test_pattern_scanner)
 add_executable(test_ml_classifier tests/test_ml_classifier.cpp ${CORE_SOURCES})
 target_link_libraries(test_ml_classifier PRIVATE ${CMAKE_DL_LIBS} pthread)
 add_test(NAME TestMLClassifier COMMAND test_ml_classifier)
+
+add_executable(test_batch_scheduler tests/test_batch_scheduler.cpp ${CORE_SOURCES})
+target_link_libraries(test_batch_scheduler PRIVATE ${CMAKE_DL_LIBS} pthread)
+add_test(NAME TestBatchScheduler COMMAND test_batch_scheduler)

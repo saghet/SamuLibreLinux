@@ -148,9 +148,11 @@ void ELFFeatureExtractor::analyze_sections_and_segments(const uint8_t* data, siz
                 feat.has_rwx_section = true;
             }
 
-            // Check section name
+            // Check section name safely without out-of-bounds reading (VULN-01 fix)
             if (shstrtab && shdr->sh_name < shstrtab_size) {
-                std::string sname = shstrtab + shdr->sh_name;
+                size_t max_name_len = shstrtab_size - shdr->sh_name;
+                size_t actual_name_len = ::strnlen(shstrtab + shdr->sh_name, max_name_len);
+                std::string sname(shstrtab + shdr->sh_name, actual_name_len);
                 std::string sname_lower = sname;
                 std::transform(sname_lower.begin(), sname_lower.end(), sname_lower.begin(), ::tolower);
 

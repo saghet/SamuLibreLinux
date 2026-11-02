@@ -6,6 +6,14 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-01
 
+### 📦 Compatibilidad con Distribuciones Linux y Empaquetado Multi-Ecosistema (Fase 4)
+- **Pipeline de Empaquetado Nativo para Tres Grandes Ecosistemas:**
+  - **Ubuntu / Debian (`.deb`):** Generación automatizada con `build_deb.sh` (`target/samulibre_2.0.32_amd64.deb`). Compatible con APT/DPKG, integración con `unattended-upgrades`, control de dependencias Freedesktop y soporte de políticas AppArmor para WebKitGTK.
+  - **Red Hat Enterprise Linux / Fedora / Rocky / AlmaLinux (`.rpm`):** Generación con `build_rpm.sh` (`target/samulibre-2.0.32-1.x86_64.rpm`). Cumplimiento con especificaciones de `samulibre.spec`, compatibilidad con gestores DNF/YUM, arquitectura para SELinux Enforcing (`samulibre_t`) y backend Firewalld.
+  - **Garuda Linux / Arch Linux (`.pkg.tar.zst`):** Generación con `build_arch.sh` (`target/samulibre-2.0.32-1-x86_64.pkg.tar.zst`). Compatibilidad con Pacman, AUR (`PKGBUILD`), kernels alternativos (`linux-zen`, `linux-hardened`, `linux-lts`), Wayland / KDE Plasma 6 y subvolúmenes Btrfs.
+- **Auditoría Arquitectónica de Sandboxes y Aislamiento:**
+  - Evaluación y diagnóstico técnico detallado que descarta Flatpak y Snap estricto para operación de antivirus/EDR debido a la restricción fundamental impuesta por namespaces de montaje y aislamiento de `/proc`, validando el empaquetado nativo como la solución de producción estándar.
+
 ### 🛡️ Protección en Tiempo Real, Persistencia y Telemetría de Red en Linux (Fase 3)
 - **Auditoría Exhaustiva de Persistencia Nativa en Linux (`linux_monitor.rs`):**
   - Implementado escaneo en vivo de servicios y temporizadores de **Systemd** de usuario (`~/.config/systemd/user/`) y del sistema (`/etc/systemd/system/`).

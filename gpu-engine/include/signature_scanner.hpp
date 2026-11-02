@@ -34,7 +34,7 @@ private:
 
     GPUComputeEngine& engine_;
     std::vector<PatternRule> rules_;
-    std::mutex rules_mutex_;
+    mutable std::mutex rules_mutex_;
 
     // GPU kernel resources (PTX modules & functions when CUDA is active)
     void* cuda_module_ = nullptr;

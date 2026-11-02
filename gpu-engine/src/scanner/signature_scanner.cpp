@@ -251,6 +251,7 @@ void SignatureScanner::add_rule(uint32_t id, const std::string& name, const std:
 }
 
 size_t SignatureScanner::rule_count() const {
+    std::lock_guard<std::mutex> lock(rules_mutex_);
     return rules_.size();
 }
 

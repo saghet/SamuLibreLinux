@@ -7,10 +7,12 @@
 #include <cstring>
 #include <memory>
 #include <algorithm>
+#include <mutex>
 
 namespace samulibre::gpu {
 
 struct GPUContextInternal {
+    std::mutex context_mutex; // Concurrency protection for multi-threaded Rust FFI calls (CONC-01)
     std::unique_ptr<GPUComputeEngine> engine;
     std::unique_ptr<SignatureScanner> scanner;
     std::unique_ptr<MLClassifier> classifier;
@@ -86,7 +88,7 @@ static void fill_c_result(const TaskScanReport& rep, SamulibreCScanResult* out_r
         out_result->status = SAMULIBRE_GPU_STATUS_CLEAN;
     }
 
-    // Threat name resolution
+    // Threat name resolution with guaranteed null termination
     if (!rep.pattern_matches.empty()) {
         std::strncpy(out_result->detection_name, rep.pattern_matches[0].rule_name.c_str(), sizeof(out_result->detection_name) - 1);
     } else if (!rep.ml_classification.empty() && rep.final_verdict != "CLEAN") {
@@ -95,12 +97,18 @@ static void fill_c_result(const TaskScanReport& rep, SamulibreCScanResult* out_r
     } else {
         std::strncpy(out_result->detection_name, "None", sizeof(out_result->detection_name) - 1);
     }
+    out_result->detection_name[sizeof(out_result->detection_name) - 1] = '\0';
 
     std::strncpy(out_result->engine_name, rep.backend_used.c_str(), sizeof(out_result->engine_name) - 1);
+    out_result->engine_name[sizeof(out_result->engine_name) - 1] = '\0';
+
     out_result->entropy = rep.shannon_entropy;
     out_result->is_packed = rep.is_suspicious_packed ? 1 : 0;
     out_result->ml_risk_probability = rep.ml_risk_probability;
+
     std::strncpy(out_result->ml_verdict, rep.ml_classification.c_str(), sizeof(out_result->ml_verdict) - 1);
+    out_result->ml_verdict[sizeof(out_result->ml_verdict) - 1] = '\0';
+
     out_result->scan_time_ms = static_cast<uint64_t>(rep.total_duration_ms);
     out_result->quarantine_recommended = rep.quarantine_recommended ? 1 : 0;
 }
@@ -109,6 +117,7 @@ int32_t samulibre_gpu_scan_file(SamulibreGPUContext ctx, const char* file_path, 
     if (!ctx || !file_path || !out_result) return 0;
     try {
         auto* internal = static_cast<GPUContextInternal*>(ctx);
+        std::lock_guard<std::mutex> lock(internal->context_mutex);
         if (!internal->scheduler) return 0;
         ScanTask task;
         task.task_id = 1;
@@ -126,6 +135,7 @@ int32_t samulibre_gpu_scan_buffer(SamulibreGPUContext ctx, const uint8_t* data, 
     if (!ctx || !data || !out_result) return 0;
     try {
         auto* internal = static_cast<GPUContextInternal*>(ctx);
+        std::lock_guard<std::mutex> lock(internal->context_mutex);
         if (!internal->scheduler) return 0;
         ScanTask task;
         task.task_id = 1;

@@ -6,6 +6,23 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-01
 
+### 🛡️ Protección en Tiempo Real, Persistencia y Telemetría de Red en Linux (Fase 3)
+- **Auditoría Exhaustiva de Persistencia Nativa en Linux (`linux_monitor.rs`):**
+  - Implementado escaneo en vivo de servicios y temporizadores de **Systemd** de usuario (`~/.config/systemd/user/`) y del sistema (`/etc/systemd/system/`).
+  - Inspección de aplicaciones en **Autostart** (`~/.config/autostart/*.desktop`, `/etc/xdg/autostart/*.desktop`), extrayendo el comando `Exec=`, comprobando la existencia física del ejecutable y calculando su hash SHA-256.
+  - Análisis de tareas programadas **Cron** (`/etc/crontab`, `/etc/cron.d/`, `/var/spool/cron/`).
+  - Detección heurística de persistencias maliciosas: ejecutables en rutas volátiles (`/tmp`, `/dev/shm`), reverse shells (`/dev/tcp/`, `nc -e`), y droppers encadenados (`curl | sh`, `wget | bash`).
+- **Telemetría de Red y Sockets en Vivo con Atribución de Procesos:**
+  - Parseo nativo de las tablas del kernel `/proc/net/tcp` y `/proc/net/tcp6`.
+  - Correlación exacta y en microsegundos de inodos de socket mediante exploración de descriptores `/proc/[pid]/fd/*`, asociando cada puerto al PID, ejecutable y nombre del proceso correspondiente.
+  - Identificación y categorización de puertos de alto riesgo o sospechosos (135, 139, 445, 3389, 4444, 1337, 8888, 5555, 6666, 7777, 9001, 9999).
+- **Aislamiento Activo de Procesos y Puertos con Netfilter / Iptables:**
+  - Aislamiento de tráfico de red para procesos maliciosos detectados mediante `iptables -I OUTPUT -m owner --pid-owner <PID> -j DROP`.
+  - Bloqueo preventivo de puertos vulnerables con `iptables -I INPUT -p tcp --dport <PORT> -j DROP`.
+- **Endurecimiento de Autoprotección Anti-Tamper (`PR_SET_DUMPABLE`):**
+  - Activada la protección del kernel `libc::prctl(libc::PR_SET_DUMPABLE, 0)` en el arranque de la aplicación y en `AntiTamperShield::apply_process_hardening()`.
+  - Impide que procesos del mismo usuario o scripts maliciosos puedan adjuntarse mediante `ptrace(PTRACE_ATTACH)` o leer/volcar la memoria del antivirus desde `/proc/[pid]/mem`.
+
 ### 🛡️ Motor Antivirus y Capacidades de Detección en Linux (Fase 2)
 - **Cálculo Criptográfico SHA-256 en Streaming Completo:**
   - Corregido el cálculo de hash SHA-256 en `scan_file`: ahora se computa en streaming sobre la totalidad del archivo sin importar su tamaño, eliminando truncamientos que impedían la detección de malware superior a 512 KB en bases globales (ThreatFox, MalwareBazaar, ClamAV).

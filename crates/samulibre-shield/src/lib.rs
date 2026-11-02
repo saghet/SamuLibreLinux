@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "windows")]
 use std::process::Command;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tracing::{info, warn};
@@ -20,6 +21,7 @@ pub mod browser_shield;
 pub mod credentials;
 pub mod fileless;
 pub mod ransomware_predictive;
+pub mod linux_monitor;
 
 pub use adaptive_firewall::*;
 pub use anti_tamper::*;
@@ -27,6 +29,7 @@ pub use browser_shield::*;
 pub use credentials::*;
 pub use fileless::*;
 pub use ransomware_predictive::*;
+pub use linux_monitor::*;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -647,8 +650,9 @@ impl EndpointShield {
         self.canaries.len()
     }
 
-    /// Audita mecanismos de persistencia en el arranque del sistema (Run, RunOnce, Winlogon, Startup, Tasks)
+    /// Audita mecanismos de persistencia en el arranque del sistema (Run, RunOnce, Winlogon, Startup, Tasks, Systemd, Cron)
     pub fn scan_persistence(&self) -> Vec<PersistenceEntry> {
+        #[cfg(target_os = "windows")]
         let mut entries = Vec::new();
 
         #[cfg(target_os = "windows")]
@@ -873,8 +877,11 @@ impl EndpointShield {
             }
         }
 
+        #[cfg(not(target_os = "windows"))]
+        let entries = scan_linux_persistence();
+
         if entries.is_empty() {
-            entries.push(PersistenceEntry {
+            vec![PersistenceEntry {
                 id: "SYS_INIT_BASELINE".to_string(),
                 name: "Systemd / Core Daemons Baseline".to_string(),
                 target_path: "/sbin/init".to_string(),
@@ -885,10 +892,10 @@ impl EndpointShield {
                 sha256: None,
                 status: FileScanStatus::Clean,
                 detection_details: Some("Línea base del sistema protegida y verificada".to_string()),
-            });
+            }]
+        } else {
+            entries
         }
-
-        entries
     }
 
     pub fn toggle_persistence(&self, id: &str, enable: bool) -> Result<bool> {
@@ -898,8 +905,10 @@ impl EndpointShield {
 
     /// Inspecciona todos los sockets y puertos de red activos en el sistema operativo con atribución de proceso
     pub fn scan_network_sockets(&mut self) -> Vec<NetworkSocketInfo> {
-        let mut sockets = Vec::new();
         self.system.refresh_processes(ProcessesToUpdate::All);
+
+        #[cfg(target_os = "windows")]
+        let mut sockets = Vec::new();
 
         #[cfg(target_os = "windows")]
         {
@@ -956,6 +965,9 @@ impl EndpointShield {
                 }
             }
         }
+
+        #[cfg(not(target_os = "windows"))]
+        let mut sockets = scan_linux_network_sockets(&self.system, &self.closed_ports, &self.isolated_pids);
 
         if sockets.is_empty() {
             let is_isolated_53 = self.closed_ports.contains(&53);
@@ -1055,11 +1067,7 @@ impl EndpointShield {
 
         #[cfg(not(target_os = "windows"))]
         {
-            if close {
-                Ok(format!("🛡️ Puerto {} cerrado y blindado en el registro de seguridad.", port))
-            } else {
-                Ok(format!("🔓 Puerto {} reabierto.", port))
-            }
+            toggle_linux_port_shield(port, close)
         }
     }
 
@@ -1094,14 +1102,17 @@ impl EndpointShield {
             .collect::<Vec<_>>()
             .join(", ");
 
+        let backend = if cfg!(target_os = "windows") { "reglas WFP" } else { "Netfilter / Iptables" };
+
         Ok(format!(
-            "🛡️ Se cerraron y blindaron {} puerto(s) de alto riesgo ({}) mediante reglas WFP sin afectar la estabilidad del SO.",
+            "🛡️ Se cerraron y blindaron {} puerto(s) de alto riesgo ({}) mediante {} sin afectar la estabilidad del SO.",
             sorted_ports.len(),
-            ports_str
+            ports_str,
+            backend
         ))
     }
 
-    /// Aísla de la red un proceso específico en tiempo real mediante reglas dinámicas WFP
+    /// Aísla de la red un proceso específico en tiempo real mediante reglas dinámicas WFP o Iptables
     pub fn isolate_process_network(&mut self, pid: u32, isolate: bool) -> Result<String> {
         if isolate {
             self.isolated_pids.insert(pid);
@@ -1152,9 +1163,13 @@ impl EndpointShield {
         }
 
         #[cfg(not(target_os = "windows"))]
-        Ok(format!("Acción de aislamiento ejecutada para PID {} (isolate={})", pid, isolate))
+        {
+            let _ = rule_name;
+            isolate_linux_process(pid, isolate)
+        }
     }
 
+    #[allow(dead_code)]
     fn calculate_file_hash(path_str: &str) -> Option<String> {
         let p = Path::new(path_str);
         if p.exists() && p.is_file() {

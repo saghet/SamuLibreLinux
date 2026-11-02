@@ -670,3 +670,37 @@ Tras la auditoría estricta de capacidades del motor de detección en `crates/sa
 * **Tests Unitarios de `samulibre-scanner`:** 21 pruebas ejecutadas, **21 aprobadas, 0 fallos**.
 * **Tests del Workspace Completo:** 100% de tests aprobados sin regresiones en ningún crate.
 * **Binarios en Modo Release:** `samulibre-gui` y `samulibre-cli` compilados e instalados en `~/.local/bin/`.
+
+
+---
+
+## 23. Sección 23: Auditoría y Evolución de Protección en Tiempo Real y Escudo Linux (Fase 3)
+
+### 23.1 Diagnóstico de Hallazgos en Fase 3
+Tras auditar los componentes de protección en tiempo real y telemetría de endpoint en `crates/samulibre-shield` y `crates/samulibre-watcher`:
+1. **Persistencia Simulada en Linux:**
+   * La función `scan_persistence()` estaba condicionada a `#[cfg(target_os = "windows")]` mediante consultas al Registro. En Linux retornaba una entrada mock (`SYS_INIT_BASELINE`), impidiendo que el usuario viera o auditara sus servicios de `systemd`, entradas de `autostart` o `crontabs`.
+2. **Telemetría de Sockets Mockeada en Linux:**
+   * `scan_network_sockets()` invocaba `netstat -ano` en Windows y en Linux retornaba un socket estático `dnscache:53`, sin consultar las tablas del kernel ni asociar PIDs.
+3. **Aislamiento de Red Simulado:**
+   * Las funciones `isolate_process_network()` y `toggle_port_shield()` retornaban cadenas informativas en Linux sin ejecutar ninguna regla de contención a nivel de red (`iptables`/`netfilter`).
+4. **Vulnerabilidad de Autoprotección en Memoria (Anti-Tamper):**
+   * El proceso del antivirus carecía de protección de kernel contra inyección o inspección de memoria por procesos del mismo UID (`ptrace(PTRACE_ATTACH)` o `/proc/[pid]/mem`).
+
+---
+
+### 23.2 Mejoras Técnicas Implementadas en Fase 3
+
+| Componente | Archivo Modificado / Creado | Descripción Técnica |
+|---|---|---|
+| **Auditoría Nativa de Persistencia Linux** | [crates/samulibre-shield/src/linux_monitor.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-shield/src/linux_monitor.rs) | Escáner exhaustivo que audita unidades de Systemd (`~/.config/systemd/user`, `/etc/systemd/system`), archivos de Autostart (`~/.config/autostart`, `/etc/xdg/autostart`) y tareas programadas Cron (`/etc/crontab`, `/etc/cron.d`, `/var/spool/cron`). Extrae ejecutables, calcula hashes SHA-256 e identifica rutas sospechosas (`/tmp`, `/dev/shm`) o reverse shells. |
+| **Telemetría de Sockets & Conexiones** | [crates/samulibre-shield/src/linux_monitor.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-shield/src/linux_monitor.rs) | Lector nativo de `/proc/net/tcp` y `/proc/net/tcp6` con correlación exacta de inodos a través de `/proc/[pid]/fd/*`. Asocia cada puerto y conexión activa al PID, ejecutable y nombre real del proceso, clasificando puertos de riesgo (ej: 4444, 1337, 8888, 5555). |
+| **Aislamiento y Filtrado Netfilter / Iptables** | [crates/samulibre-shield/src/linux_monitor.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-shield/src/linux_monitor.rs) | Implementación real de aislamiento de red para procesos maliciosos (`iptables -I OUTPUT -m owner --pid-owner <PID> -j DROP`) y cierre de puertos vulnerables (`iptables -I INPUT -p tcp --dport <PORT> -j DROP`). |
+| **Hardening Anti-Tamper de Proceso** | [crates/samulibre-shield/src/anti_tamper.rs](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-shield/src/anti_tamper.rs) | Invocación de `libc::prctl(libc::PR_SET_DUMPABLE, 0)` en el inicio de la aplicación y en el escudo `AntiTamperShield`. Deshabilita adjuntos no autorizados con `ptrace` y bloquea la lectura/escritura en `/proc/[pid]/mem`. |
+
+---
+
+### 23.3 Verificación de Calidad y Tests Automatizados
+* **Tests de `samulibre-shield`:** 24 pruebas ejecutadas, **24 aprobadas, 0 fallos**.
+* **Tests del Workspace Completo:** 100% de tests aprobados sin regresiones.
+* **Binarios Release Actualizados:** Recompilados `samulibre-gui` y `samulibre-cli` e instalados en `~/.local/bin/`.

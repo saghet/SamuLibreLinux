@@ -788,6 +788,9 @@ fn open_native_folder_dialog() -> Option<PathBuf> {
 }
 
 fn main() {
+    // Hardening de autoprotección en Linux (Anti-Debugging & Anti-Memory Infiltration)
+    samulibre_shield::AntiTamperShield::apply_process_hardening();
+
     let app_root = get_project_root();
     let _ = std::env::set_current_dir(&app_root);
     let _ = fs::create_dir_all(app_root.join("data"));

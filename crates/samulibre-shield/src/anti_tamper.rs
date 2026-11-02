@@ -46,8 +46,10 @@ impl AntiTamperShield {
         }
     }
 
-    /// Aplica endurecimiento de permisos (DACL restrictivo en Windows / chmod 0700 en Linux)
+    /// Aplica endurecimiento de permisos (DACL restrictivo en Windows / chmod 0700 en Linux) y protección de proceso
     pub fn apply_hardening(&self) -> std::io::Result<()> {
+        Self::apply_process_hardening();
+
         for path in &self.protected_paths {
             if path.exists() {
                 #[cfg(target_os = "windows")]
@@ -62,6 +64,21 @@ impl AntiTamperShield {
             }
         }
         Ok(())
+    }
+
+    /// Endurecimiento a nivel de proceso del kernel (Anti-Debugging & Anti-Memory Tampering)
+    /// En Linux: PR_SET_DUMPABLE = 0 deshabilita ptrace(PTRACE_ATTACH) de procesos no autorizados
+    /// y bloquea la lectura/escritura en /proc/[pid]/mem por otros procesos del mismo usuario.
+    pub fn apply_process_hardening() -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            let res = unsafe { libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0) };
+            res == 0
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            true
+        }
     }
 
     /// Inspecciona criptográficamente si los binarios o archivos han sido alterados externamente

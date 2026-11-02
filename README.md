@@ -6,22 +6,22 @@
 **Native Windows 11 & Linux Desktop (Ubuntu • Red Hat • Garuda) • Ransomware Tripwires • Multi-Engine YARA-X • Privacy VPN • < 40 MB Resting RAM**
 
 [![Rust](https://img.shields.io/badge/Language-Rust_1.80+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows_11_%2F_10_%7C_Linux_%7C_Android-0078D6.svg?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibre)
-[![Android](https://img.shields.io/badge/Android-8.0+_Oreo_to_15-3DDC84.svg?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibre)
+[![Platform](https://img.shields.io/badge/Platform-Windows_11_%2F_10_%7C_Linux_%7C_Android-0078D6.svg?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibreLinux)
+[![Android](https://img.shields.io/badge/Android-8.0+_Oreo_to_15-3DDC84.svg?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibreLinux)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04_%7C_24.04-E95420.svg?style=for-the-badge&logo=ubuntu)](https://ubuntu.com)
 [![Red Hat](https://img.shields.io/badge/Red_Hat-RHEL_9_%7C_Fedora-EE0000.svg?style=for-the-badge&logo=redhat)](https://redhat.com)
 [![Garuda](https://img.shields.io/badge/Garuda_Linux-Arch_%7C_KDE-00A98F.svg?style=for-the-badge&logo=archlinux)](https://garudalinux.org)
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-All_Passing-brightgreen.svg?style=for-the-badge)](https://github.com/saghet/SamuLibre/actions)
-[![RAM](https://img.shields.io/badge/Resting_RAM-<40_MB-success.svg?style=for-the-badge)](https://github.com/saghet/SamuLibre)
-[![Zero Telemetry](https://img.shields.io/badge/Telemetry-0%25_Verified-blueviolet.svg?style=for-the-badge)](https://github.com/saghet/SamuLibre)
+[![Tests](https://img.shields.io/badge/Tests-All_Passing-brightgreen.svg?style=for-the-badge)](https://github.com/saghet/SamuLibreLinux/actions)
+[![RAM](https://img.shields.io/badge/Resting_RAM-<40_MB-success.svg?style=for-the-badge)](https://github.com/saghet/SamuLibreLinux)
+[![Zero Telemetry](https://img.shields.io/badge/Telemetry-0%25_Verified-blueviolet.svg?style=for-the-badge)](https://github.com/saghet/SamuLibreLinux)
 
 <br/>
 
-[![Download Windows EXE](https://img.shields.io/badge/📥_Windows_EXE-samulibre.exe-2ea44f?style=for-the-badge&logo=windows)](https://github.com/saghet/SamuLibre/releases/latest)
-[![Download Ubuntu DEB](https://img.shields.io/badge/📦_Ubuntu%2FDebian_DEB-.deb-E95420?style=for-the-badge&logo=ubuntu)](https://github.com/saghet/SamuLibre/releases/latest)
-[![Download Linux Tarball](https://img.shields.io/badge/📦_Universal_Linux-.tar.gz-black?style=for-the-badge&logo=linux)](https://github.com/saghet/SamuLibre/releases/latest)
-[![Download Android APK](https://img.shields.io/badge/📱_Android_APK-v2.0.31-3DDC84?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibre/releases/latest)
+[![Download Windows EXE](https://img.shields.io/badge/📥_Windows_EXE-samulibre.exe-2ea44f?style=for-the-badge&logo=windows)](https://github.com/saghet/SamuLibreLinux/releases/latest)
+[![Download Ubuntu DEB](https://img.shields.io/badge/📦_Ubuntu%2FDebian_DEB-.deb-E95420?style=for-the-badge&logo=ubuntu)](https://github.com/saghet/SamuLibreLinux/releases/latest)
+[![Download Linux Tarball](https://img.shields.io/badge/📦_Universal_Linux-.tar.gz-black?style=for-the-badge&logo=linux)](https://github.com/saghet/SamuLibreLinux/releases/latest)
+[![Download Android APK](https://img.shields.io/badge/📱_Android_APK-v2.0.32-3DDC84?style=for-the-badge&logo=android)](https://github.com/saghet/SamuLibreLinux/releases/latest)
 
 <br/>
 
@@ -143,9 +143,9 @@ flowchart TD
 ## 🚀 Quickstart
 
 ### Option 1: Download Precompiled Binary (Recommended)
-1. Head over to [GitHub Releases](https://github.com/saghet/SamuLibre/releases).
-2. Download `samulibre-windows-x64.zip`.
-3. Extract and run `samulibre.exe`.
+1. Head over to [GitHub Releases](https://github.com/saghet/SamuLibreLinux/releases).
+2. Download the binary or package for your system (`.deb`, `.tar.gz`, `.pkg.tar.zst`, or `samulibre-windows-x64.zip`).
+3. Launch `samulibre` or run the installer.
 
 ### Option 2: Build From Source
 
@@ -153,8 +153,8 @@ Make sure you have [Rust](https://rustup.rs/) (1.80+) installed:
 
 ```bash
 # Clone the repository
-git clone https://github.com/saghet/SamuLibre.git
-cd SamuLibre
+git clone https://github.com/saghet/SamuLibreLinux.git
+cd SamuLibreLinux
 
 # Run the native desktop application
 cargo run --release -p samulibre-gui

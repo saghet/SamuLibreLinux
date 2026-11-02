@@ -1,62 +1,72 @@
 [
   {
-    "kb_id": "KB5041585",
-    "title": "Windows 11 Cumulative Security Update August 2024",
-    "release_date": "2024-08-13",
-    "cves": ["CVE-2024-38063"],
-    "summary": "Critical vulnerability in the Windows TCP/IP IPv6 network stack (tcpip.sys) that allows unauthenticated remote code execution via specially crafted IPv6 packets.",
-    "affected_products": ["Windows 11 Version 23H2", "Windows 11 Version 22H2"],
-    "restart_required": true,
-    "support_url": "https://support.microsoft.com/kb/5041585"
+    "kb_id": "USN-5252-1",
+    "title": "Ubuntu & Debian Security Notice: Polkit pkexec Local Privilege Escalation (PwnKit)",
+    "release_date": "2022-01-25",
+    "cves": ["CVE-2021-4034"],
+    "summary": "Local privilege escalation vulnerability in pkexec. A local attacker could exploit this to obtain root privileges without authentication.",
+    "affected_products": ["Ubuntu 20.04 LTS", "Ubuntu 21.10", "Debian 11", "Arch Linux", "Garuda Linux", "Red Hat Enterprise Linux 8"],
+    "restart_required": false,
+    "support_url": "https://ubuntu.com/security/notices/USN-5252-1"
   },
   {
-    "kb_id": "KB5040442",
-    "title": "Windows 11 Security Update July 2024",
-    "release_date": "2024-07-09",
-    "cves": ["CVE-2024-38077"],
-    "summary": "Remote Code Execution vulnerability in the Windows Remote Desktop Licensing Service (lserver.exe) with SYSTEM privileges without prior authentication.",
-    "affected_products": ["Windows Server 2022", "Windows 11"],
+    "kb_id": "RHSA-2022:0267",
+    "title": "Red Hat Enterprise Linux Advisory: Kernel User Namespaces fs_context Heap Overflow",
+    "release_date": "2022-01-26",
+    "cves": ["CVE-2022-0185"],
+    "summary": "Heap-based buffer overflow in the Linux kernel legacy_parse_param function in fs/fs_context.c when unprivileged user namespaces are enabled.",
+    "affected_products": ["Red Hat Enterprise Linux 8", "Fedora 35", "Rocky Linux 8", "Arch Linux", "Garuda Linux"],
     "restart_required": true,
-    "support_url": "https://support.microsoft.com/kb/5040442"
+    "support_url": "https://access.redhat.com/errata/RHSA-2022:0267"
   },
   {
-    "kb_id": "KB5004945",
-    "title": "Out-of-band security update for Windows Print Spooler (PrintNightmare)",
-    "release_date": "2021-07-06",
-    "cves": ["CVE-2021-34527"],
-    "summary": "Remote code execution vulnerability in spoolsv.exe allowing attackers to install malicious print drivers and gain SYSTEM privileges via PointAndPrint.",
-    "affected_products": ["Windows 10", "Windows 11", "Windows Server"],
+    "kb_id": "USN-5316-1",
+    "title": "Ubuntu Security Notice: Dirty Pipe Linux Kernel splice() Privilege Escalation",
+    "release_date": "2022-03-07",
+    "cves": ["CVE-2022-0847"],
+    "summary": "Vulnerability in the Linux kernel pipe implementation allowing arbitrary read-only file overwrites and unprivileged local root escalation.",
+    "affected_products": ["Ubuntu 21.10", "Ubuntu 20.04 LTS HWE", "Debian 11", "Arch Linux", "Garuda Linux"],
     "restart_required": true,
-    "support_url": "https://support.microsoft.com/kb/5004945"
+    "support_url": "https://ubuntu.com/security/notices/USN-5316-1"
   },
   {
-    "kb_id": "KB5014699",
-    "title": "Windows 11 Security Update June 2022 (Follina MSDT)",
-    "release_date": "2022-06-14",
-    "cves": ["CVE-2022-30190"],
-    "summary": "Microsoft Windows Support Diagnostic Tool (MSDT) Remote Code Execution vulnerability when called using URI protocol handlers from malicious Office documents.",
-    "affected_products": ["Windows 11 Version 21H2", "Windows 10"],
+    "kb_id": "RHSA-2024:1486",
+    "title": "Red Hat Advisory: Netfilter nf_tables Use-After-Free Privilege Escalation",
+    "release_date": "2024-03-26",
+    "cves": ["CVE-2024-1086"],
+    "summary": "Use-after-free vulnerability in Linux kernel netfilter nf_tables component leading to arbitrary kernel code execution and local root escalation.",
+    "affected_products": ["Red Hat Enterprise Linux 9", "Fedora 39", "Rocky Linux 9", "Arch Linux", "Garuda Linux"],
     "restart_required": true,
-    "support_url": "https://support.microsoft.com/kb/5014699"
+    "support_url": "https://access.redhat.com/errata/RHSA-2024:1486"
   },
   {
-    "kb_id": "KB5005010",
-    "title": "Windows 10 & 11 Security Update August 2021 (Netlogon & Spooler)",
-    "release_date": "2021-08-10",
-    "cves": ["CVE-2021-36958"],
-    "summary": "Elevation of privilege vulnerability in Windows Print Spooler service and Netlogon RPC client encryption validation.",
-    "affected_products": ["Windows 11", "Windows 10"],
-    "restart_required": true,
-    "support_url": "https://support.microsoft.com/kb/5005010"
+    "kb_id": "USN-6859-1",
+    "title": "Ubuntu Security Notice: OpenSSH Server Signal Handler Race Condition (regreSSHion)",
+    "release_date": "2024-07-01",
+    "cves": ["CVE-2024-6387"],
+    "summary": "Signal handler race condition in OpenSSH sshd leading to unauthenticated remote code execution as root on glibc-based Linux systems.",
+    "affected_products": ["Ubuntu 24.04 LTS", "Ubuntu 22.04 LTS", "Debian 12", "Fedora 40"],
+    "restart_required": false,
+    "support_url": "https://ubuntu.com/security/notices/USN-6859-1"
   },
   {
-    "kb_id": "KB5022845",
-    "title": "Windows Security Update February 2023 (SMB & CLFS)",
-    "release_date": "2023-02-14",
-    "cves": ["CVE-2023-21823"],
-    "summary": "Windows Graphics Component and Common Log File System (CLFS) Driver Elevation of Privilege vulnerability exploited in the wild.",
-    "affected_products": ["Windows 11", "Windows 10"],
-    "restart_required": true,
-    "support_url": "https://support.microsoft.com/kb/5022845"
+    "kb_id": "ASA-202407-1",
+    "title": "Arch Linux Security Advisory: openssh 9.8p1-1 (regreSSHion)",
+    "release_date": "2024-07-01",
+    "cves": ["CVE-2024-6387"],
+    "summary": "Arch Linux package update upgrading openssh to 9.8p1-1 resolving the critical sshd signal race condition.",
+    "affected_products": ["Arch Linux", "Garuda Linux", "Manjaro Linux"],
+    "restart_required": false,
+    "support_url": "https://security.archlinux.org/ASA-202407-1"
+  },
+  {
+    "kb_id": "USN-6409-1",
+    "title": "Ubuntu Security Notice: GNU C Library GLIBC_TUNABLES Buffer Overflow (Looney Tunables)",
+    "release_date": "2023-10-03",
+    "cves": ["CVE-2023-4911"],
+    "summary": "Buffer overflow in the GNU C Library dynamic loader ld.so when processing the GLIBC_TUNABLES environment variable.",
+    "affected_products": ["Ubuntu 23.04", "Ubuntu 22.04 LTS", "Debian 12", "Fedora 38", "Red Hat Enterprise Linux 9"],
+    "restart_required": false,
+    "support_url": "https://ubuntu.com/security/notices/USN-6409-1"
   }
 ]

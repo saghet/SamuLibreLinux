@@ -1,0 +1,23 @@
+{
+  "id": "VP-AI-CVE_2022_0185",
+  "cve": "CVE-2022-0185",
+  "title": "[IA Patch] Red Hat & Enterprise Linux Advisory: Kernel User Namespaces",
+  "description": "Mitigación virtual preventiva sintetizada para RHSA-2022:0267: Mitigación upstream incorporada en fs_context.c del kernel Linux >= 5.17.",
+  "severity": "Critical",
+  "target_component": "kernel.unprivileged_userns_clone",
+  "required_kb": [
+    "RHSA-2022:0267"
+  ],
+  "strategy": {
+    "KernelSysctlHardening": {
+      "parameter": "kernel.unprivileged_userns_clone",
+      "safe_value": "0",
+      "revert_value": "1"
+    }
+  },
+  "status": "NativePatchInstalled",
+  "detected_at": "2026-11-02T15:46:56.428217312Z",
+  "patched_at": null,
+  "unpatched_at": null,
+  "status_reason": "Corregido nativamente: Kernel Linux 7.2.11-zen1-1-zen incluye parche upstream en fs_context.c (CVE-2022-0185)."
+}

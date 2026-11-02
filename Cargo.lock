@@ -2570,6 +2570,7 @@ version = "2.0.32"
 dependencies = [
  "anyhow",
  "chrono",
+ "libc",
  "samulibre-ai",
  "samulibre-types",
  "serde",

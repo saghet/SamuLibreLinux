@@ -1,0 +1,25 @@
+{
+  "id": "VP-LINUX-REGRESSHION",
+  "cve": "CVE-2024-6387",
+  "title": "regreSSHion: OpenSSH Server Signal Handler Race Condition RCE",
+  "description": "Condición de carrera asíncrona en el manejador de señales SIGALRM de sshd (glibc) que permite ejecución de código remoto como root sin autenticación.",
+  "severity": "Critical",
+  "target_component": "openssh-server (sshd)",
+  "required_kb": [
+    "USN-6859-1",
+    "ASA-202407-1"
+  ],
+  "strategy": {
+    "NetworkFirewall": {
+      "rule_name": "SamuLibre_VPatch_CVE-2024-6387_SSHD",
+      "port": 22,
+      "protocol": "TCP",
+      "direction": "in"
+    }
+  },
+  "status": "Unmitigated",
+  "detected_at": "2026-11-02T10:00:00Z",
+  "patched_at": null,
+  "unpatched_at": null,
+  "status_reason": null
+}

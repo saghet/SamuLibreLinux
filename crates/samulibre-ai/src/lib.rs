@@ -363,18 +363,66 @@ impl LocalAiAnalyst {
             );
         }
 
-        // Caso General por Defecto: Aislamiento preventivo o bloqueo conductual
-        let strategy = MitigationStrategy::BehavioralBlock {
-            target_process: "powershell.exe".to_string(),
-            forbidden_call: format!("-enc *{}", kb),
-        };
-        (
-            "Windows Subsystem Generic".to_string(),
-            "Vulnerabilidad genérica de ejecución o escalamiento".to_string(),
-            strategy,
-            format!("Boletín de seguridad analizado para {}. Se estableció un centinela conductual preventivo mientras se completa la instalación oficial.", kb),
-            0.85,
-        )
+        // Caso 8: Polkit / pkexec / PwnKit (Linux)
+        if lower.contains("polkit") || lower.contains("pkexec") || lower.contains("pwnkit") || cve.contains("2021-4034") {
+            let strategy = MitigationStrategy::BehavioralBlock {
+                target_process: "pkexec".to_string(),
+                forbidden_call: "GCONV_PATH".to_string(),
+            };
+            return (
+                "polkit (/usr/bin/pkexec)".to_string(),
+                "Escalamiento local de privilegios (LPE) mediante manipulación de variables de entorno".to_string(),
+                strategy,
+                "Vulnerabilidad PwnKit en pkexec de Linux. Se estableció mitigación conductual de variables de entorno y verificación de versión.".to_string(),
+                0.96,
+            );
+        }
+
+        // Caso 9: Kernel Linux User Namespaces / fs_context (CVE-2022-0185 / CVE-2023-32233)
+        if lower.contains("user namespace") || lower.contains("userns") || lower.contains("fs_context") || cve.contains("2022-0185") {
+            let strategy = MitigationStrategy::KernelSysctlHardening {
+                parameter: "kernel.unprivileged_userns_clone".to_string(),
+                safe_value: "0".to_string(),
+                revert_value: "1".to_string(),
+            };
+            return (
+                "kernel.unprivileged_userns_clone".to_string(),
+                "Escalamiento local de privilegios abusando de namespaces sin privilegios en el kernel".to_string(),
+                strategy,
+                "Vulnerabilidad en clonación de user namespaces en kernel Linux. Mitigación proactiva sysctl deshabilitando clonación no privilegiada.".to_string(),
+                0.95,
+            );
+        }
+
+        // Caso General por Defecto
+        #[cfg(not(target_os = "windows"))]
+        {
+            let strategy = MitigationStrategy::BehavioralBlock {
+                target_process: "sh".to_string(),
+                forbidden_call: format!("untrusted_exec_{}", kb),
+            };
+            (
+                "Linux Subsystem Generic".to_string(),
+                "Vulnerabilidad genérica de ejecución o escalamiento en Linux".to_string(),
+                strategy,
+                format!("Aviso de seguridad analizado para {}. Se estableció centinela conductual preventivo en Linux.", kb),
+                0.88,
+            )
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let strategy = MitigationStrategy::BehavioralBlock {
+                target_process: "powershell.exe".to_string(),
+                forbidden_call: format!("-enc *{}", kb),
+            };
+            (
+                "Windows Subsystem Generic".to_string(),
+                "Vulnerabilidad genérica de ejecución o escalamiento".to_string(),
+                strategy,
+                format!("Boletín de seguridad analizado para {}. Se estableció un centinela conductual preventivo mientras se completa la instalación oficial.", kb),
+                0.85,
+            )
+        }
     }
 
     /// Genera un resumen conciso del impacto técnico de la vulnerabilidad

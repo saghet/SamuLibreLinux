@@ -221,6 +221,12 @@ enum CustomUserEvent {
     EdrTimelineUpdated {
         events: Vec<samulibre_watcher::EdrEvent>,
     },
+    ThreatFeedFindingsLoaded {
+        findings: Vec<samulibre_patcher::VulnerabilityFinding>,
+        cisa_count: usize,
+        total_pkgs: usize,
+        scan_ms: u64,
+    },
     Quit,
 }
 
@@ -1796,6 +1802,27 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         }
                     }
 
+                    "get_threat_feed_findings" => {
+                        if let Ok(c) = core_for_ipc.lock() {
+                            let findings = c.get_threat_feed_findings();
+                            let (cisa_count, total_pkgs, scan_ms) = if let Ok(patcher) = c.patcher.lock() {
+                                (
+                                    patcher.threat_feeds.get_total_cisa_kev_count(),
+                                    patcher.inventory.total_packages,
+                                    patcher.inventory.scan_duration_ms,
+                                )
+                            } else {
+                                (0, 0, 0)
+                            };
+                            let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatFeedFindingsLoaded {
+                                findings,
+                                cisa_count,
+                                total_pkgs,
+                                scan_ms,
+                            });
+                        }
+                    }
+
                     "toggle_virtual_patch" => {
                         let payload_str = msg.payload.unwrap_or_default();
                         let (cve, enable) = if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&payload_str) {
@@ -2580,6 +2607,23 @@ fn run_app(app_root: PathBuf) -> Result<()> {
             let kb_monitor_status = Some(c.get_kb_monitor_status());
             let _ = proxy_init.send_event(CustomUserEvent::UpdatePatchRules { rules, os_info, sentinel_status, kb_monitor_status });
 
+            let findings = c.get_threat_feed_findings();
+            let (cisa_count, total_pkgs, scan_ms) = if let Ok(patcher) = c.patcher.lock() {
+                (
+                    patcher.threat_feeds.get_total_cisa_kev_count(),
+                    patcher.inventory.total_packages,
+                    patcher.inventory.scan_duration_ms,
+                )
+            } else {
+                (0, 0, 0)
+            };
+            let _ = proxy_init.send_event(CustomUserEvent::ThreatFeedFindingsLoaded {
+                findings,
+                cisa_count,
+                total_pkgs,
+                scan_ms,
+            });
+
             let vpn_state = c.get_vpn_state();
             let vpn_countries = c.get_vpn_countries();
             let _ = proxy_init.send_event(CustomUserEvent::VpnStateUpdated {
@@ -2817,6 +2861,15 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 let script = format!(
                     "if (window.onKbAnalysisResult) {{ window.onKbAnalysisResult({}); }}",
                     res_json
+                );
+                let _ = webview.evaluate_script(&script);
+            }
+
+            Event::UserEvent(CustomUserEvent::ThreatFeedFindingsLoaded { findings, cisa_count, total_pkgs, scan_ms }) => {
+                let json_str = serde_json::to_string(&findings).unwrap_or_else(|_| "[]".to_string());
+                let script = format!(
+                    "if (window.onThreatFeedFindingsLoaded) {{ window.onThreatFeedFindingsLoaded({}, {}, {}, {}); }}",
+                    json_str, cisa_count, total_pkgs, scan_ms
                 );
                 let _ = webview.evaluate_script(&script);
             }

@@ -1,0 +1,23 @@
+{
+  "id": "VP-LINUX-NFTABLES-UAF",
+  "cve": "CVE-2024-1086",
+  "title": "Netfilter nf_tables: Use-After-Free Local Privilege Escalation",
+  "description": "Fallo crítico use-after-free en nf_tables del kernel Linux que permite ejecución arbitraria en el espacio del kernel y escalamiento a root a través de user namespaces no privilegiados.",
+  "severity": "Critical",
+  "target_component": "net/netfilter/nf_tables_api.c",
+  "required_kb": [
+    "RHSA-2024:1486"
+  ],
+  "strategy": {
+    "KernelSysctlHardening": {
+      "parameter": "kernel.unprivileged_userns_clone",
+      "safe_value": "0",
+      "revert_value": "1"
+    }
+  },
+  "status": "Unmitigated",
+  "detected_at": "2026-11-02T10:00:00Z",
+  "patched_at": null,
+  "unpatched_at": null,
+  "status_reason": null
+}

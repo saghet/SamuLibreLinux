@@ -202,7 +202,7 @@ pub struct SuiteStatus {
     pub last_scan_timestamp: Option<DateTime<Utc>>,
 }
 
-/// Información de un boletín o actualización KB de Microsoft Windows
+/// Información de un boletín o aviso de seguridad (USN, RHSA, ASA, ASB o KB)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KbAdvisory {
     pub kb_id: String,
@@ -215,7 +215,7 @@ pub struct KbAdvisory {
     pub support_url: Option<String>,
 }
 
-/// Resultado de análisis generado por la IA local para un KB
+/// Resultado de análisis generado por la IA local para un aviso de seguridad
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiPatchAnalysisResult {
     pub kb_id: String,
@@ -230,7 +230,7 @@ pub struct AiPatchAnalysisResult {
     pub generated_rule: VirtualPatchRule,
 }
 
-/// Estado del monitor de KBs y orquestador de IA local
+/// Estado del monitor de avisos de seguridad y orquestador de IA local
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KbMonitorStatus {
     pub last_check_time: Option<String>,

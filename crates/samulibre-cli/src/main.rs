@@ -320,6 +320,8 @@ enum PatcherCommands {
         #[arg(short, long, default_value_t = true)]
         auto_patch: bool,
     },
+    /// Correlaciona el catálogo oficial CISA KEV y avisos de seguridad con los paquetes instalados en el sistema
+    ThreatFeeds,
 }
 
 #[derive(Subcommand)]
@@ -822,6 +824,35 @@ async fn main() -> Result<()> {
                     println!("  {} KBs analizados/auditados con IA: {}", "✔".green(), results.len());
                     for r in &results {
                         println!("    • {} ({}) -> Componente: {} [Confianza: {:.0}%]", r.kb_id.bold().yellow(), r.cve.bold().red(), r.affected_component, r.confidence_score * 100.0);
+                    }
+                }
+
+                PatcherCommands::ThreatFeeds => {
+                    println!("\n{}", "─── CORRELACIÓN DE INTELIGENCIA DE AMENAZAS CISA KEV & OSV ───".bold().cyan());
+                    let findings = patcher.get_threat_feed_findings();
+                    let total_cisa = patcher.threat_feeds.get_total_cisa_kev_count();
+
+                    println!("  Catálogo CISA KEV: {} vulnerabilidades activas registradas", total_cisa.to_string().yellow());
+                    println!("  Paquetes analizados en host: {}", patcher.inventory.total_packages.to_string().cyan());
+                    println!("  Gestor de paquetes activo: {}", patcher.inventory.package_manager.to_string().green());
+                    println!("  Tiempo de correlación: {} ms\n", patcher.inventory.scan_duration_ms);
+
+                    if findings.is_empty() {
+                        println!("  {} Ningún paquete instalado presenta vulnerabilidades activas en el catálogo CISA KEV.", "✔".green().bold());
+                        println!("  Todos los paquetes del sistema coinciden con versiones aseguradas o son inmunes.");
+                    } else {
+                        println!("  {} Se detectaron {} vulnerabilidades explotadas activamente en paquetes del host:",
+                            "⚠️ ALERTA:".red().bold(), findings.len());
+                        for f in &findings {
+                            println!("\n  [{}] {} (Paquete: {} {})",
+                                f.cve.bold().red(), f.title.bold(), f.package_name.cyan(), f.installed_version.yellow());
+                            println!("    Fuente: {}", f.source);
+                            println!("    Versión mínima corregida: {}", f.fixed_version.green());
+                            println!("    Explotada activamente: {} | Ransomware: {}",
+                                if f.actively_exploited { "SÍ".red().bold() } else { "NO".white() },
+                                if f.ransomware_use { "SÍ".red().bold() } else { "NO".white() });
+                            println!("    Acción requerida: {}", f.description);
+                        }
                     }
                 }
             }

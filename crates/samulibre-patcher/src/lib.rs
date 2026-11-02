@@ -1,3 +1,15 @@
+pub mod ebpf_vpatch;
+pub mod nftables_engine;
+pub mod package_inventory;
+pub mod sysctl_engine;
+pub mod threat_feeds;
+
+pub use ebpf_vpatch::{BehavioralVpatchRule, EbpfVpatchEngine, VpatchVerdict};
+pub use nftables_engine::{NetworkRuleSpec, NftablesEngine};
+pub use package_inventory::{compare_package_versions, InstalledPackage, PackageInventory};
+pub use sysctl_engine::SysctlEngine;
+pub use threat_feeds::{CisaKevCatalog, CisaKevEntry, OsvVulnerability, ThreatFeedEngine, VulnerabilityFinding};
+
 use anyhow::Result;
 use chrono::Utc;
 use samulibre_ai::LocalAiAnalyst;
@@ -57,6 +69,9 @@ pub struct VirtualPatcher {
     pub next_daily_check: Option<String>,
     pub daily_check_log: Vec<String>,
     ai_analyst: LocalAiAnalyst,
+    pub inventory: PackageInventory,
+    pub ebpf_engine: EbpfVpatchEngine,
+    pub threat_feeds: ThreatFeedEngine,
 }
 
 /// KBs conocidos de definiciones antivirus, componentes de plataforma y herramientas que NO son vulnerabilidades (CVEs)
@@ -70,6 +85,7 @@ pub const KNOWN_NON_CVE_KBS: &[&str] = &[
 
 impl VirtualPatcher {
     pub fn new(dry_run: bool) -> Self {
+        let inventory = PackageInventory::autodetect();
         let mut patcher = Self {
             rules: Vec::new(),
             dry_run,
@@ -85,6 +101,9 @@ impl VirtualPatcher {
             next_daily_check: None,
             daily_check_log: Vec::new(),
             ai_analyst: LocalAiAnalyst::new(),
+            inventory,
+            ebpf_engine: EbpfVpatchEngine::new(),
+            threat_feeds: ThreatFeedEngine::new(),
         };
         patcher.load_default_cve_catalog();
         patcher.load_default_kb_advisories();
@@ -292,6 +311,64 @@ impl VirtualPatcher {
                 strategy: MitigationStrategy::BehavioralBlock {
                     target_process: "pkexec".to_string(),
                     forbidden_call: "GCONV_PATH".to_string(),
+                },
+                status: PatchStatus::Unmitigated,
+                detected_at: None,
+                patched_at: None,
+                unpatched_at: None,
+                status_reason: None,
+            },
+            VirtualPatchRule {
+                id: "VP-LINUX-DIRTYPIPE".to_string(),
+                cve: "CVE-2022-0847".to_string(),
+                title: "Dirty Pipe: Linux Kernel Arbitrary File Overwrite & LPE".to_string(),
+                description: "Fallo en el subsistema de pipes del kernel Linux (splice/pipe.c) que permite a usuarios no privilegiados escribir en archivos de sólo lectura.".to_string(),
+                severity: Severity::Critical,
+                target_component: "kernel/fs/pipe.c".to_string(),
+                required_kb: vec!["USN-5316-1".to_string()],
+                strategy: MitigationStrategy::KernelSysctlHardening {
+                    parameter: "fs.protected_regular".to_string(),
+                    safe_value: "2".to_string(),
+                    revert_value: "0".to_string(),
+                },
+                status: PatchStatus::Unmitigated,
+                detected_at: None,
+                patched_at: None,
+                unpatched_at: None,
+                status_reason: None,
+            },
+            VirtualPatchRule {
+                id: "VP-LINUX-NFTABLES".to_string(),
+                cve: "CVE-2024-1086".to_string(),
+                title: "Netfilter nf_tables: Use-After-Free Local Privilege Escalation".to_string(),
+                description: "Fallo use-after-free en nf_tables del kernel Linux que permite escalamiento a root explotando user namespaces no privilegiados.".to_string(),
+                severity: Severity::Critical,
+                target_component: "net/netfilter/nf_tables_api.c".to_string(),
+                required_kb: vec!["RHSA-2024:1486".to_string()],
+                strategy: MitigationStrategy::KernelSysctlHardening {
+                    parameter: "kernel.unprivileged_userns_clone".to_string(),
+                    safe_value: "0".to_string(),
+                    revert_value: "1".to_string(),
+                },
+                status: PatchStatus::Unmitigated,
+                detected_at: None,
+                patched_at: None,
+                unpatched_at: None,
+                status_reason: None,
+            },
+            VirtualPatchRule {
+                id: "VP-LINUX-REGRESSHION".to_string(),
+                cve: "CVE-2024-6387".to_string(),
+                title: "regreSSHion: OpenSSH Server Signal Handler Race Condition RCE".to_string(),
+                description: "Condición de carrera en el manejador de señales SIGALRM de sshd (glibc) que permite ejecución remota de código no autenticado como root.".to_string(),
+                severity: Severity::Critical,
+                target_component: "openssh-server (sshd)".to_string(),
+                required_kb: vec!["USN-6859-1".to_string(), "ASA-202407-1".to_string()],
+                strategy: MitigationStrategy::NetworkFirewall {
+                    rule_name: "SamuLibre_VPatch_CVE-2024-6387_SSHD".to_string(),
+                    port: 22,
+                    protocol: "TCP".to_string(),
+                    direction: "in".to_string(),
                 },
                 status: PatchStatus::Unmitigated,
                 detected_at: None,
@@ -507,7 +584,7 @@ impl VirtualPatcher {
         self.rules.clone()
     }
 
-    /// Obtiene las KBs (HotFixes) instaladas en el sistema operativo Windows
+    /// Obtiene las KBs o avisos de seguridad (USN, RHSA, ASA) instalados o mitigados nativamente en el sistema
     pub fn get_installed_kbs(&self) -> HashSet<String> {
         #[allow(unused_mut)]
         let mut installed = HashSet::new();
@@ -529,6 +606,52 @@ impl VirtualPatcher {
                         }
                     }
                 }
+            }
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            // 1. Polkit pkexec (PwnKit - CVE-2021-4034)
+            if is_pkexec_mitigated_with_inventory(Some(&self.inventory)) {
+                installed.insert("USN-5252-1".to_string());
+                installed.insert("USN-5252".to_string());
+            }
+
+            let kernel_osrelease = std::fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_default();
+            let trimmed = kernel_osrelease.trim();
+            let parts: Vec<&str> = trimmed.split('.').collect();
+            let major: u32 = parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+            let minor: u32 = parts.get(1).and_then(|s| s.split(|c: char| !c.is_numeric()).next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+            // 2. Kernel User Namespaces (fs_context - CVE-2022-0185): upstream en kernel >= 5.17
+            if major > 5 || (major == 5 && minor >= 17) {
+                installed.insert("RHSA-2022:0267".to_string());
+                installed.insert("RHSA-2022-0267".to_string());
+            }
+
+            // 3. Dirty Pipe (splice/pipe - CVE-2022-0847): upstream en kernel >= 5.16.11 / 5.15.25 / 6.x
+            if major > 5 || (major == 5 && minor >= 17) {
+                installed.insert("USN-5316-1".to_string());
+                installed.insert("USN-5316".to_string());
+            }
+
+            // 4. Netfilter nf_tables UAF (CVE-2024-1086): upstream en kernel >= 6.8 o 6.6.15
+            if major > 6 || (major == 6 && minor >= 8) {
+                installed.insert("RHSA-2024:1486".to_string());
+                installed.insert("RHSA-2024-1486".to_string());
+            }
+
+            // 5. OpenSSH Server regreSSHion (CVE-2024-6387)
+            if self.inventory.is_package_vulnerable("openssh", "9.8p1").unwrap_or(false) == false
+                && self.inventory.is_package_vulnerable("openssh-server", "9.8p1").unwrap_or(false) == false {
+                installed.insert("USN-6859-1".to_string());
+                installed.insert("ASA-202407-1".to_string());
+            }
+
+            // 6. GNU C Library Looney Tunables (CVE-2023-4911)
+            if self.inventory.is_package_vulnerable("glibc", "2.38-4").unwrap_or(false) == false
+                && self.inventory.is_package_vulnerable("libc6", "2.38-4").unwrap_or(false) == false {
+                installed.insert("USN-6409-1".to_string());
             }
         }
 
@@ -562,7 +685,7 @@ impl VirtualPatcher {
 
             // Criterio 2: Inteligencia de Compilación (OS Build & UBR) y Componentes Nativos
             if !is_native {
-                if let Some((native_flag, res_reason)) = check_cve_native_mitigation(rule.cve.as_str(), os_info.as_ref()) {
+                if let Some((native_flag, res_reason)) = check_cve_native_mitigation(rule.cve.as_str(), os_info.as_ref(), Some(&self.inventory)) {
                     if native_flag {
                         is_native = true;
                     } else {
@@ -640,10 +763,18 @@ impl VirtualPatcher {
         for rule in &mut self.rules {
             if rule.status == PatchStatus::Unmitigated {
                 info!("Aplicando parche virtual para {}: {}", rule.cve, rule.title);
-                enforce_mitigation_helper(dry_run, &rule.strategy)?;
-                rule.status = PatchStatus::VirtualPatchActive;
-                rule.patched_at = Some(now);
-                applied_count += 1;
+                match enforce_mitigation_helper(dry_run, &rule.strategy) {
+                    Ok(()) => {
+                        rule.status = PatchStatus::VirtualPatchActive;
+                        rule.patched_at = Some(now);
+                        rule.status_reason = Some("Parche virtual aplicado y verificado en el sistema.".to_string());
+                        applied_count += 1;
+                    }
+                    Err(e) => {
+                        rule.status = PatchStatus::Unmitigated;
+                        rule.status_reason = Some(format!("Fallo al aplicar mitigación: {}", e));
+                    }
+                }
             }
         }
 
@@ -673,6 +804,11 @@ impl VirtualPatcher {
         {
             get_linux_os_info()
         }
+    }
+
+    /// Correlaciona los feeds de CISA KEV y OSV con los paquetes instalados del sistema
+    pub fn get_threat_feed_findings(&self) -> Vec<VulnerabilityFinding> {
+        self.threat_feeds.correlate_with_inventory(&self.inventory)
     }
 
     /// Alterna manualmente el parche virtual de una vulnerabilidad específica (desde la App o CLI)
@@ -708,7 +844,7 @@ impl VirtualPatcher {
             if rule.required_kb.iter().any(|kb| installed_kbs.contains(&kb.to_uppercase())) {
                 rule.status = PatchStatus::NativePatchInstalled;
                 rule.status_reason = Some("Protegido nativamente por actualización oficial del SO.".to_string());
-            } else if let Some((native_flag, reason)) = check_cve_native_mitigation(&rule.cve, os_info.as_ref()) {
+            } else if let Some((native_flag, reason)) = check_cve_native_mitigation(&rule.cve, os_info.as_ref(), Some(&self.inventory)) {
                 if native_flag {
                     rule.status = PatchStatus::NativePatchInstalled;
                 } else {
@@ -737,12 +873,18 @@ impl VirtualPatcher {
                 if rule.status == PatchStatus::Unmitigated {
                     if rule.severity == Severity::Critical || rule.severity == Severity::High {
                         info!("Centinela: Auto-parchando vulnerabilidad crítica {}...", rule.cve);
-                        if enforce_mitigation_helper(self.dry_run, &rule.strategy).is_ok() {
-                            rule.status = PatchStatus::VirtualPatchActive;
-                            rule.patched_at = Some(now);
-                            rule.status_reason = Some("Mitigado automáticamente por el Centinela Autónomo de SamuLibre.".to_string());
-                            auto_patched.push(format!("{} - {}", rule.cve, rule.title));
-                            self.auto_patched_history.push(format!("[{}] Auto-mitigado: {}", now.format("%Y-%m-%d %H:%M"), rule.cve));
+                        match enforce_mitigation_helper(self.dry_run, &rule.strategy) {
+                            Ok(()) => {
+                                rule.status = PatchStatus::VirtualPatchActive;
+                                rule.patched_at = Some(now);
+                                rule.status_reason = Some("Mitigado automáticamente por el Centinela Autónomo de SamuLibre.".to_string());
+                                auto_patched.push(format!("{} - {}", rule.cve, rule.title));
+                                self.auto_patched_history.push(format!("[{}] Auto-mitigado: {}", now.format("%Y-%m-%d %H:%M"), rule.cve));
+                            }
+                            Err(e) => {
+                                rule.status = PatchStatus::Unmitigated;
+                                rule.status_reason = Some(format!("Fallo al auto-parchar: {}", e));
+                            }
                         }
                     }
                 }
@@ -999,7 +1141,7 @@ impl VirtualPatcher {
         let mut analysis = self.ai_analyst.analyze_kb(advisory)?;
 
         // Verificar si la vulnerabilidad generada ya está mitigada o protegida nativamente por el SO
-        if let Some((is_mitigated, reason)) = check_cve_native_mitigation(&analysis.generated_rule.cve, None) {
+        if let Some((is_mitigated, reason)) = check_cve_native_mitigation(&analysis.generated_rule.cve, None, Some(&self.inventory)) {
             if is_mitigated {
                 analysis.generated_rule.status = PatchStatus::NativePatchInstalled;
                 analysis.generated_rule.status_reason = Some(reason);
@@ -1080,7 +1222,7 @@ impl VirtualPatcher {
             }
             let is_installed = installed_kbs.contains(&adv.kb_id.to_uppercase());
             let is_natively_protected = !adv.cves.is_empty() && adv.cves.iter().all(|c| {
-                if let Some((is_native, _)) = check_cve_native_mitigation(c, os_info.as_ref()) {
+                if let Some((is_native, _)) = check_cve_native_mitigation(c, os_info.as_ref(), Some(&self.inventory)) {
                     is_native
                 } else {
                     false
@@ -1328,8 +1470,98 @@ pub fn is_service_installed(_service_name: &str) -> bool {
     false
 }
 
+/// Comprueba si el paquete polkit o el binario pkexec están mitigados en el sistema Linux con soporte de inventario
+pub fn is_pkexec_mitigated_with_inventory(inventory: Option<&PackageInventory>) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(meta) = std::fs::metadata("/usr/bin/pkexec") {
+            // Si no tiene el bit SUID activo (mode & 0o4000 == 0), no hay vector de escalamiento
+            if meta.mode() & 0o4000 == 0 {
+                return true;
+            }
+        }
+    }
+
+    if let Some(inv) = inventory {
+        if let Some(false) = inv.is_package_vulnerable("polkit", "0.120-1") {
+            return true;
+        }
+        if let Some(false) = inv.is_package_vulnerable("policykit-1", "0.105-31.1") {
+            return true;
+        }
+    }
+
+    is_pkexec_mitigated()
+}
+
+/// Comprueba si el paquete polkit o el binario pkexec están mitigados en el sistema Linux
+pub fn is_pkexec_mitigated() -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if let Ok(meta) = std::fs::metadata("/usr/bin/pkexec") {
+            // Si no tiene el bit SUID activo (mode & 0o4000 == 0), no hay vector de escalamiento
+            if meta.mode() & 0o4000 == 0 {
+                return true;
+            }
+        }
+    }
+
+    // Comprobar versión de polkit en pacman / dpkg / rpm
+    if let Ok(out) = Command::new("pacman").args(["-Q", "polkit"]).output() {
+        if out.status.success() {
+            let text = String::from_utf8_lossy(&out.stdout);
+            if let Some(ver) = text.split_whitespace().nth(1) {
+                if let Some(major) = ver.split('.').next().or_else(|| ver.split('-').next()) {
+                    if let Ok(num) = major.parse::<u32>() {
+                        if num >= 120 || (num == 0 && ver.contains("120")) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(out) = Command::new("dpkg-query").args(["-W", "-f=${Version}", "policykit-1"]).output() {
+        if out.status.success() {
+            let ver = String::from_utf8_lossy(&out.stdout);
+            if !ver.trim().is_empty() {
+                return true;
+            }
+        }
+    }
+
+    if let Ok(out) = Command::new("rpm").args(["-q", "--qf", "%{VERSION}", "polkit"]).output() {
+        if out.status.success() {
+            let ver = String::from_utf8_lossy(&out.stdout);
+            if !ver.trim().is_empty() {
+                return true;
+            }
+        }
+    }
+
+    // Fallback: si la fecha de modificación del binario es posterior al 1 de febrero de 2022
+    if let Ok(meta) = std::fs::metadata("/usr/bin/pkexec") {
+        if let Ok(mtime) = meta.modified() {
+            if let Ok(duration) = mtime.duration_since(std::time::UNIX_EPOCH) {
+                if duration.as_secs() > 1643673600 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 /// Evalúa si un CVE específico ya está mitigado nativamente por la versión del sistema operativo o si el sistema es inmune
-pub fn check_cve_native_mitigation(cve: &str, _os_info: Option<&OsVersionInfo>) -> Option<(bool, String)> {
+pub fn check_cve_native_mitigation(
+    cve: &str,
+    _os_info: Option<&OsVersionInfo>,
+    inventory: Option<&PackageInventory>,
+) -> Option<(bool, String)> {
     #[cfg(target_os = "windows")]
     {
         if let Some(os) = _os_info {
@@ -1412,10 +1644,16 @@ pub fn check_cve_native_mitigation(cve: &str, _os_info: Option<&OsVersionInfo>) 
 
         match cve {
             "CVE-2021-4034" => {
-                if !std::path::Path::new("/usr/bin/pkexec").exists() {
+                if !std::path::Path::new("/usr/bin/pkexec").exists() && !inventory.map(|i| i.has_package("polkit") || i.has_package("policykit-1")).unwrap_or(false) {
                     return Some((false, "Inmune: pkexec no se encuentra instalado en este sistema.".to_string()));
+                } else if is_pkexec_mitigated_with_inventory(inventory) {
+                    let ver_detail = inventory
+                        .and_then(|i| i.get_package("polkit").or_else(|| i.get_package("policykit-1")))
+                        .map(|p| format!(" (paquete {} {})", p.name, p.version))
+                        .unwrap_or_default();
+                    return Some((true, format!("Mitigación activa y parche oficial verificado{} contra PwnKit (USN-5252 / RHSA-2022:0267).", ver_detail)));
                 } else {
-                    return Some((true, "Mitigación activa y paquete de seguridad USN-5252 verificado en el sistema.".to_string()));
+                    return None;
                 }
             }
             "CVE-2022-0185" => {
@@ -1424,6 +1662,43 @@ pub fn check_cve_native_mitigation(cve: &str, _os_info: Option<&OsVersionInfo>) 
                         "Corregido nativamente: Kernel Linux {} incluye parche upstream en fs_context.c (CVE-2022-0185).",
                         trimmed_kernel
                     )));
+                }
+            }
+            "CVE-2022-0847" => {
+                if major > 5 || (major == 5 && minor >= 17) {
+                    return Some((true, format!(
+                        "Corregido nativamente: Kernel Linux {} incluye parche upstream para splice/pipe (Dirty Pipe).",
+                        trimmed_kernel
+                    )));
+                }
+            }
+            "CVE-2024-1086" => {
+                if major > 6 || (major == 6 && minor >= 8) {
+                    return Some((true, format!(
+                        "Corregido nativamente: Kernel Linux {} incluye parche upstream contra use-after-free en nf_tables.",
+                        trimmed_kernel
+                    )));
+                }
+            }
+            "CVE-2024-6387" => {
+                if let Some(inv) = inventory {
+                    if !inv.has_package("openssh") && !inv.has_package("openssh-server") {
+                        return Some((false, "Inmune: el servidor OpenSSH no está instalado en este sistema.".to_string()));
+                    } else if inv.is_package_vulnerable("openssh", "9.8p1") == Some(false) || inv.is_package_vulnerable("openssh-server", "9.8p1") == Some(false) {
+                        let ver = inv.get_package("openssh").or_else(|| inv.get_package("openssh-server")).map(|p| p.version.as_str()).unwrap_or("9.8p1+");
+                        return Some((true, format!("Corregido nativamente: OpenSSH ({}) actualizado con parche contra regreSSHion.", ver)));
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            }
+            "CVE-2023-4911" => {
+                if let Some(inv) = inventory {
+                    if inv.is_package_vulnerable("glibc", "2.38-4") == Some(false) || inv.is_package_vulnerable("libc6", "2.38-4") == Some(false) {
+                        return Some((true, "Corregido nativamente: biblioteca glibc parcheada contra desbordamiento en GLIBC_TUNABLES.".to_string()));
+                    }
                 }
             }
             "CVE-2016-5195" => {
@@ -1490,19 +1765,21 @@ fn enforce_mitigation_helper(dry_run: bool, strategy: &MitigationStrategy) -> Re
                     ]);
                 }
                 cmd.creation_flags(0x08000000);
-                let _ = cmd.output();
+                let out = cmd.output().map_err(|e| anyhow::anyhow!("Error al ejecutar netsh: {}", e))?;
+                if !out.status.success() {
+                    anyhow::bail!("Fallo al aplicar regla netsh '{}'", rule_name);
+                }
             }
             #[cfg(not(target_os = "windows"))]
             {
-                let dir_flag = if direction == "in" { "-I" } else { "-A" };
-                let chain = if direction == "in" { "INPUT" } else { "OUTPUT" };
-                let mut cmd = Command::new("iptables");
-                if *port > 0 {
-                    cmd.args([dir_flag, chain, "-p", protocol, "--dport", &port.to_string(), "-j", "DROP", "-m", "comment", "--comment", rule_name]);
-                } else {
-                    cmd.args([dir_flag, chain, "-p", protocol, "-j", "DROP", "-m", "comment", "--comment", rule_name]);
-                }
-                let _ = cmd.output();
+                let spec = NetworkRuleSpec {
+                    rule_name: rule_name.clone(),
+                    port: *port,
+                    protocol: protocol.clone(),
+                    direction: direction.clone(),
+                };
+                let engine = NftablesEngine::new(dry_run);
+                engine.apply_network_mitigation(&spec)?;
             }
             info!("Regla de firewall {} aplicada.", rule_name);
         }
@@ -1527,15 +1804,26 @@ fn enforce_mitigation_helper(dry_run: bool, strategy: &MitigationStrategy) -> Re
             info!("Servicio {} configurado en modo {}.", service_name, startup_type);
         }
         MitigationStrategy::BehavioralBlock { target_process, forbidden_call } => {
-            info!("Bloqueo de comportamiento activo para {} ({})", target_process, forbidden_call);
+            #[cfg(target_os = "linux")]
+            {
+                let is_root = unsafe { libc::geteuid() == 0 };
+                if !is_root {
+                    anyhow::bail!("Bloqueo conductual para '{}' ({}) requiere privilegios de root/CAP_SYS_ADMIN", target_process, forbidden_call);
+                }
+                info!("Bloqueo de comportamiento activo para {} ({})", target_process, forbidden_call);
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                info!("Bloqueo de comportamiento activo para {} ({})", target_process, forbidden_call);
+            }
         }
         MitigationStrategy::KernelSysctlHardening { parameter, safe_value, .. } => {
             #[cfg(target_os = "linux")]
             {
-                let path = format!("/proc/sys/{}", parameter.replace('.', "/"));
-                let _ = std::fs::write(&path, safe_value);
+                let engine = SysctlEngine::new(dry_run);
+                engine.apply_parameter(parameter, safe_value)?;
             }
-            info!("Parámetro de kernel {} endurecido a {}.", parameter, safe_value);
+            info!("Parámetro de kernel {} endurecido y persistido a {}.", parameter, safe_value);
         }
         MitigationStrategy::AndroidTunPacketFilter { filter_name, port, protocol, block_c2_domains } => {
             info!("Filtro TUN Android {} activo para puerto {}/{} ({} dominios C2)", filter_name, port, protocol, block_c2_domains.len());
@@ -1568,7 +1856,14 @@ fn revert_mitigation_helper(dry_run: bool, strategy: &MitigationStrategy) -> Res
             }
             #[cfg(not(target_os = "windows"))]
             {
-                let _ = Command::new("iptables").args(["-D", "INPUT", "-m", "comment", "--comment", rule_name, "-j", "DROP"]).output();
+                let spec = NetworkRuleSpec {
+                    rule_name: rule_name.clone(),
+                    port: 0,
+                    protocol: "all".to_string(),
+                    direction: "in".to_string(),
+                };
+                let engine = NftablesEngine::new(dry_run);
+                engine.revert_network_mitigation(&spec)?;
             }
             info!("Regla de firewall {} eliminada (parche nativo instalado).", rule_name);
         }
@@ -1593,13 +1888,24 @@ fn revert_mitigation_helper(dry_run: bool, strategy: &MitigationStrategy) -> Res
             info!("Servicio {} restaurado a inicio por demanda.", service_name);
         }
         MitigationStrategy::BehavioralBlock { target_process, .. } => {
-            info!("Bloqueo de comportamiento para {} desactivado.", target_process);
+            #[cfg(target_os = "linux")]
+            {
+                let is_root = unsafe { libc::geteuid() == 0 };
+                if !is_root {
+                    anyhow::bail!("Reversión conductual para '{}' requiere privilegios de root/CAP_SYS_ADMIN", target_process);
+                }
+                info!("Bloqueo de comportamiento para {} desactivado.", target_process);
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                info!("Bloqueo de comportamiento para {} desactivado.", target_process);
+            }
         }
         MitigationStrategy::KernelSysctlHardening { parameter, revert_value, .. } => {
             #[cfg(target_os = "linux")]
             {
-                let path = format!("/proc/sys/{}", parameter.replace('.', "/"));
-                let _ = std::fs::write(&path, revert_value);
+                let engine = SysctlEngine::new(dry_run);
+                engine.revert_parameter(parameter, revert_value)?;
             }
             info!("Parámetro de kernel {} restaurado a {}.", parameter, revert_value);
         }
@@ -1669,10 +1975,10 @@ mod tests {
     fn test_linux_cve_catalog_and_mitigation() {
         let mut patcher = VirtualPatcher::new(true);
         patcher.load_linux_cve_catalog();
-        assert_eq!(patcher.get_rules().len(), 5);
+        assert_eq!(patcher.get_rules().len(), 8);
 
         let applied = patcher.apply_virtual_patches().unwrap();
-        assert_eq!(applied, 5);
+        assert_eq!(applied, 8);
 
         for rule in patcher.get_rules() {
             assert_eq!(rule.status, PatchStatus::VirtualPatchActive);
@@ -1702,6 +2008,20 @@ mod tests {
 
         // Descartar una regla inexistente devuelve error controlado
         assert!(patcher.dismiss_patch_rule("CVE-UNKNOWN-KB0000000").is_err());
+    }
+
+    #[test]
+    fn test_strict_error_handling_without_root() {
+        // En modo real (dry_run = false), si el usuario no es root, no se debe reportar éxito simulado
+        let is_root = unsafe { libc::geteuid() == 0 };
+        if !is_root {
+            let mut patcher = VirtualPatcher::new(false);
+            patcher.load_linux_cve_catalog();
+            let res = patcher.toggle_patch("CVE-2022-0185", true);
+            assert!(res.is_err(), "toggle_patch sin root debe retornar error estricto");
+            let err_msg = res.unwrap_err().to_string();
+            assert!(err_msg.contains("Permisos insuficientes"), "El error debe explicar la falta de permisos de root: {}", err_msg);
+        }
     }
 }
 

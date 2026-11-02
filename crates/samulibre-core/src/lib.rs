@@ -338,6 +338,14 @@ impl SamuLibreCore {
         }
     }
 
+    pub fn get_threat_feed_findings(&self) -> Vec<samulibre_patcher::VulnerabilityFinding> {
+        if let Ok(patcher) = self.patcher.lock() {
+            patcher.get_threat_feed_findings()
+        } else {
+            Vec::new()
+        }
+    }
+
     pub fn run_sentinel_audit_cycle(&self) -> (usize, usize, usize, Vec<String>) {
         if let Ok(mut patcher) = self.patcher.lock() {
             patcher.run_sentinel_audit_cycle()

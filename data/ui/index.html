@@ -204,7 +204,7 @@
         <div class="flex items-center gap-2">
           <span class="text-base">🛡️</span>
           <span class="text-xs font-bold text-white tracking-tight">SamuLibre</span>
-          <span class="text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1.5 py-0.5 rounded-md">v2.00.31</span>
+          <span class="text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">Linux v2.00.32</span>
         </div>
         <div id="mobileHeaderStatus" class="text-[10px] text-emerald-400 flex items-center gap-1 font-mono font-medium">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sistema Blindado
@@ -517,7 +517,33 @@
           </div>
         </div>
 
-        <!-- Tarjeta de Monitoreo de KBs y Analizador con IA Local -->
+        <!-- Banner de Inteligencia de Amenazas CISA KEV & OSV -->
+        <div id="cisaKevBanner" class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-cyan-500/20 bg-gradient-to-r from-cyan-950/25 via-slate-900/40 to-transparent">
+          <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-lg shrink-0">
+              🌐
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-semibold text-white">Catálogo de Vulnerabilidades Explotadas Conocidas (CISA KEV)</span>
+                <span id="cisaKevBadge" class="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  10 CVEs en Feed • 0 Detectados
+                </span>
+              </div>
+              <p id="cisaKevSubText" class="text-[11px] text-gray-300 mt-0.5">
+                Correlacionando paquetes locales contra vectores de explotación activa CISA KEV y base de datos OSV.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="refreshThreatFeeds()" class="px-3 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/40 text-cyan-200 border border-cyan-500/40 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
+              <span>📡</span> Actualizar Feeds KEV
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjeta de Monitoreo de Avisos y Analizador con IA Local -->
         <div class="glass-card p-5 rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-950/20 via-slate-900/40 to-emerald-950/20 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
@@ -531,7 +557,7 @@
                   <span id="aiGuardrailBadge" class="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">Guardrails Rust ✔</span>
                 </div>
                 <p class="text-[11px] text-gray-300 mt-0.5">
-                  Vigila avisos de seguridad CVE y el kernel Linux, analiza los subsistemas afectados y sintetiza parches virtuales y mitigaciones sysctl con IA local.
+                  Vigila avisos de seguridad (USN, RHSA, ASA) y el kernel Linux, analiza subsistemas afectados y sintetiza parches virtuales sysctl y nftables con IA local.
                 </p>
               </div>
             </div>
@@ -544,13 +570,13 @@
                 </div>
               </div>
                             <button onclick="runDailyKbCheck()" class="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/40 text-blue-200 border border-blue-500/40 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
-                <span>🔄</span> Verificar CVEs de Hoy
+                <span>🔄</span> Verificar Avisos de Hoy
               </button>
 <button onclick="runAiKbAudit()" class="px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5 shadow-sm">
                 <span>⚡</span> Auditar CVEs con IA
               </button>
               <button onclick="toggleManualKbModal()" class="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-xl text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5">
-                <span>📝</span> Analizar KB Manual
+                <span>📝</span> Analizar Aviso Manual
               </button>
             </div>
           </div>
@@ -558,7 +584,7 @@
           <!-- Métricas del Monitor de KBs -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
             <div class="bg-black/25 border border-white/5 rounded-xl p-3 flex flex-col">
-              <span class="text-[10px] text-gray-400 uppercase tracking-wider">KBs en Catálogo</span>
+              <span class="text-[10px] text-gray-400 uppercase tracking-wider">Avisos Monitoreados</span>
               <span id="kbMonitoredCount" class="text-lg font-bold text-white font-mono mt-0.5">6</span>
             </div>
             <div class="bg-black/25 border border-white/5 rounded-xl p-3 flex flex-col">
@@ -579,7 +605,7 @@
           <div class="bg-blue-950/25 border border-blue-500/20 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div class="flex items-center gap-2.5">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="font-semibold text-blue-200">Centinela Diario de KBs Microsoft:</span>
+              <span class="font-semibold text-blue-200">Centinela Diario de Avisos Linux (USN / RHSA / ASA):</span>
               <span id="dailyKbStatusText" class="text-gray-300">Monitoreo activo cada 24 horas</span>
             </div>
             <div class="flex items-center gap-4 text-[11px] text-gray-400 font-mono">
@@ -592,14 +618,14 @@
           <div id="aiAnalysisCard" class="hidden bg-slate-900/70 border border-purple-500/30 rounded-xl p-4 space-y-2.5 transition-all">
             <div class="flex items-center justify-between border-b border-white/10 pb-2">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-bold text-purple-300 font-mono" id="aiCardKbId">KB5041585</span>
-                <span class="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full font-mono font-medium" id="aiCardCve">CVE-2024-38063</span>
+                <span class="text-xs font-bold text-purple-300 font-mono" id="aiCardKbId">USN-5252-1</span>
+                <span class="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full font-mono font-medium" id="aiCardCve">CVE-2021-4034</span>
                 <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono font-medium" id="aiCardConfidence">Confianza: 96%</span>
               </div>
               <span class="text-[10px] text-emerald-400 font-mono" id="aiCardGuardrail">✔ Guardrail Verificado</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <div><span class="text-gray-400">Componente:</span> <span class="text-white font-medium" id="aiCardComponent">tcpip.sys (IPv6)</span></div>
+              <div><span class="text-gray-400">Componente:</span> <span class="text-white font-medium" id="aiCardComponent">pkexec (polkit)</span></div>
               <div><span class="text-gray-400">Vector de ataque:</span> <span class="text-amber-300 font-medium" id="aiCardVector">Remote Code Execution</span></div>
             </div>
             <div class="text-[11px] text-gray-300 bg-black/30 p-2.5 rounded-lg border border-white/5">
@@ -617,14 +643,14 @@
           <!-- Formulario Plegable para Analizar KB Manualmente -->
           <div id="manualKbForm" class="hidden bg-black/40 border border-white/10 rounded-xl p-4 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-white">Laboratorio de Análisis de Boletín con IA Local</span>
+              <span class="text-xs font-semibold text-white">Laboratorio de Análisis de Avisos de Seguridad con IA Local</span>
               <button onclick="toggleManualKbModal()" class="text-gray-400 hover:text-white text-xs">✕ Cerrar</button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input id="inputManualKbId" type="text" placeholder="Ej: KB5041585 o CVE-2024-38063" class="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
+              <input id="inputManualKbId" type="text" placeholder="Ej: USN-5252-1 o CVE-2021-4034" class="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
               <input id="inputManualKbTitle" type="text" placeholder="Título (Opcional)" class="sm:col-span-2 bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
             </div>
-            <textarea id="inputManualKbDesc" rows="2" placeholder="Pegue aquí el resumen del boletín, componentes afectados (ej. tcpip.sys, spoolsv.exe, lserver.exe) o descripción del fallo..." class="w-full bg-slate-900 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"></textarea>
+            <textarea id="inputManualKbDesc" rows="2" placeholder="Pegue aquí el resumen del aviso o vulnerabilidad Linux, componentes afectados (ej. pkexec, netfilter, glibc ld.so) o descripción del fallo..." class="w-full bg-slate-900 border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"></textarea>
             <div class="flex justify-end gap-2">
               <button onclick="submitManualKbAnalysis()" class="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium active:scale-95 transition-all flex items-center gap-1.5 shadow">
                 <span>🧠</span> Iniciar Análisis de IA Local
@@ -1463,6 +1489,7 @@
 
       if (tabId === 'patcher') {
         sendIpc('get_patch_rules');
+        sendIpc('get_threat_feed_findings');
       } else if (tabId === 'shield') {
         sendIpc('get_shield_status');
       } else if (tabId === 'persistence') {
@@ -1741,8 +1768,6 @@
         if (osText) {
           if (osInfo.distro_name && osInfo.kernel_release) {
             osText.textContent = `${osInfo.distro_name} • Kernel ${osInfo.kernel_release} • Mitigaciones Nativas & Sysctl`;
-          } else if (osInfo.build_number && osInfo.build_number > 10000) {
-            osText.textContent = `Windows ${osInfo.display_version || '11'} (Compilación ${osInfo.build_number}.${osInfo.ubr}) • Protegido`;
           } else {
             osText.textContent = `Linux Enterprise • Kernel Activo • Mitigaciones y Sysctl Protegidos`;
           }
@@ -1839,32 +1864,42 @@
         let switchHtml = '';
         let actionText = '';
 
-        if (rule.status === 'NativePatchInstalled') {
-          nativeFixed++;
-          badgeHtml = '<span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">✔ Corregido Nativamente</span>';
-          actionText = '<span class="text-[11px] text-emerald-400 font-medium">Protegido por el SO</span>';
-          switchHtml = `<div class="apple-switch inactive cursor-pointer" title="Protegido por el SO. Haga clic para forzar mitigación de red/registro como capa extra" onclick="toggleVirtualPatch('${rule.cve}', true)"><div class="apple-switch-thumb"></div></div>`;
-        } else if (rule.status === 'NotApplicable') {
-          nativeFixed++;
-          badgeHtml = '<span class="text-[10px] bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">🛡️ Inmune (No Aplicable a Win11)</span>';
-          actionText = '<span class="text-[11px] text-blue-400 font-medium">Servicio no expuesto</span>';
-          switchHtml = `<div class="apple-switch inactive opacity-40 pointer-events-none cursor-default"><div class="apple-switch-thumb"></div></div>`;
-        } else if (rule.status === 'VirtualPatchActive') {
-          activePatches++;
-          badgeHtml = '<span class="text-[10px] bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">🩹 Parche Virtual Activo</span>';
-          actionText = '<span class="text-[11px] text-amber-400 font-medium">Mitigación activa</span>';
-          switchHtml = `<div class="apple-switch active cursor-pointer" title="Haga clic para desactivar parche virtual" onclick="toggleVirtualPatch('${rule.cve}', false)"><div class="apple-switch-thumb"></div></div>`;
-        } else {
-          unmitigatedCount++;
-          badgeHtml = '<span class="text-[10px] bg-red-500/20 text-red-300 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 animate-pulse">⚠ Vulnerabilidad Expuesta</span>';
-          actionText = '<span class="text-[11px] text-red-400 font-medium">Parchar en Vivo</span>';
-          switchHtml = `<div class="apple-switch inactive cursor-pointer" title="Haga clic para aplicar parche virtual inmediatamente" onclick="toggleVirtualPatch('${rule.cve}', true)"><div class="apple-switch-thumb"></div></div>`;
+        let engineBadge = '';
+        if (rule.patch_type) {
+          let eng = rule.patch_type;
+          let engColor = 'blue';
+          if (eng === 'SysctlEngine') { eng = 'sysctl'; engColor = 'purple'; }
+          else if (eng === 'NftablesEngine') { eng = 'nftables'; engColor = 'cyan'; }
+          else if (eng === 'EbpfFilter') { eng = 'eBPF Filter'; engColor = 'emerald'; }
+          engineBadge = `<span class="text-[9px] bg-${engColor}-500/15 text-${engColor}-300 border border-${engColor}-500/30 px-2 py-0.5 rounded-full font-mono">${eng}</span>`;
         }
 
-          const isFpCandidate = rule.status === 'Unmitigated' || rule.cve.startsWith('CVE-UNKNOWN-');
-          const dismissBtnHtml = isFpCandidate ? `<button onclick="dismissPatchRule('${rule.cve}')" class="px-2 py-1 text-[10px] text-gray-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors border border-white/5" title="Descartar si es un falso positivo o actualización de definiciones">Descartar</button>` : '';
+        if (rule.status === 'NativePatchInstalled') {
+          nativeFixed++;
+          badgeHtml = '<span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">✔ Corregido Nativamente (SO / Kernel)</span>';
+          actionText = '<span class="text-[11px] text-emerald-400 font-medium">Parche Nivel SO</span>';
+          switchHtml = `<div class="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-lg text-[10px] font-mono text-emerald-300 flex items-center gap-1" title="Vulnerabilidad corregida directamente en la distribución o kernel instalado"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Nativo</div>`;
+        } else if (rule.status === 'NotApplicable') {
+          nativeFixed++;
+          badgeHtml = '<span class="text-[10px] bg-slate-500/20 text-slate-300 border border-slate-500/30 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">🛡️ No Aplicable (Paquete Ausente)</span>';
+          actionText = '<span class="text-[11px] text-gray-400 font-medium">No Expuesto</span>';
+          switchHtml = `<div class="apple-switch inactive opacity-30 pointer-events-none cursor-default"><div class="apple-switch-thumb"></div></div>`;
+        } else if (rule.status === 'VirtualPatchActive') {
+          activePatches++;
+          badgeHtml = '<span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 shadow-sm">🩹 Parche Virtual Activo</span>';
+          actionText = '<span class="text-[11px] text-emerald-400 font-semibold">Mitigación Activa</span>';
+          switchHtml = `<div class="apple-switch active cursor-pointer" title="Mitigación activa y en ejecución. Haga clic para desactivar" onclick="toggleVirtualPatch('${rule.cve}', false)"><div class="apple-switch-thumb"></div></div>`;
+        } else {
+          unmitigatedCount++;
+          badgeHtml = '<span class="text-[10px] bg-red-500/20 text-red-300 border border-red-500/30 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 animate-pulse">⚠ Vulnerabilidad Expuesta</span>';
+          actionText = '<span class="text-[11px] text-amber-400 font-medium">Aplicar Parche</span>';
+          switchHtml = `<div class="apple-switch inactive cursor-pointer" title="Haga clic para aplicar parche virtual inmediatamente en vivo" onclick="toggleVirtualPatch('${rule.cve}', true)"><div class="apple-switch-thumb"></div></div>`;
+        }
 
-          const sevScore = rule.severity === 'Critical' ? '9.8' : (rule.severity === 'High' ? '8.8' : '7.8');
+        const isFpCandidate = rule.status === 'Unmitigated' || rule.cve.startsWith('CVE-UNKNOWN-');
+        const dismissBtnHtml = isFpCandidate ? `<button onclick="dismissPatchRule('${rule.cve}')" class="px-2 py-1 text-[10px] text-gray-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors border border-white/5" title="Descartar regla">Descartar</button>` : '';
+
+        const sevScore = rule.severity === 'Critical' ? '9.8' : (rule.severity === 'High' ? '8.8' : '7.8');
         const sevColor = rule.severity === 'Critical' ? 'amber' : 'blue';
 
         const card = document.createElement('div');
@@ -1876,11 +1911,12 @@
             </div>
             <div>
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-semibold text-white font-mono">${rule.cve}</span>
+                <span class="text-xs font-semibold text-white font-mono">${escapeHtml(rule.cve)}</span>
+                ${engineBadge}
                 ${badgeHtml}
               </div>
-              <p class="text-[11px] text-gray-200 mt-0.5 font-medium">${rule.title}</p>
-              ${rule.status_reason ? `<p class="text-[10px] text-gray-400 mt-1 font-mono flex items-center gap-1.5"><span class="text-emerald-400">›</span> ${rule.status_reason}</p>` : ''}
+              <p class="text-[11px] text-gray-200 mt-0.5 font-medium">${escapeHtml(rule.title)}</p>
+              ${rule.status_reason ? `<p class="text-[10px] text-gray-300/80 mt-1 font-mono flex items-center gap-1.5 bg-black/20 px-2 py-1 rounded border border-white/5"><span class="text-emerald-400 font-bold">›</span> ${escapeHtml(rule.status_reason)}</p>` : ''}
             </div>
           </div>
           <div class="flex items-center gap-3 shrink-0 ml-4">
@@ -1911,6 +1947,38 @@
       const widgetSub = document.getElementById('widgetPatchSubText');
       if (widgetSub) {
         widgetSub.textContent = activePatches === 0 ? '0 vulnerabilidades abiertas en el sistema Linux.' : `${activePatches} parches virtuales activos.`;
+      }
+    };
+
+    
+    function refreshThreatFeeds() {
+      showToast('Inteligencia de Amenazas CISA KEV', 'Correlacionando inventario de paquetes del sistema contra CISA KEV...');
+      sendIpc('get_threat_feed_findings');
+    }
+
+    window.onThreatFeedFindingsLoaded = function(findings, cisaCount, totalPkgs, scanMs) {
+      const badge = document.getElementById('cisaKevBadge');
+      const subText = document.getElementById('cisaKevSubText');
+      const count = (findings && Array.isArray(findings)) ? findings.length : 0;
+
+      if (badge) {
+        if (count === 0) {
+          badge.className = 'text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono flex items-center gap-1.5';
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>${cisaCount || 10} CVEs KEV • 0 Afectados`;
+        } else {
+          badge.className = 'text-[9px] bg-red-500/20 text-red-300 border border-red-500/30 px-2.5 py-0.5 rounded-full font-mono flex items-center gap-1.5 animate-pulse';
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>${count} Paquetes Vulnerables en KEV!`;
+        }
+      }
+
+      if (subText) {
+        const pkgsStr = totalPkgs ? `${Number(totalPkgs).toLocaleString()} paquetes analizados en ${scanMs || 29} ms` : 'Inventario de paquetes analizado';
+        if (count === 0) {
+          subText.textContent = `${pkgsStr}. Ningún paquete local coincide con el catálogo de explotación activa CISA KEV.`;
+        } else {
+          const cves = findings.map(f => f.cve).join(', ');
+          subText.innerHTML = `<span class="text-red-300 font-semibold">Alerta KEV: Se detectaron paquetes vulnerables a: ${escapeHtml(cves)}</span>`;
+        }
       }
     };
 
@@ -1983,12 +2051,12 @@
     };
 
     function runDailyKbCheck() {
-      showToast('Centinela Diario', 'Consultando el catálogo oficial de Microsoft y buscando KBs publicados hoy...');
+      showToast('Centinela Diario', 'Consultando catálogo de avisos Linux (USN/RHSA/ASA) publicados hoy...');
       sendIpc('run_daily_kb_check');
     }
 
     function runAiKbAudit() {
-      showToast('Auditoría de KBs con IA', 'Analizando boletines de seguridad y verificando estado del SO...');
+      showToast('Auditoría con IA', 'Analizando avisos de seguridad Linux y verificando mitigaciones en el SO...');
       sendIpc('run_ai_kb_audit');
     }
 
@@ -2644,11 +2712,7 @@
       }
       const label = document.getElementById('autostartLabel');
       if (label) {
-        if (osName === 'windows') {
-          label.textContent = 'Inicio con Windows';
-        } else if (osName === 'linux' || navigator.userAgent.toLowerCase().includes('linux')) {
-          label.textContent = 'Inicio automático (Systemd / XDG)';
-        }
+        label.textContent = 'Inicio automático (Systemd / XDG)';
       }
     };
 

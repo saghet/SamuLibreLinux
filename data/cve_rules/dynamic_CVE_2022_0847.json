@@ -1,0 +1,23 @@
+{
+  "id": "VP-LINUX-DIRTYPIPE",
+  "cve": "CVE-2022-0847",
+  "title": "Dirty Pipe: Linux Kernel Arbitrary File Overwrite & LPE",
+  "description": "Fallo en el subsistema de pipes del kernel Linux (splice/pipe.c) que permite a usuarios no privilegiados escribir en archivos de sólo lectura (incluyendo /etc/passwd o ejecutables SUID).",
+  "severity": "Critical",
+  "target_component": "kernel/fs/pipe.c",
+  "required_kb": [
+    "USN-5316-1"
+  ],
+  "strategy": {
+    "KernelSysctlHardening": {
+      "parameter": "fs.protected_regular",
+      "safe_value": "2",
+      "revert_value": "0"
+    }
+  },
+  "status": "Unmitigated",
+  "detected_at": "2026-11-02T10:00:00Z",
+  "patched_at": null,
+  "unpatched_at": null,
+  "status_reason": null
+}

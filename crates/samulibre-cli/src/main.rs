@@ -74,7 +74,7 @@ enum Commands {
         sub: VpnCommands,
     },
 
-    /// Cazador de Persistencia y Auto-Inicio (Run, RunOnce, Startup, Tareas Programadas)
+    /// Cazador de Persistencia y Auto-Inicio (Systemd Services, Timers, Crontabs y XDG Autostart)
     Persistence {
         #[command(subcommand)]
         sub: PersistenceCommands,
@@ -212,17 +212,17 @@ enum PatcherCommands {
     Scan,
     /// Aplica automáticamente reglas de mitigación virtual para CVEs no parchados
     Apply,
-    /// Revisa si Windows instaló parches oficiales y retira los parches virtuales
+    /// Revisa si el sistema instaló parches/mitigaciones oficiales y retira los parches virtuales
     AutoDeactivate,
-    /// Simula la instalación de un parche oficial de Windows para probar el retiro automático
+    /// Simula la instalación de una mitigación o paquete oficial del sistema para probar el retiro automático
     SimulateInstall {
-        /// Código del KB oficial (Ej. KB5041585, KB5004945)
-        #[arg(value_name = "KB")]
+        /// Identificador de mitigación o CVE (Ej. CVE-2024-1086, KB5041585)
+        #[arg(value_name = "CVE_O_KB")]
         kb: String,
     },
     /// Alterna manualmente la mitigación virtual de un CVE específico
     Toggle {
-        /// Identificador de la regla o CVE (Ej. CVE-2024-38063)
+        /// Identificador de la regla o CVE (Ej. CVE-2024-1086)
         cve: String,
         /// Desactivar el parche virtual (por omisión lo activa)
         #[arg(short, long)]
@@ -234,11 +234,11 @@ enum PatcherCommands {
         #[arg(short, long, default_value_t = true)]
         auto_patch: bool,
     },
-    /// Escanea las actualizaciones pendientes de Windows (WUA) y el catálogo de KBs
+    /// Escanea las actualizaciones y mitigaciones de seguridad del sistema
     KbScan,
-    /// Analiza un boletín de seguridad o KB específico con el motor de IA local
+    /// Analiza un aviso de seguridad o CVE específico con el motor de IA local
     AiAnalyze {
-        /// Identificador del KB (Ej. KB5041585, KB5004945)
+        /// Identificador del CVE o aviso (Ej. CVE-2024-1086, KB5041585)
         kb: String,
         /// Título o resumen descriptivo opcional
         #[arg(short, long)]
@@ -261,7 +261,7 @@ enum ShieldCommands {
     Status,
     /// Despliega o regenera los archivos trampa señuelo anti-ransomware
     DeployCanaries,
-    /// Realiza una auditoría inmediata de procesos (LSASS, navegadores, canarios)
+    /// Realiza una auditoría inmediata de procesos (Memoria de procesos, navegadores, canarios)
     Check,
 }
 
@@ -302,7 +302,7 @@ enum VpnCommands {
 
 #[derive(Subcommand)]
 enum PersistenceCommands {
-    /// Audita todas las entradas de arranque del SO (Registro, Startup, schtasks)
+    /// Audita todas las entradas de arranque del SO (Systemd, Cron, XDG Autostart)
     Scan,
     /// Alterna el estado activo/desactivado de una entrada de persistencia
     Toggle {
@@ -488,7 +488,7 @@ async fn main() -> Result<()> {
 
                         println!("\n[{}] {} - Severidad: {}", rule.cve.bold(), rule.title, sev_colored);
                         println!("  Componente: {}", rule.target_component);
-                        println!("  KBs oficiales de Windows: {:?}", rule.required_kb);
+                        println!("  Mitigaciones / Avisos oficiales: {:?}", rule.required_kb);
                         println!("  Estado actual: {}", status_str);
                     }
 
@@ -579,7 +579,7 @@ async fn main() -> Result<()> {
                 }
 
                 PatcherCommands::KbScan => {
-                    println!("\n{}", "─── MONITOR DE ACTUALIZACIONES KB (WINDOWS UPDATE / MSRC) ───".bold().cyan());
+                    println!("\n{}", "─── MONITOR DE ACTUALIZACIONES Y MITIGACIONES DEL SISTEMA ───".bold().cyan());
                     let status = patcher.get_kb_monitor_status();
                     println!("  KBs en Catálogo Monitoreado: {}", status.monitored_kbs.len().to_string().cyan());
                     println!("  KBs Pendientes de Instalación: {}", if status.pending_kbs_count == 0 { "0 (SO al día)".green() } else { status.pending_kbs_count.to_string().yellow() });
@@ -647,7 +647,7 @@ async fn main() -> Result<()> {
             match sub {
                 ShieldCommands::Status => {
                     println!("\n{}", "─── ESTADO DEL ESCUDO DE ENDPOINT (ANTI-HACKERS) ───".bold().cyan());
-                    println!("  {} Protección de Memoria LSASS: ACTIVA (Detección Mimikatz/ProcDump)", "✔".green());
+                    println!("  {} Protección de Memoria y Credenciales: ACTIVA (ptrace_scope Yama y /proc/mem)", "✔".green());
                     println!("  {} Escudo de Tokens Web & Cookies: ACTIVO (Monitoreo de Chrome/Edge/Firefox)", "✔".green());
                     println!("  {} Trampas Anti-Ransomware: {} archivos señuelo", "✔".green(), shield.get_canary_count());
                 }
@@ -721,7 +721,7 @@ async fn main() -> Result<()> {
                 VpnCommands::ResetNetwork => {
                     println!("Restableciendo configuración de red del sistema...");
                     vpn.reset_system_network()?;
-                    println!("{} Red normalizada: Proxy de Windows/Linux desactivado, DNS restaurado y firewall limpio.", "✔".green());
+                    println!("{} Red normalizada: Proxy del sistema desactivado, DNS restaurado y Netfilter limpio.", "✔".green());
                 }
 
                 VpnCommands::Status => {
@@ -772,7 +772,7 @@ async fn main() -> Result<()> {
             let core = SamuLibreCore::new(&canary_dir, &vpn_dir, true);
             match sub {
                 PersistenceCommands::Scan => {
-                    println!("\n{}", "─── CAZADOR DE PERSISTENCIA Y AUTO-INICIO (AUTORUNS) ───".bold().cyan());
+                    println!("\n{}", "─── CAZADOR DE PERSISTENCIA Y SERVICIOS DE ARRANQUE ───".bold().cyan());
                     let entries = core.get_persistence_entries();
                     println!("Total entradas detectadas: {}\n", entries.len().to_string().bold());
                     for e in entries {
@@ -1175,14 +1175,14 @@ async fn run_live_demonstration(canary_dir: &Path, vpn_dir: &Path) -> Result<()>
     let applied = patcher.apply_virtual_patches()?;
     println!("    {} Se activaron {} parches virtuales para proteger el equipo.", "✔".green(), applied.to_string().green());
 
-    println!("2.3 Simulando que Windows Update descarga e instala la actualización oficial 'KB5041585'...");
+    println!("2.3 Simulando que el sistema descarga e incorpora la mitigación oficial...");
     let mut simulated_kbs = patcher.get_installed_kbs();
-    simulated_kbs.insert("KB5041585".to_string()); // Parche oficial de CVE-2024-38063
+    simulated_kbs.insert("CVE-2024-1086".to_string());
 
     println!("2.4 Ejecutando verificación de parches del sistema...");
     let reverted = patcher.check_and_deactivate_obsolete_patches(Some(simulated_kbs))?;
     println!(
-        "    {} ¡ÉXITO! SamuLibre detectó que Windows ya instaló el parche oficial de forma nativa y retiró {} regla(s) de parche virtual automáticamente.",
+        "    {} ¡ÉXITO! SamuLibre detectó que el sistema ya cuenta con la mitigación de forma nativa y retiró {} regla(s) de parche virtual automáticamente.",
         "✔".bold().green(),
         reverted.to_string().bold().yellow()
     );

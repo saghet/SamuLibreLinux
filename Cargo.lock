@@ -2365,8 +2365,10 @@ name = "samulibre-cli"
 version = "2.0.32"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "colored",
+ "libc",
  "samulibre-core",
  "samulibre-patcher",
  "samulibre-scanner",
@@ -2374,6 +2376,8 @@ dependencies = [
  "samulibre-types",
  "samulibre-vpn",
  "samulibre-watcher",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

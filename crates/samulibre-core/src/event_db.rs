@@ -260,6 +260,75 @@ impl SecurityEventDatabase {
         })
     }
 
+    /// Agrega una exclusión de escaneo (archivo o directorio)
+    pub fn add_exclusion(&self, path: &str, is_directory: bool) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let created_at = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT OR REPLACE INTO exclusions (path, created_at, is_directory) VALUES (?1, ?2, ?3)",
+            params![path, created_at, if is_directory { 1 } else { 0 }],
+        )?;
+        Ok(())
+    }
+
+    /// Elimina una exclusión de escaneo
+    pub fn remove_exclusion(&self, path: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let affected = conn.execute("DELETE FROM exclusions WHERE path = ?1", params![path])?;
+        Ok(affected > 0)
+    }
+
+    /// Comprueba si una ruta está excluida de escaneo
+    pub fn is_excluded(&self, path: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT path, is_directory FROM exclusions")?;
+        let rows = stmt.query_map([], |row| {
+            let p: String = row.get(0)?;
+            let is_dir: i64 = row.get(1)?;
+            Ok((p, is_dir == 1))
+        })?;
+
+        for r in rows.flatten() {
+            let (excl_path, is_dir) = r;
+            if is_dir {
+                if path.starts_with(&excl_path) {
+                    return Ok(true);
+                }
+            } else if path == excl_path {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// Lista todas las exclusiones registradas (path, created_at, is_directory)
+    pub fn list_exclusions(&self) -> Result<Vec<(String, String, bool)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT path, created_at, is_directory FROM exclusions ORDER BY created_at DESC")?;
+        let rows = stmt.query_map([], |row| {
+            let path: String = row.get(0)?;
+            let created_at: String = row.get(1)?;
+            let is_dir: i64 = row.get(2)?;
+            Ok((path, created_at, is_dir == 1))
+        })?;
+
+        let mut list = Vec::new();
+        for r in rows.flatten() {
+            list.push(r);
+        }
+        Ok(list)
+    }
+
+    /// Limpia todos los eventos forenses y de auditoría de la base de datos
+    pub fn clear_all(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute_batch(
+            "DELETE FROM threat_events;
+             DELETE FROM audit_events;"
+        )?;
+        Ok(())
+    }
+
     pub fn get_path(&self) -> &Path {
         &self.db_path
     }
@@ -321,6 +390,26 @@ mod tests {
         assert_eq!(stats.total_threats, 1);
         assert_eq!(stats.neutralized_threats, 1);
         assert_eq!(stats.pending_threats, 0);
+
+        // Probar exclusiones
+        db.add_exclusion("/opt/safe_dir", true).expect("Failed to add dir exclusion");
+        db.add_exclusion("/tmp/safe_file.txt", false).expect("Failed to add file exclusion");
+
+        assert!(db.is_excluded("/opt/safe_dir/app/bin").expect("Check dir exclusion"));
+        assert!(db.is_excluded("/tmp/safe_file.txt").expect("Check file exclusion"));
+        assert!(!db.is_excluded("/tmp/other.txt").expect("Check not excluded"));
+
+        let excl_list = db.list_exclusions().expect("Failed to list exclusions");
+        assert_eq!(excl_list.len(), 2);
+
+        db.remove_exclusion("/tmp/safe_file.txt").expect("Failed to remove exclusion");
+        assert!(!db.is_excluded("/tmp/safe_file.txt").expect("Check removed"));
+
+        // Limpiar base de datos
+        db.clear_all().expect("Failed to clear db");
+        let stats_after = db.get_summary_stats().expect("Failed to get stats after clear");
+        assert_eq!(stats_after.total_threats, 0);
+        assert_eq!(stats_after.total_audit_events, 0);
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

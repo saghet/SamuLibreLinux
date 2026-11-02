@@ -926,3 +926,84 @@ Para transformar SamuLibre en una suite de seguridad modular, escalable para ent
   - Ubuntu/Debian: `target/samulibre_2.0.32_amd64.deb` (9.6 MB con `samulibred` y servicio systemd).
   - Red Hat/Fedora: `target/samulibre-2.0.32-1.x86_64.rpm` (4.6 MB).
   - Arch/Garuda: `target/samulibre-2.0.32-1-x86_64.pkg.tar.zst` (9.0 MB).
+
+---
+
+## 29. Sección 29: Experiencia de Usuario, Usabilidad, Administración y CLI Interactivo (Fase 9)
+
+### 29.1 Diagnóstico de Usabilidad y Experiencia de Usuario (UX)
+En sistemas Linux modernos, una solución de seguridad no puede depender exclusivamente de una interfaz gráfica (especialmente en servidores, contenedores o entornos headless), ni tampoco limitarse a parámetros rígidos de línea de comandos difíciles de recordar para usuarios finales.
+
+Se identificaron cuatro requisitos fundamentales de usabilidad:
+1. **Acceso Dual:** Interfaz gráfica nativa GTK3/WebKit para usuarios de escritorio y CLI interactivo (TUI) para administradores y terminales SSH.
+2. **Interoperabilidad DevSecOps:** Capacidad de emitir respuestas en formato JSON estructurado (`--json`) para integración inmediata con SIEMs, scripts de automatización e infraestructura como código.
+3. **Auditoría Forense sin Fricción:** Generación con un único comando de informes ejecutivos y técnicos para auditorías de cumplimiento normativo (ISO 27001, ENS, NIST).
+4. **Administración Centralizada de Políticas:** Capacidad de conmutar perfiles de seguridad (`strict`, `balanced`, `developer`, `server`) y administrar exclusiones en caliente sin reiniciar servicios.
+
+---
+
+### 29.2 Terminal Interactiva (TUI) y Menú Intuitivo
+Al invocar `samulibre` sin parámetros o con la bandera `--interactive` / `-i`, el sistema despliega una interfaz de terminal estructurada:
+
+```text
+╔════════════════════════════════════════════════════════════════════════╗
+║                  SAMULIBRE LINUX - PANEL INTERACTIVO                   ║
+║             Suite de Seguridad, EDR y Privacidad Zero-Cloud             ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+  [1] Estado Global de Protección y Demonio samulibred
+  [2] Escanear Archivo o Directorio (Multi-Motor)
+  [3] Inspector de Red: Sockets TCP y Procesos en Vivo
+  [4] Base de Datos SQLite WAL: Estadísticas e Historial
+  [5] Gestión de Exclusiones de Escaneo
+  [6] Generar Informe Forense y de Auditoría (HTML / JSON)
+  [7] Desplegar / Auditar Canarios Anti-Ransomware
+  [8] Copiloto Forense con Inteligencia Artificial Local
+  [9] Salir
+```
+* **Implementación:** [`crates/samulibre-cli/src/interactive.rs`](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-cli/src/interactive.rs).
+* **Características:** Comprobación automática de conectividad IPC con el socket UNIX, escaneo guiado paso a paso, consulta de sockets con proceso vinculado y resolución en vivo de exclusiones.
+
+---
+
+### 29.3 Salida Estructurada JSON (`--json`) para DevOps y SIEM
+Se integró el soporte universal para la bandera `--json` a nivel global:
+* `samulibre --json status`: Retorna un payload JSON con versión, estado de sockets, contadores de canarios, mitigaciones de kernel y parches virtuales.
+* `samulibre --json daemon status`: Verifica el estado de disponibilidad del socket y latencia.
+* `samulibre --json db stats`: Emite métricas de eventos en SQLite.
+* `samulibre --json policy show`: Exporta la directiva de configuración activa.
+
+---
+
+### 29.4 Generador de Informes Forenses y de Cumplimiento (`samulibre report`)
+Se desarrolló el módulo de reporte forense [`crates/samulibre-cli/src/report.rs`](file:///home/saghet/Documents/SamulibreLinux/crates/samulibre-cli/src/report.rs):
+* **Formatos Soportados:**
+  - **HTML (`--format html`):** Documento HTML5 auto-contenido con diseño profesional moderno, paleta de colores cybersecurity (dark theme), tarjetas de métricas, insignias de severidad por código de color, inventario de sockets con PID y proceso, tabla de CVEs del kernel y estilos preparados para impresión en papel o PDF sin dependencias externas.
+  - **JSON (`--format json`):** Estructura normalizada `ForensicReportData` para consumo por herramientas SIEM (Elasticsearch, Wazuh, Splunk).
+  - **Markdown (`--format markdown` / `md`):** Tablas y listas legibles para repositorios Git, wikis y documentación de incidentes.
+
+---
+
+### 29.5 Nuevos Subcomandos Administrativos
+
+| Comando | Función y Utilidad Administrativa |
+|---|---|
+| `samulibre daemon status` | Inspecciona el socket UNIX local (`/run/samulibre/samulibre.sock`) y diagnostica conectividad. |
+| `samulibre daemon ping` | Mide la latencia de respuesta IPC en microsegundos contra el demonio `samulibred`. |
+| `samulibre db stats` | Muestra estadísticas consolidadas del almacén SQLite WAL (amenazas neutralizadas, pendientes, auditoría). |
+| `samulibre db threats [--limit N]` | Consulta el historial forense de amenazas registradas con fecha y severidad. |
+| `samulibre db audit [--limit N]` | Consulta eventos de auditoría de kernel (aislamientos iptables, canarios detonados). |
+| `samulibre db exclusions add <path> [--dir]` | Agrega rutas o carpetas excluidas de escaneo a la base de datos relacional. |
+| `samulibre db exclusions remove <path>` | Remueve una exclusión de escaneo. |
+| `samulibre db exclusions list` | Lista todas las exclusiones activas. |
+| `samulibre db clear [-y]` | Purga segura de eventos forenses antiguos con confirmación de seguridad. |
+| `samulibre policy show` | Muestra el perfil activo de seguridad y directivas de heurística y contención. |
+| `samulibre policy set <perfil>` | Conmuta entre perfiles: `strict`, `balanced`, `developer` o `server`. |
+| `samulibre report` | Genera y exporta el informe forense del endpoint en formato HTML, JSON o Markdown. |
+
+---
+
+### 29.6 QA y Validación de la Fase 9
+* **Verificación de Pruebas Unitarias:** 67 tests aprobados (0 fallos).
+* **Prueba de Generación de Informes:** Informes generados y verificados con éxito en `samulibre_report.html` (16 KB auto-contenido), `samulibre_report.json` y `samulibre_report.md`.
+* **Prueba de Comandos Administrativos:** Comprobados con éxito `daemon status`, `db stats`, `db exclusions` y `policy set/show`.

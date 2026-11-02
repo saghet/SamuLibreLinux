@@ -11,14 +11,25 @@ use samulibre_watcher::{QuarantineVault, RealTimeWatcher};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod report;
+mod interactive;
+
 #[derive(Parser)]
 #[command(name = "samulibre")]
-#[command(author = "SamuLibre Security Community")]
-#[command(version = "0.1.0")]
-#[command(about = "Antivirus SamuLibre - Suite de Seguridad 100% Open Source, Libre de Costo y Anuncios", long_about = None)]
+#[command(author = "SamuLibre Security Community <dev@samulibre.org>")]
+#[command(version = "2.0.32")]
+#[command(about = "SamuLibre Linux - Suite de Seguridad y Antivirus Open Source", long_about = None)]
 struct Cli {
+    /// Salida estructurada en JSON para SIEM y scripts de automatización
+    #[arg(long, global = true)]
+    json: bool,
+
+    /// Inicia el modo interactivo con interfaz de terminal (TUI)
+    #[arg(short, long, global = true)]
+    interactive: bool,
+
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -81,8 +92,101 @@ enum Commands {
         query: String,
     },
 
+    /// Comprueba el estado del demonio de fondo samulibred y la conectividad IPC
+    Daemon {
+        #[command(subcommand)]
+        sub: DaemonCommands,
+    },
+
+    /// Gestión y consulta de la Base de Datos SQLite WAL de eventos forenses
+    Db {
+        #[command(subcommand)]
+        sub: DbCommands,
+    },
+
+    /// Genera un informe forense de cumplimiento y auditoría de seguridad
+    Report {
+        /// Formato del informe: html | json | markdown
+        #[arg(short, long, default_value = "html")]
+        format: String,
+
+        /// Ruta del archivo de salida
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Gestión de perfiles y políticas de seguridad del endpoint
+    Policy {
+        #[command(subcommand)]
+        sub: PolicyCommands,
+    },
+
+    /// Abre el menú interactivo en terminal (TUI)
+    Interactive,
+
     /// Ejecuta una demostración en vivo de los tres pilares de protección
     Demo,
+}
+
+#[derive(Subcommand)]
+enum DaemonCommands {
+    /// Muestra el estado del socket UNIX y latencia IPC con el demonio
+    Status,
+    /// Envía un mensaje Ping al demonio y mide el tiempo de respuesta
+    Ping,
+}
+
+#[derive(Subcommand)]
+enum DbCommands {
+    /// Muestra estadísticas consolidadas de la base de datos de eventos
+    Stats,
+    /// Lista el historial de amenazas detectadas registradas en SQLite
+    Threats {
+        #[arg(short, long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// Lista eventos de auditoría (mitigaciones, aislamiento de procesos, firewall)
+    Audit {
+        #[arg(short, long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// Gestión de rutas excluidas del motor de escaneo
+    Exclusions {
+        #[command(subcommand)]
+        sub: ExclusionCommands,
+    },
+    /// Purga eventos forenses antiguos de la base de datos
+    Clear {
+        /// Confirmar borrado sin solicitar confirmación interactiva
+        #[arg(short, long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum ExclusionCommands {
+    /// Agrega una ruta a la lista de exclusiones
+    Add {
+        path: String,
+        #[arg(short, long)]
+        dir: bool,
+    },
+    /// Remueve una ruta de la lista de exclusiones
+    Remove {
+        path: String,
+    },
+    /// Lista las exclusiones activas
+    List,
+}
+
+#[derive(Subcommand)]
+enum PolicyCommands {
+    /// Muestra la política y perfil activo de seguridad
+    Show,
+    /// Establece el perfil de política: strict | balanced | developer | server
+    Set {
+        profile: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -224,31 +328,79 @@ enum NetworkCommands {
     },
 }
 
+fn resolve_db_path() -> PathBuf {
+    let local = Path::new("data").join("samulibre_events.db");
+    if local.exists() {
+        return local;
+    }
+    if unsafe { libc::geteuid() } == 0 {
+        PathBuf::from("/var/lib/samulibre/events.db")
+    } else if let Ok(home) = std::env::var("HOME") {
+        PathBuf::from(home).join(".local/share/samulibre/events.db")
+    } else {
+        local
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    print_banner();
+    if !cli.json {
+        print_banner();
+    }
 
     let canary_dir = Path::new("data").join("canaries");
     let vpn_dir = Path::new("data").join("vpn");
+    let db_path = resolve_db_path();
     let _ = fs::create_dir_all(&canary_dir);
     let _ = fs::create_dir_all(&vpn_dir);
 
-    match cli.command {
+    if cli.interactive || cli.command.is_none() {
+        return interactive::run_interactive_menu(&canary_dir, &vpn_dir, &db_path).await;
+    }
+
+    let command = cli.command.unwrap();
+
+    match command {
+        Commands::Interactive => {
+            interactive::run_interactive_menu(&canary_dir, &vpn_dir, &db_path).await?;
+        }
+
         Commands::Status => {
+            let socket_path = samulibre_core::ipc::resolve_ipc_socket_path();
+            let daemon_online = socket_path.exists();
+
             let core = SamuLibreCore::new(&canary_dir, &vpn_dir, true);
             let _ = core.initialize();
             let status = core.get_status();
 
-            println!("\n{}", "─── ESTADO GLOBAL DE PROTECCIÓN SAMULIBRE ───".bold().cyan());
-            println!("  {} Núcleo Activo:            {}", "✔".green(), "SÍ (Modo de Servicio Abierto)".green());
-            println!("  {} Motor de Detección:       {}", "✔".green(), "ClamAV + YARA-X + Heurística".green());
-            println!("  {} Escudo Anti-Infiltración: {}", "✔".green(), "LSASS Guard + Browser Token Shield".green());
-            println!("  {} Trampas Anti-Ransomware:  {}", "✔".green(), format!("{} archivos señuelo activos", status.canaries_deployed_count).cyan());
-            println!("  {} Parchado Virtual:         {}", "✔".green(), format!("{} mitigaciones activas", status.active_virtual_patches_count).yellow());
-            println!("  {} Parches Nativos del SO:   {}", "✔".green(), format!("{} CVEs resueltos por Windows Update", status.native_repaired_cves_count).green());
-            println!("  {} Amenazas Bloqueadas:      {}", "✔".green(), format!("{}", status.threats_blocked_total).cyan());
-            println!("  {} Publicidad / Telemetría:  {}", "✔".green(), "0% (Completamente Libre y Privado)".bold().green());
+            if cli.json {
+                let json_out = serde_json::json!({
+                    "samulibre_version": "2.0.32",
+                    "daemon_active": daemon_online,
+                    "daemon_socket": socket_path.to_string_lossy(),
+                    "threats_blocked_total": status.threats_blocked_total,
+                    "canaries_deployed": status.canaries_deployed_count,
+                    "active_virtual_patches": status.active_virtual_patches_count,
+                    "native_repaired_cves": status.native_repaired_cves_count,
+                });
+                println!("{}", serde_json::to_string_pretty(&json_out)?);
+            } else {
+                println!("\n{}", "─── ESTADO GLOBAL DE PROTECCIÓN SAMULIBRE ───".bold().cyan());
+                println!("  {} Demonio del Sistema:      {}",
+                    if daemon_online { "✔".green() } else { "ℹ".yellow() },
+                    if daemon_online { "ACTIVO (samulibred)".bold().green() } else { "MODO LOCAL (In-Process)".yellow() }
+                );
+                println!("  {} Núcleo Activo:            {}", "✔".green(), "SÍ (Rust Nativo - Memoria Segura)".green());
+                println!("  {} Autoprotección:           {}", "✔".green(), "PR_SET_DUMPABLE=0 (Anti-Ptrace)".green());
+                println!("  {} Motor de Detección:       {}", "✔".green(), "ClamAV + YARA-X + Heurística Shannon".green());
+                println!("  {} Escudo de Credenciales:   {}", "✔".green(), "Inspección /proc y Browser Token Shield".green());
+                println!("  {} Trampas Anti-Ransomware:  {}", "✔".green(), format!("{} archivos señuelo activos", status.canaries_deployed_count).cyan());
+                println!("  {} Parchado Virtual:         {}", "✔".green(), format!("{} mitigaciones sysctl activas", status.active_virtual_patches_count).yellow());
+                println!("  {} Mitigaciones del Kernel:  {}", "✔".green(), format!("{} CVEs resueltos en kernel", status.native_repaired_cves_count).green());
+                println!("  {} Amenazas Bloqueadas:      {}", "✔".green(), format!("{}", status.threats_blocked_total).cyan());
+                println!("  {} Soberanía y Privacidad:   {}", "✔".green(), "100% Local (Zero-Cloud Mandate)".bold().green());
+            }
         }
 
         Commands::Scan { path } => {
@@ -694,6 +846,223 @@ async fn main() -> Result<()> {
             println!();
         }
 
+        Commands::Daemon { sub } => match sub {
+            DaemonCommands::Status => {
+                let socket_path = samulibre_core::ipc::resolve_ipc_socket_path();
+                if cli.json {
+                    let online = socket_path.exists();
+                    let json_out = serde_json::json!({
+                        "socket_path": socket_path.to_string_lossy(),
+                        "exists": online,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&json_out)?);
+                } else {
+                    println!("\n{}", "─── ESTADO DEL DEMONIO SAMULIBRED Y CANAL IPC ───".bold().cyan());
+                    println!("  Ruta del Socket UNIX: {}", socket_path.display());
+                    match samulibre_core::ipc::UnixSocketClient::connect(&socket_path).await {
+                        Ok(client) => {
+                            let start = std::time::Instant::now();
+                            match client.request(samulibre_core::ipc::IpcRequest::ping()).await {
+                                Ok(resp) => {
+                                    let latency = start.elapsed().as_micros();
+                                    println!("  {} Demonio Activo:       {}", "✔".green(), "EN LÍNEA (samulibred)".bold().green());
+                                    println!("  {} Latencia IPC:         {} µs", "✔".green(), latency.to_string().cyan());
+                                    println!("  {} Respuesta IPC:        {:?}", "✔".green(), resp);
+                                }
+                                Err(e) => {
+                                    println!("  {} Demonio responde error: {}", "⚠".yellow(), e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("  {} Demonio Inactivo:     {}", "✘".red(), "NO CONECTADO".bold().red());
+                            println!("  Detalle del socket:      {}", e);
+                            println!("\n  {} Para iniciar el demonio del sistema:", "💡".yellow());
+                            println!("    sudo systemctl start samulibred");
+                            println!("    systemctl status samulibred");
+                        }
+                    }
+                }
+            }
+            DaemonCommands::Ping => {
+                let socket_path = samulibre_core::ipc::resolve_ipc_socket_path();
+                let client = samulibre_core::ipc::UnixSocketClient::connect(&socket_path).await?;
+                let start = std::time::Instant::now();
+                let resp = client.request(samulibre_core::ipc::IpcRequest::ping()).await?;
+                let us = start.elapsed().as_micros();
+                if cli.json {
+                    let json_out = serde_json::json!({ "pong": true, "latency_us": us });
+                    println!("{}", serde_json::to_string_pretty(&json_out)?);
+                } else {
+                    println!("{} Pong recibido en {} µs: {:?}", "✔".green(), us, resp);
+                }
+            }
+        },
+
+        Commands::Db { sub } => {
+            let db_file = resolve_db_path();
+            let db = samulibre_core::SecurityEventDatabase::new(&db_file)?;
+            match sub {
+                DbCommands::Stats => {
+                    let stats = db.get_summary_stats()?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&stats)?);
+                    } else {
+                        println!("\n{}", "─── ESTADÍSTICAS DE BASE DE DATOS SQLITE WAL ───".bold().cyan());
+                        println!("  Ruta:                   {}", db_file.display());
+                        println!("  Total Amenazas:         {}", stats.total_threats);
+                        println!("  Neutralizadas:          {}", stats.neutralized_threats.to_string().green());
+                        println!("  Pendientes:             {}", if stats.pending_threats > 0 { stats.pending_threats.to_string().red() } else { "0".green() });
+                        println!("  Eventos de Auditoría:   {}", stats.total_audit_events);
+                    }
+                }
+                DbCommands::Threats { limit } => {
+                    let list = db.list_threats(limit)?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&list)?);
+                    } else {
+                        println!("\n{}", format!("─── HISTORIAL FORENSE DE AMENAZAS (ÚLTIMAS {}) ───", limit).bold().cyan());
+                        if list.is_empty() {
+                            println!("  {} No hay amenazas registradas en la base de datos.", "✔".green());
+                        } else {
+                            for t in list {
+                                println!("\n  [{}] {} ({})", t.timestamp.dimmed(), t.threat_name.bold().red(), t.severity.yellow());
+                                println!("    Archivo: {}", t.file_path);
+                                println!("    Motor:   {} | Acción: {}", t.engine, t.action_taken.bold().cyan());
+                            }
+                        }
+                    }
+                }
+                DbCommands::Audit { limit } => {
+                    let list = db.list_audit_events(limit)?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&list)?);
+                    } else {
+                        println!("\n{}", format!("─── EVENTOS DE AUDITORÍA Y KERNEL (ÚLTIMOS {}) ───", limit).bold().cyan());
+                        if list.is_empty() {
+                            println!("  No hay eventos de auditoría registrados.");
+                        } else {
+                            for a in list {
+                                println!("  [{}] [{}] {} - {}", a.timestamp.dimmed(), a.severity.yellow(), a.event_type.bold().cyan(), a.description);
+                            }
+                        }
+                    }
+                }
+                DbCommands::Exclusions { sub: excl_sub } => match excl_sub {
+                    ExclusionCommands::Add { path, dir } => {
+                        let is_dir = dir || Path::new(&path).is_dir();
+                        db.add_exclusion(&path, is_dir)?;
+                        println!("{} Exclusión agregada: {} ({})", "✔".green(), path, if is_dir { "Directorio" } else { "Archivo" });
+                    }
+                    ExclusionCommands::Remove { path } => {
+                        if db.remove_exclusion(&path)? {
+                            println!("{} Exclusión eliminada: {}", "✔".green(), path);
+                        } else {
+                            println!("{} No se encontró la ruta en la lista de exclusiones: {}", "✘".red(), path);
+                        }
+                    }
+                    ExclusionCommands::List => {
+                        let list = db.list_exclusions()?;
+                        if cli.json {
+                            println!("{}", serde_json::to_string_pretty(&list)?);
+                        } else {
+                            println!("\n{}", "─── EXCLUSIONES DE ESCANEO ACTIVAS ───".bold().cyan());
+                            if list.is_empty() {
+                                println!("  No hay exclusiones configuradas.");
+                            } else {
+                                for (p, created_at, is_dir) in list {
+                                    let tag = if is_dir { "[DIR]".cyan() } else { "[FILE]".yellow() };
+                                    println!("  {} {} (Registrado: {})", tag, p.bold(), created_at);
+                                }
+                            }
+                        }
+                    }
+                },
+                DbCommands::Clear { yes } => {
+                    if !yes {
+                        print!("¿Está seguro de que desea purgar todos los eventos forenses de SQLite? (s/N): ");
+                        std::io::Write::flush(&mut std::io::stdout())?;
+                        let mut confirm = String::new();
+                        std::io::stdin().read_line(&mut confirm)?;
+                        if confirm.trim().to_lowercase() != "s" {
+                            println!("Operación cancelada.");
+                            return Ok(());
+                        }
+                    }
+                    db.clear_all()?;
+                    println!("{} Base de datos de eventos forenses purgada exitosamente.", "✔".green());
+                }
+            }
+        },
+
+        Commands::Report { format, output } => {
+            let socket_path = samulibre_core::ipc::resolve_ipc_socket_path();
+            let daemon_active = socket_path.exists();
+            let db_file = resolve_db_path();
+
+            let core = SamuLibreCore::new(&canary_dir, &vpn_dir, true);
+
+            let rep = report::ForensicReportData::collect_current(
+                &core,
+                &db_file,
+                daemon_active,
+                &socket_path.display().to_string(),
+            );
+
+            let (content, default_file) = match format.to_lowercase().as_str() {
+                "json" => (rep.to_json()?, PathBuf::from("samulibre_report.json")),
+                "markdown" | "md" => (rep.to_markdown(), PathBuf::from("samulibre_report.md")),
+                _ => (rep.to_html(), PathBuf::from("samulibre_report.html")),
+            };
+
+            let target_file = output.unwrap_or(default_file);
+            fs::write(&target_file, content)?;
+            println!(
+                "{} Informe forense ({}) exportado exitosamente a: {}",
+                "✔".bold().green(),
+                format.to_uppercase().cyan(),
+                target_file.display().to_string().bold().yellow()
+            );
+        }
+
+        Commands::Policy { sub } => match sub {
+            PolicyCommands::Show => {
+                let policy_file = Path::new("data").join("policy.json");
+                let profile = if policy_file.exists() {
+                    fs::read_to_string(&policy_file).unwrap_or_else(|_| "balanced".to_string())
+                } else {
+                    "balanced".to_string()
+                };
+                if cli.json {
+                    let json_out = serde_json::json!({
+                        "profile": profile,
+                        "heuristic_streaming": true,
+                        "iptables_isolation": true,
+                        "ebpf_telemetry": "dynamic",
+                        "sandbox_backend": "bubblewrap"
+                    });
+                    println!("{}", serde_json::to_string_pretty(&json_out)?);
+                } else {
+                    println!("\n{}", "─── PERFIL DE POLÍTICA DE SEGURIDAD ───".bold().cyan());
+                    println!("  Perfil Activo:            {}", profile.bold().yellow());
+                    println!("  Heurística en Streaming:  ACTIVA (SHA-256 total)");
+                    println!("  Aislamiento por Iptables: AUTOMÁTICO ANTE AMENAZAS CRÍTICAS");
+                    println!("  Inspección eBPF / BTF:    DINÁMICA CON FALLBACK A /proc");
+                    println!("  Contención Sandbox:       BUBBLEWRAP ESTRICTO");
+                }
+            }
+            PolicyCommands::Set { profile } => {
+                let p = profile.to_lowercase();
+                if !["strict", "balanced", "developer", "server"].contains(&p.as_str()) {
+                    println!("{} Perfil no válido. Opciones: strict | balanced | developer | server", "✘".red());
+                    return Ok(());
+                }
+                let policy_file = Path::new("data").join("policy.json");
+                fs::write(&policy_file, &p)?;
+                println!("{} Perfil de seguridad actualizado a: {}", "✔".green(), p.bold().yellow());
+            }
+        },
+
         Commands::Demo => {
             run_live_demonstration(&canary_dir, &vpn_dir).await?;
         }
@@ -702,7 +1071,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn scan_single_file(scanner: &MultiEngineScanner, path: &Path) {
+pub fn scan_single_file(scanner: &MultiEngineScanner, path: &Path) {
     match scanner.scan_file(path) {
         Ok(result) => {
             match result.status {
@@ -738,7 +1107,7 @@ fn scan_single_file(scanner: &MultiEngineScanner, path: &Path) {
     }
 }
 
-fn scan_directory(scanner: &MultiEngineScanner, dir: &Path) {
+pub fn scan_directory(scanner: &MultiEngineScanner, dir: &Path) {
     if let Ok(entries) = fs::read_dir(dir) {
         let mut clean_count = 0;
         let mut infected_count = 0;

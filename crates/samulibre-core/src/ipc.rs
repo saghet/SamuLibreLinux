@@ -14,6 +14,20 @@ pub struct IpcRequest {
     pub payload: Option<serde_json::Value>,
 }
 
+impl IpcRequest {
+    pub fn new(action: impl Into<String>, payload: Option<serde_json::Value>) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            action: action.into(),
+            payload,
+        }
+    }
+
+    pub fn ping() -> Self {
+        Self::new("ping", None)
+    }
+}
+
 /// Respuesta IPC generada por el Demonio
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcResponse {
@@ -79,6 +93,19 @@ impl UnixSocketClient {
         Self {
             socket_path: socket_path.as_ref().to_path_buf(),
         }
+    }
+
+    pub async fn connect(socket_path: impl AsRef<Path>) -> Result<Self> {
+        let path = socket_path.as_ref().to_path_buf();
+        if !path.exists() {
+            return Err(anyhow!("El socket UNIX no existe en: {}", path.display()));
+        }
+        let _ = UnixStream::connect(&path).await?;
+        Ok(Self { socket_path: path })
+    }
+
+    pub async fn request(&self, request: IpcRequest) -> Result<IpcResponse> {
+        self.send_request(&request).await
     }
 
     /// Conecta y envía una petición JSON-RPC al Demonio, esperando la respuesta

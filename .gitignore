@@ -16,3 +16,5 @@ crates/samulibre-patcher/data/
 *.zip
 samulibre-gui.exe
 *.WebView2/
+samulibre_report.*
+data/policy.json

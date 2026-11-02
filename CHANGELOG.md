@@ -6,6 +6,19 @@ Todas las mejoras notables, correcciones de errores y nuevas funcionalidades de 
 
 ## [2.0.32] - 2026-11-01
 
+### 💻 Experiencia de Usuario, Usabilidad, Administración y CLI Interactivo (Fase 9)
+- **Panel Interactivo de Terminal (TUI) sin Parámetros:**
+  - Implementado menú interactivo por teclado (`interactive.rs`) accesible ejecutando `samulibre` sin argumentos o con la bandera `--interactive` / `-i`. Permite escaneo guiado, inspección de sockets con procesos, consulta del historial SQLite WAL, gestión de exclusiones y generación de reportes.
+- **Salida Estructurada JSON Universal (`--json`):**
+  - Añadido soporte para la bandera global `--json` en comandos clave (`status`, `daemon status`, `db stats`, `policy show`) para integración con pipelines DevSecOps y agentes SIEM (Wazuh, Elastic, Splunk).
+- **Generador de Informes Forenses y de Cumplimiento (`samulibre report`):**
+  - Nuevo módulo forense (`report.rs`) capaz de exportar auditorías completas del host en **HTML5 auto-contenido** (diseño responsive, dark theme, insignias de severidad y estilos de impresión), **JSON** y **Markdown**.
+- **Gestión de Políticas y Exclusiones de Escaneo:**
+  - Nuevos subcomandos `samulibre policy [show | set <strict|balanced|developer|server>]` para conmutar perfiles de seguridad.
+  - Subcomando `samulibre db exclusions [add | remove | list]` y limpieza segura con confirmación `samulibre db clear [-y]`.
+- **Diagnóstico y Telemetría del Demonio IPC:**
+  - Subcomandos `samulibre daemon status` y `samulibre daemon ping` con medición de latencia round-trip en microsegundos contra el socket UNIX local.
+
 ### 🏗️ Arquitectura Modular y Desacoplada (Fases I, II y III - Hoja de Ruta de Arquitectura)
 - **Fase I (Inmediata) - IPC UNIX Domain Socket & Almacén SQLite WAL:**
   - Extraído el canal de comunicación IPC hacia un socket UNIX local (`/run/samulibre/samulibre.sock` con fallback dinámico en `/tmp/samulibre.sock`), reemplazando la dependencia en memoria compartida o acoplamiento monolítico por un protocolo JSON-RPC asíncrono tipado.

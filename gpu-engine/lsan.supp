@@ -1,0 +1,5 @@
+# Suppress known internal persistent driver allocations in vendor shared libraries
+leak:libcuda.so
+leak:libnvidia-ml.so
+leak:libGLX
+leak:libX11

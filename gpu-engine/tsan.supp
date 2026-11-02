@@ -1,0 +1,4 @@
+called_from_lib:libcuda.so
+called_from_lib:libnvidia-ml.so
+race:libcuda.so
+race:libnvidia-ml.so

@@ -123,7 +123,7 @@ fn get_fallback_threatfox_indicators() -> Vec<ThreatIndicator> {
         ("91.92.241.103", IndicatorType::NetworkIp, "C2.RedLine.Stealer", ThreatSeverity::High, 85),
         ("malicious-c2-update.top", IndicatorType::NetworkDomain, "C2.Kinsing.Miner", ThreatSeverity::High, 85),
         ("2a4b896940d99fae5e6e3c5ec82fbf91efea9380436d4ab8d2c49ffab03233c7", IndicatorType::FileHashSha256, "RemcosRAT.Client", ThreatSeverity::High, 90),
-        ("6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", IndicatorType::FileHashSha256, "AsyncRAT.C2Channel", ThreatSeverity::High, 90),
+        ("7c844391e4ab6b7a597bf270c5e6bfb1050ebad5c2a11b6957fa8730b91e9215", IndicatorType::FileHashSha256, "AsyncRAT.C2Channel", ThreatSeverity::High, 90),
     ];
 
     items.into_iter().map(|(val, ind_type, fam, sev, conf)| {

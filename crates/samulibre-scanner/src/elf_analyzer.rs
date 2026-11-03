@@ -78,11 +78,9 @@ pub fn analyze_elf_security(data: &[u8]) -> Option<ElfSecurityReport> {
     // Análisis de strings maliciosas o de evasión embebidas
     let search_indicators: &[(&[u8], &str)] = &[
         (b"/memfd:", "Ejecución Fileless con memfd"),
-        (b"/etc/ld.so.preload", "Secuestro de librerías LD_PRELOAD"),
+        (b"/etc/ld.so.preload", "Secuestro de librerías /etc/ld.so.preload"),
         (b"/dev/tcp/", "Reverse shell directa mediante /dev/tcp"),
-        (b"PTRACE_TRACEME", "Técnica anti-análisis PTrace"),
-        (b"init_module", "Inyección de módulo de kernel (LKM Rootkit)"),
-        (b"finit_module", "Carga de módulo de kernel dinámico"),
+        (b"/dev/kmem", "Acceso directo a memoria del kernel (/dev/kmem)"),
     ];
 
     for &(sig, desc) in search_indicators {

@@ -161,13 +161,23 @@ pub fn analyze_polymorphic_entropy(data: &[u8], file_name: &str) -> PolymorphicP
         || data.starts_with(b"MZ")
         || data.starts_with(b"\x7fELF");
 
+    let is_so_library = file_name.ends_with(".so") || file_name.contains(".so.");
     let ratio = high_entropy_blocks as f64 / total_blocks.max(1) as f64;
-    let is_standard_poly = is_exec && ratio >= 0.65 && overall > 7.2;
+    let zero_ratio = zero_padding_blocks as f64 / total_blocks.max(1) as f64;
+
+    // Calibración científica anti-falsos positivos:
+    // Las bibliotecas compartidas ELF (.so) contienen secciones .rodata comprimidas, fuentes o cifrado
+    // combinado con alineamiento de páginas .bss legítimo.
+    let is_standard_poly = if is_so_library {
+        ratio >= 0.90 && overall > 7.90
+    } else {
+        is_exec && ratio >= 0.65 && overall > 7.2
+    };
 
     // Detección de Evasión por Entropy Padding:
-    // Binario que contiene un payload denso cifrado (>= 4 KB consecutivos con H > 7.2)
-    // diluido artificialmente con relleno de baja entropía / ceros (>= 4 KB)
-    let is_padding_evasion = is_exec && max_consecutive_high >= 4 && zero_padding_blocks >= 4;
+    // Ejecutable que oculta un payload cifrado (>= 4 KB continuos H > 7.2)
+    // diluido con relleno artificial masivo de ceros (>= 8 KB y >= 35% del binario).
+    let is_padding_evasion = !is_so_library && is_exec && max_consecutive_high >= 4 && zero_padding_blocks >= 8 && zero_ratio >= 0.35;
 
     let is_poly = is_standard_poly || is_padding_evasion;
 

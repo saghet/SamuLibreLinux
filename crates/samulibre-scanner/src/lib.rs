@@ -223,6 +223,9 @@ impl MultiEngineScanner {
             // SEC-04 Blindaje contra Inyección y DoS en Firmas Externas
             const PROTECTED_WHITELIST_HASHES: &[&str] = &[
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // Empty file SHA-256
+                "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", // SHA-256 of character "1" (previene colisión con /var/lib/boltd/version)
+                "d41d8cd98f00b204e9800998ecf8427e", // Empty file MD5
+                "c4ca4238a0b923820dcc509a6f75849b", // MD5 of "1"
             ];
 
             for line in content.lines() {
@@ -308,10 +311,10 @@ impl MultiEngineScanner {
         }
 
         // Regla 6: Secuestro de cargador dinámico LD_PRELOAD (Linux Rootkit Hook)
-        if let Ok(re) = Regex::new(r#"(?i)(/etc/ld\.so\.preload|\bLD_PRELOAD\s*=.*?\.so)"#) {
+        if let Ok(re) = Regex::new(r#"(?i)(/etc/ld\.so\.preload|echo\s+[\w/\.\-]+\.so\s*(?:>>|>)\s*/etc/ld\.so\.preload)"#) {
             self.pattern_rules.push(PatternRule {
                 name: "Rootkit.Linux.LdPreloadHook".to_string(),
-                description: "Inyección o secuestro de librerías compartidas mediante LD_PRELOAD".to_string(),
+                description: "Inyección o secuestro de librerías compartidas mediante /etc/ld.so.preload".to_string(),
                 pattern: re,
                 severity: "Alta".to_string(),
             });
@@ -446,6 +449,22 @@ impl MultiEngineScanner {
                 status: FileScanStatus::Clean,
                 detection_name: Some("Omitido: Sistema de archivos virtual (procfs/sysfs/devfs)".to_string()),
                 engine: "SamuLibre VFS Filter".to_string(),
+                scan_time_ms: 0,
+            });
+        }
+
+        let path_str = path_ref.to_string_lossy().to_lowercase();
+        // Blindaje Anti-AutoDetección: Nunca catalogar binarios o assets oficiales de SamuLibre como malware
+        if path_str.contains("/.local/bin/samulibre")
+            || path_str.contains("/target/release/samulibre")
+            || path_str.contains("/target/debug/deps/samulibre")
+        {
+            return Ok(ScanResult {
+                file_path: path_ref.to_string_lossy().to_string(),
+                sha256: String::new(),
+                status: FileScanStatus::Clean,
+                detection_name: Some("Omitido: Binario oficial de SamuLibre verificado".to_string()),
+                engine: "SamuLibre SelfDefense".to_string(),
                 scan_time_ms: 0,
             });
         }
@@ -642,19 +661,25 @@ impl MultiEngineScanner {
         }
 
         // 2. Verificación por reglas heurísticas y YARA-X con Fast-Path Substring Pre-Filter
-        // Regla estricta anti-falsos positivos: Documentación y código fuente en texto plano que no sea ejecutable
-        // no debe evaluarse con heurísticas de LOLBins o Mimikatz a menos que contenga EICAR o binarios PE/ELF embebidos.
+        // Regla estricta anti-falsos positivos: Documentación, traducciones (.mo/.po), configuraciones
+        // y código fuente que no sea ejecutable no deben evaluarse con heurísticas de LOLBins o Mimikatz.
         let ext = path_ref.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+        let fname = path_ref.file_name().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+        let is_locale_data = path_str.contains("/locale/") || path_str.contains("/i18n/") || ext == "mo" || ext == "po" || ext == "qm";
+        let is_browser_config = (path_str.contains("google-chrome") || path_str.contains("chromium") || path_str.contains("brave") || path_str.contains("edge"))
+            && (fname == "preferences" || fname == "secure preferences" || fname == "local state" || ext == "json");
         let is_plain_doc_or_source = matches!(
             ext.as_str(),
             "md" | "txt" | "rst" | "json" | "toml" | "yaml" | "yml" | "xml" | "css" | "svg"
                 | "png" | "jpg" | "jpeg" | "webp" | "ico" | "ttf" | "woff" | "woff2" | "lock"
                 | "rs" | "c" | "cpp" | "h" | "hpp" | "ts" | "java" | "go" | "html" | "htm"
+                | "mo" | "po" | "pot" | "qm" | "dic" | "aff" | "loc" | "locale" | "desktop"
+                | "theme" | "colors" | "ini" | "cfg" | "conf" | "properties"
         ) && !content.starts_with(b"MZ") && !content.starts_with(b"\x7FELF") && !content.starts_with(b"#!");
 
         let is_eicar = contains_case_insensitive(&content, b"eicar-standard-antivirus-test-file");
 
-        if (is_eicar || !is_plain_doc_or_source) && has_suspicious_indicators(&content) {
+        if (is_eicar || (!is_plain_doc_or_source && !is_locale_data && !is_browser_config)) && has_suspicious_indicators(&content) {
             for rule in &self.pattern_rules {
                 if rule.pattern.is_match(&content) {
                     return Ok(ScanResult {
@@ -761,6 +786,18 @@ impl MultiEngineScanner {
         let mut hasher = Sha256::new();
         hasher.update(data);
         let sha256_hash = hex::encode(hasher.finalize());
+
+        // Archivos minúsculos (<= 4 bytes) como números de versión o banderas no contienen malware
+        if data.len() <= 4 {
+            return ScanResult {
+                file_path: name_hint.to_string(),
+                sha256: sha256_hash,
+                status: FileScanStatus::Clean,
+                detection_name: None,
+                engine: "SamuLibre Multi-Engine".to_string(),
+                scan_time_ms: start.elapsed().as_millis().max(1) as u64,
+            };
+        }
 
         // 1. Verificación por base de firmas conocidas (ClamAV / ThreatFox / MalwareBazaar)
         if let Some(detection) = self.known_signatures.get(&sha256_hash) {
@@ -907,7 +944,7 @@ impl MultiEngineScanner {
             ("a3c1097e883395c52c67645f06ea4a4d2f0992383840742f15599eec38d1796c", "Trojan.Script.PowerSploit.Mimikatz"),
             ("d9f37c35f29e0dc0476839281a179e830e234327bc794825d4c82b99453d102e", "Trojan.Win32.LokiBot.CredentialStealer"),
             ("2a4b896940d99fae5e6e3c5ec82fbf91efea9380436d4ab8d2c49ffab03233c7", "Backdoor.Win32.RemcosRAT.Client"),
-            ("6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", "Trojan.Win32.AsyncRAT.C2Channel"),
+            ("7c844391e4ab6b7a597bf270c5e6bfb1050ebad5c2a11b6957fa8730b91e9215", "Trojan.Win32.AsyncRAT.C2Channel"),
             ("32b139977cfb9a01be3fc4863c18b7ae293b67be06eec43eb91fe5d35eb7b3fe", "Trojan.Win32.Emotet.Payload"),
             ("8b6f3b5843a0558b8d4f40f7d5c5893e3d64c1265fef54e9bcad26895c84df12", "Ransomware.Win32.BlackCat.ALPHV"),
         ];
@@ -922,6 +959,9 @@ impl MultiEngineScanner {
             // SEC-04 Blindaje contra Inyección y DoS en Firmas Externas
             const PROTECTED_WHITELIST_HASHES: &[&str] = &[
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // Empty file SHA-256
+                "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", // SHA-256 of character "1" (previene colisión con /var/lib/boltd/version)
+                "d41d8cd98f00b204e9800998ecf8427e", // Empty file MD5
+                "c4ca4238a0b923820dcc509a6f75849b", // MD5 of "1"
             ];
 
             for line in content.lines() {
@@ -1187,11 +1227,20 @@ pub fn is_document_file(path: &Path) -> bool {
 }
 
 pub fn is_suspicious_pdf(data: &[u8]) -> bool {
-    contains_case_insensitive(data, b"/JavaScript")
-        || contains_case_insensitive(data, b"/JS")
-        || contains_case_insensitive(data, b"/Launch")
-        || contains_case_insensitive(data, b"/EmbeddedFiles")
-        || contains_case_insensitive(data, b"/OpenAction")
+    let has_js = contains_case_insensitive(data, b"/JavaScript") || contains_case_insensitive(data, b"/JS");
+    let has_launch = contains_case_insensitive(data, b"/Launch");
+    let has_embedded = contains_case_insensitive(data, b"/EmbeddedFiles");
+
+    if has_launch {
+        return true;
+    }
+    if has_js && (contains_case_insensitive(data, b"app.") || contains_case_insensitive(data, b"eval") || contains_case_insensitive(data, b"unescape")) {
+        return true;
+    }
+    if has_embedded && (contains_case_insensitive(data, b".exe") || contains_case_insensitive(data, b".vbs") || contains_case_insensitive(data, b".js") || contains_case_insensitive(data, b".scr")) {
+        return true;
+    }
+    false
 }
 
 /// Extrae la procedencia (ADS Zone.Identifier en Windows) y genera una explicación simple en lenguaje humano estilo XDR
@@ -1598,5 +1647,24 @@ mod tests {
 
         assert!(!is_system_pseudo_fs("/home/user/document.pdf"));
         assert!(!is_system_pseudo_fs("/tmp/test_file.bin"));
+    }
+
+    #[test]
+    fn test_false_positive_remediations() {
+        let scanner = MultiEngineScanner::new();
+
+        // 1. Archivo que contiene solo el caracter "1" (como /var/lib/boltd/version) NO debe ser AsyncRAT
+        let res_one = scanner.scan_bytes(b"1", "version");
+        assert_eq!(res_one.status, FileScanStatus::Clean);
+
+        // 2. Archivo de localización .mo que contiene /bin/sh -i en sus cadenas no debe ser troyano
+        let mo_content = b"\xde\x12\x04\x95\x00\x00\x00\x00Help text: /bin/sh -i interactive shell";
+        let res_mo = scanner.scan_bytes(mo_content, "coreutils.mo");
+        assert_eq!(res_mo.status, FileScanStatus::Clean);
+
+        // 3. Documento PDF estándar con /OpenAction no debe ser marcado como exploit
+        let clean_pdf = b"%PDF-1.4\n/OpenAction [ /Fit ]\n%%EOF";
+        let res_pdf = scanner.scan_bytes(clean_pdf, "manual.pdf");
+        assert_eq!(res_pdf.status, FileScanStatus::Clean);
     }
 }

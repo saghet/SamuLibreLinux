@@ -583,22 +583,7 @@ fn save_exclusions(exclusions: &[String]) {
 }
 
 fn is_system_pseudo_fs(path: &Path) -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        let p_str = path.to_string_lossy();
-        p_str.starts_with("/proc")
-            || p_str.starts_with("/sys")
-            || p_str.starts_with("/dev")
-            || p_str.starts_with("/run")
-            || p_str.starts_with("/sys/kernel/debug")
-            || p_str.contains("/proc/")
-            || p_str.contains("/sys/")
-            || p_str.contains("/dev/")
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
-    }
+    samulibre_scanner::is_system_pseudo_fs(path)
 }
 
 fn is_path_excluded(path: &Path, exclusions: &[String]) -> bool {
@@ -3447,6 +3432,12 @@ fn scan_paths_parallel(
     scanner_arc: Arc<samulibre_scanner::MultiEngineScanner>,
     proxy: EventLoopProxy<CustomUserEvent>,
 ) -> (usize, usize, Vec<samulibre_types::ThreatRecord>) {
+    // Filtrado estricto anti-hang VFS: Descartar inmediatamente cualquier pseudoruta virtual
+    let paths: Vec<PathBuf> = paths
+        .into_iter()
+        .filter(|p| !is_system_pseudo_fs(p))
+        .collect();
+
     let scanned_count = Arc::new(AtomicUsize::new(0));
     let threats_count = Arc::new(AtomicUsize::new(0));
     let detected_threats = Arc::new(Mutex::new(Vec::<samulibre_types::ThreatRecord>::new()));

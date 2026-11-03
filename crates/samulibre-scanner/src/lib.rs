@@ -65,6 +65,29 @@ impl std::fmt::Debug for MultiEngineScanner {
     }
 }
 
+/// Determina si una ruta pertenece a sistemas de archivos virtuales de GNU/Linux
+/// (procfs, sysfs, devfs, run) para evitar cuelgues en lectura y lecturas infinitas de VFS.
+pub fn is_system_pseudo_fs(path: impl AsRef<Path>) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        let p_str = path.as_ref().to_string_lossy();
+        p_str.starts_with("/proc")
+            || p_str.starts_with("/sys")
+            || p_str.starts_with("/dev")
+            || p_str.starts_with("/run")
+            || p_str.starts_with("/var/run")
+            || p_str.contains("/proc/")
+            || p_str.contains("/sys/")
+            || p_str.contains("/dev/")
+            || p_str.contains("/run/")
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = path;
+        false
+    }
+}
+
 pub fn get_signatures_storage_dir() -> PathBuf {
     #[cfg(target_os = "linux")]
     {
@@ -136,6 +159,10 @@ impl MultiEngineScanner {
 
     /// Comprueba si una ruta determinada o alguno de sus directorios padre están excluidos
     pub fn is_path_excluded(&self, path: impl AsRef<Path>) -> bool {
+        let target = path.as_ref();
+        if is_system_pseudo_fs(target) {
+            return true;
+        }
         if self.excluded_paths.is_empty() {
             return false;
         }
@@ -405,6 +432,20 @@ impl MultiEngineScanner {
                 status: FileScanStatus::Clean,
                 detection_name: Some("Interrumpido: Cancelación solicitada por el usuario".to_string()),
                 engine: "SamuLibre Multi-Engine".to_string(),
+                scan_time_ms: 0,
+            });
+        }
+
+        // Blindaje VFS Anti-Hang / Zero-Crash:
+        // Omitir incondicionalmente sistemas de archivos pseudo-virtuales (/proc, /sys, /dev, /run)
+        // para evitar bloqueos del kernel (e.g. pagemap, mem, kcore, named FIFOs).
+        if is_system_pseudo_fs(path_ref) {
+            return Ok(ScanResult {
+                file_path: path_ref.to_string_lossy().to_string(),
+                sha256: String::new(),
+                status: FileScanStatus::Clean,
+                detection_name: Some("Omitido: Sistema de archivos virtual (procfs/sysfs/devfs)".to_string()),
+                engine: "SamuLibre VFS Filter".to_string(),
                 scan_time_ms: 0,
             });
         }
@@ -1532,5 +1573,30 @@ mod tests {
         assert_eq!(res_normal.status, FileScanStatus::Clean);
 
         let _ = std::fs::remove_file(&test_file);
+    }
+
+    #[test]
+    fn test_vfs_pseudo_fs_anti_hang() {
+        let scanner = MultiEngineScanner::new();
+
+        #[cfg(target_os = "linux")]
+        {
+            assert!(is_system_pseudo_fs("/proc/1/mountinfo"));
+            assert!(is_system_pseudo_fs("/proc/self/pagemap"));
+            assert!(is_system_pseudo_fs("/sys/kernel/debug"));
+            assert!(is_system_pseudo_fs("/dev/shm"));
+
+            // Debe retornar Clean de forma instantánea sin abrir el archivo virtual
+            let start = std::time::Instant::now();
+            let res = scanner.scan_file("/proc/self/pagemap").expect("Debe retornar Ok");
+            let elapsed = start.elapsed();
+
+            assert_eq!(res.status, FileScanStatus::Clean);
+            assert!(res.detection_name.unwrap().contains("Omitido: Sistema de archivos virtual"));
+            assert!(elapsed.as_millis() < 50, "La omisión debe ser inmediata (<50ms), tomó {:?}", elapsed);
+        }
+
+        assert!(!is_system_pseudo_fs("/home/user/document.pdf"));
+        assert!(!is_system_pseudo_fs("/tmp/test_file.bin"));
     }
 }

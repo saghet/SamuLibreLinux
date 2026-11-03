@@ -2305,20 +2305,25 @@
       return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
     }
 
-    function startScanStopwatch() {
+    function startScanStopwatch(forceReset = false) {
+      if (forceReset || !scanStartTimeMs || !scanTimerInterval) {
+        scanStartTimeMs = Date.now();
+      }
       if (scanTimerInterval) {
         clearInterval(scanTimerInterval);
         scanTimerInterval = null;
       }
-      scanStartTimeMs = Date.now();
+      isRealScanActive = true;
       const timerEl = document.getElementById('scanStopwatchText');
-      if (timerEl) timerEl.textContent = '00:00:00';
+      if (timerEl && forceReset) timerEl.textContent = '00:00:00';
       const timerDot = document.getElementById('scanTimerDot');
       if (timerDot) {
         timerDot.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-ping';
       }
       const speedMetric = document.getElementById('scanSpeedMetric');
-      if (speedMetric) speedMetric.textContent = 'Iniciando cronómetro...';
+      if (speedMetric && (!speedMetric.textContent || speedMetric.textContent.includes('Tiempo transcurrido'))) {
+        speedMetric.textContent = 'Iniciando cronómetro...';
+      }
 
       scanTimerInterval = setInterval(() => {
         if (!isRealScanActive) {
@@ -2326,7 +2331,7 @@
           scanTimerInterval = null;
           return;
         }
-        const elapsed = Date.now() - scanStartTimeMs;
+        const elapsed = Date.now() - (scanStartTimeMs || Date.now());
         const formatted = formatTimeHHMMSS(elapsed);
         const timer = document.getElementById('scanStopwatchText');
         if (timer) timer.textContent = formatted;
@@ -2399,7 +2404,7 @@
       const hint = document.getElementById('scanStatusHint');
       if (hint) hint.textContent = 'Interrupción segura e inmediata';
 
-      startScanStopwatch();
+      startScanStopwatch(true);
     }
     window.showScanProgressUI = showScanProgressUI;
 

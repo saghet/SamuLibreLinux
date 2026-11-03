@@ -907,12 +907,21 @@
                 <p class="text-[11px] text-gray-400">Registro persistente de todas las amenazas identificadas y acciones tomadas.</p>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="refreshThreatHistory()" class="px-3 py-1 glass-panel text-gray-300 hover:text-white text-[11px] rounded-xl flex items-center gap-1 active:scale-95 transition-all">
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="deleteAllPendingThreats()" class="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[11px] font-semibold rounded-xl flex items-center gap-1 active:scale-95 transition-all shadow-sm" title="Eliminar permanentemente todos los archivos de amenazas pendientes">
+                <span>🗑️</span> Eliminar Todas
+              </button>
+              <button onclick="quarantineAllPendingThreats()" class="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold rounded-xl flex items-center gap-1 active:scale-95 transition-all shadow-sm" title="Mover a cuarentena cifrada todas las amenazas pendientes">
+                <span>🛡️</span> Aislar Todas
+              </button>
+              <button onclick="purgeSystemFalsePositives()" class="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold rounded-xl flex items-center gap-1 active:scale-95 transition-all shadow-sm" title="Descartar y purgar detecciones erróneas en /proc y librerías del sistema">
+                <span>🧹</span> Purgar Falsos Positivos
+              </button>
+              <button onclick="refreshThreatHistory()" class="px-2.5 py-1 glass-panel text-gray-300 hover:text-white text-[11px] rounded-xl flex items-center gap-1 active:scale-95 transition-all">
                 <span>🔄</span> Actualizar
               </button>
-              <button onclick="clearThreatHistory()" class="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-[11px] rounded-xl flex items-center gap-1 active:scale-95 transition-all">
-                <span>🗑️</span> Limpiar Registro
+              <button onclick="clearThreatHistory()" class="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-white/10 text-[11px] rounded-xl flex items-center gap-1 active:scale-95 transition-all">
+                <span>✕</span> Vaciar Registro
               </button>
             </div>
           </div>
@@ -2995,6 +3004,8 @@
         sevEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30';
       }
       document.getElementById('decisionThreatPath').textContent = record.file_path || '';
+      const shaEl = document.getElementById('decisionThreatSha256');
+      if (shaEl) shaEl.textContent = record.sha256 || 'No disponible o cálculo en curso';
       document.getElementById('decisionThreatEngine').textContent = record.engine || 'Multi-Engine';
       document.getElementById('decisionThreatTime').textContent = record.timestamp || '';
       
@@ -3157,6 +3168,53 @@
       showToast('Actualizando Historial', 'Consultando registro persistente de amenazas...');
     }
 
+    function deleteAllPendingThreats() {
+      const pendingCount = cachedThreatHistory.filter(h => h.action_taken === 'Pendiente').length;
+      if (pendingCount === 0) {
+        showToast('Historial Limpio', 'No hay amenazas pendientes por eliminar.');
+        return;
+      }
+      if (confirm(`¿Estás seguro de que deseas ELIMINAR PERMANENTEMENTE los ${pendingCount} archivos de amenazas pendientes del sistema?`)) {
+        sendIpc('delete_all_threats');
+        showToast('Eliminación Masiva Iniciada', `Eliminando ${pendingCount} archivo(s) del sistema...`);
+      }
+    }
+
+    function quarantineAllPendingThreats() {
+      const pendingCount = cachedThreatHistory.filter(h => h.action_taken === 'Pendiente').length;
+      if (pendingCount === 0) {
+        showToast('Historial Limpio', 'No hay amenazas pendientes por aislar.');
+        return;
+      }
+      if (confirm(`¿Deseas MOVER A CUARENTENA CIFRADA los ${pendingCount} archivos de amenazas pendientes?`)) {
+        sendIpc('quarantine_all_threats');
+        showToast('Cuarentena en Lote', `Cifrando y custodiando ${pendingCount} archivo(s)...`);
+      }
+    }
+
+    function purgeSystemFalsePositives() {
+      if (confirm('¿Deseas descartar y purgar automáticamente los registros de falsos positivos en /proc y librerías estándar del sistema?')) {
+        sendIpc('purge_system_false_positives');
+        showToast('Purgando Falsos Positivos', 'Depurando registros espurios...');
+      }
+    }
+
+    function copyThreatSha256() {
+      if (currentDecisionThreat && currentDecisionThreat.sha256) {
+        navigator.clipboard.writeText(currentDecisionThreat.sha256).then(() => {
+          showToast('Hash Copiado', 'SHA-256 copiado al portapapeles.');
+        });
+      }
+    }
+
+    function copyThreatPath() {
+      if (currentDecisionThreat && currentDecisionThreat.file_path) {
+        navigator.clipboard.writeText(currentDecisionThreat.file_path).then(() => {
+          showToast('Ruta Copiada', 'Ruta del archivo copiada al portapapeles.');
+        });
+      }
+    }
+
     function clearThreatHistory() {
       if (confirm('¿Deseas vaciar por completo el historial de amenazas registradas?')) {
         sendIpc('clear_threat_history');
@@ -3196,7 +3254,9 @@
       tbody.innerHTML = '';
       cachedThreatHistory.forEach(item => {
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-white/[0.02] transition-colors';
+        tr.className = 'hover:bg-white/[0.06] cursor-pointer transition-colors group select-none';
+        tr.title = 'Haz clic para ver la ficha forense completa y opciones de neutralización';
+        tr.onclick = () => openThreatDecisionModal(item);
 
         const isQuar = item.action_taken === 'En Cuarentena';
         const isDel = item.action_taken === 'Eliminado';
@@ -3214,16 +3274,20 @@
         let actionButtons = '';
         if (isPend) {
           actionButtons = `
-            <button onclick="actionQuarantineThreat('${item.id}', '${escapeJs(item.file_path)}')" class="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded text-[10px] font-medium border border-emerald-500/30">🛡️ Aislar</button>
-            <button onclick="actionDeleteThreat('${item.id}', '${escapeJs(item.file_path)}')" class="px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-[10px] font-medium border border-red-500/30">🗑️ Borrar</button>
+            <button onclick="event.stopPropagation(); actionQuarantineThreat('${item.id}', '${escapeJs(item.file_path)}')" class="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded text-[10px] font-medium border border-emerald-500/30" title="Mover a cuarentena cifrada">🛡️ Aislar</button>
+            <button onclick="event.stopPropagation(); actionDeleteThreat('${item.id}', '${escapeJs(item.file_path)}')" class="px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-[10px] font-medium border border-red-500/30" title="Eliminar archivo del disco">🗑️ Borrar</button>
+            <button onclick="event.stopPropagation(); openThreatDecisionModal(cachedThreatHistory.find(x => x.id === '${item.id}'))" class="px-1.5 py-0.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded text-[10px] font-medium border border-blue-500/30" title="Ver detalles forenses del archivo">ℹ️</button>
           `;
         } else if (isQuar && item.quarantine_id) {
           actionButtons = `
-            <button onclick="actionRestoreThreat('${item.quarantine_id}', '${item.id}')" class="px-2 py-0.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded text-[10px] font-medium border border-cyan-500/30">↩️ Restaurar</button>
-            <button onclick="purgeQuarantineItem('${item.quarantine_id}')" class="px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-[10px] font-medium border border-red-500/30">🗑️ Purgar</button>
+            <button onclick="event.stopPropagation(); actionRestoreThreat('${item.quarantine_id}', '${item.id}')" class="px-2 py-0.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded text-[10px] font-medium border border-cyan-500/30">↩️ Restaurar</button>
+            <button onclick="event.stopPropagation(); purgeQuarantineItem('${item.quarantine_id}')" class="px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-[10px] font-medium border border-red-500/30">🗑️ Purgar</button>
+            <button onclick="event.stopPropagation(); openThreatDecisionModal(cachedThreatHistory.find(x => x.id === '${item.id}'))" class="px-1.5 py-0.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded text-[10px] font-medium border border-blue-500/30" title="Ver detalles forenses del archivo">ℹ️</button>
           `;
         } else {
-          actionButtons = `<span class="text-gray-500 text-[10px]">Resuelto</span>`;
+          actionButtons = `
+            <button onclick="event.stopPropagation(); openThreatDecisionModal(cachedThreatHistory.find(x => x.id === '${item.id}'))" class="px-1.5 py-0.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded text-[10px] font-medium border border-white/20" title="Ver ficha técnica">ℹ️ Info</button>
+          `;
         }
 
         tr.innerHTML = `
@@ -5063,8 +5127,22 @@
           <span id="decisionThreatSeverity" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/30"></span>
         </div>
         <div class="flex flex-col gap-0.5 pt-1 border-t border-white/5">
-          <span class="text-gray-400 text-[10px]">Ubicación del Archivo:</span>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-400 text-[10px]">Ubicación del Archivo:</span>
+            <button onclick="copyThreatPath()" class="text-[10px] text-cyan-400 hover:text-cyan-200 flex items-center gap-1 font-sans">
+              <span>📋</span> Copiar Ruta
+            </button>
+          </div>
           <span id="decisionThreatPath" class="font-mono text-gray-200 text-[11px] break-all bg-black/40 p-2 rounded-xl border border-white/5"></span>
+        </div>
+        <div class="flex flex-col gap-0.5 pt-1 border-t border-white/5">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-400 text-[10px]">Hash Criptográfico SHA-256:</span>
+            <button onclick="copyThreatSha256()" class="text-[10px] text-cyan-400 hover:text-cyan-200 flex items-center gap-1 font-sans">
+              <span>📋</span> Copiar Hash
+            </button>
+          </div>
+          <span id="decisionThreatSha256" class="font-mono text-cyan-300 text-[10px] break-all bg-black/40 p-1.5 rounded-xl border border-white/5 select-all"></span>
         </div>
         <div class="flex items-center justify-between text-[10px] text-gray-400 pt-1">
           <span>Motor: <span id="decisionThreatEngine" class="text-gray-300 font-mono"></span></span>

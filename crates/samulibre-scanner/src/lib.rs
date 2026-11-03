@@ -361,7 +361,8 @@ impl MultiEngineScanner {
         }
 
         // Regla 14: Inyección y Manipulación de Módulos de Kernel (LKM Rootkits)
-        if let Ok(re) = Regex::new(r"(?i)(insmod\s+.*?\.ko|init_module|finit_module|/dev/kmem|/proc/kallsyms)") {
+        // Nota técnica: Se evita buscar "init_module" o "finit_module" aislados porque son nombres de funciones exportadas legítimamente por glibc (libc.so.6).
+        if let Ok(re) = Regex::new(r"(?i)(insmod\s+[\w/\.\-]+\.ko|syscall\s*\(\s*(?:SYS_|__NR_)?(?:f?init_module|175|313)|/dev/kmem|/proc/kallsyms)") {
             self.pattern_rules.push(PatternRule {
                 name: "Rootkit.Linux.KernelModuleTampering".to_string(),
                 description: "Intento de carga dinámica de módulo de kernel o lectura de símbolos internos del kernel".to_string(),

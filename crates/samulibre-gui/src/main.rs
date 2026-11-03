@@ -1569,9 +1569,14 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                                     || p_str.starts_with("/sbin") 
                                     || p_str.starts_with("/lib") 
                                     || p_str.starts_with("/usr/bin")
-                                    || p_str.starts_with("/etc");
+                                    || p_str.starts_with("/etc")
+                                    || p_str.starts_with("/proc")
+                                    || p_str.starts_with("/sys")
+                                    || p_str.starts_with("/dev");
 
                                 if is_dangerous {
+                                    item.action_taken = "Descartado".to_string();
+                                    count += 1;
                                     continue;
                                 }
 
@@ -1586,8 +1591,48 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                         save_threat_history(&history);
                         let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
                         let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
-                            title: "✔ Amenazas Eliminadas en Lote".to_string(),
-                            details: format!("Se han eliminado permanentemente {} archivo(s) maliciosos del sistema.", count),
+                            title: "✔ Amenazas Procesadas en Lote".to_string(),
+                            details: format!("Se han procesado {} amenaza(s) pendientes del sistema.", count),
+                        });
+                    }
+
+                    "purge_system_false_positives" => {
+                        let mut history = load_threat_history();
+                        let before_count = history.len();
+                        history.retain(|item| {
+                            let p = &item.file_path;
+                            let is_pseudo = p.starts_with("/proc") 
+                                || p.starts_with("/sys") 
+                                || p.starts_with("/dev") 
+                                || p.starts_with("/run")
+                                || p.contains("/proc/")
+                                || p.contains("/sys/")
+                                || p.contains("/dev/");
+                            let is_system_path = p.starts_with("/boot")
+                                || p.starts_with("/var/lib/snapd")
+                                || p.starts_with("/var/cache")
+                                || p.starts_with("/var/lib/pacman")
+                                || p.starts_with("/usr/lib")
+                                || p.starts_with("/usr/share");
+                            let is_glibc_fp = item.threat_name == "Rootkit.Linux.KernelModuleTampering" && (
+                                p.contains("libc.so") 
+                                    || p.contains("libkmod.so") 
+                                    || p.contains("/snap/") 
+                                    || p.contains("/boot/") 
+                                    || p.contains("glibc")
+                                    || p.contains("/usr/lib")
+                                    || p.contains("libcrypt")
+                                    || p.contains("libseccomp")
+                            );
+                            let is_dev_cache = p.contains("/go/pkg/mod/") || p.contains("/.cargo/registry/") || p.contains("/.rustup/");
+                            !(is_pseudo || is_system_path || is_glibc_fp || is_dev_cache)
+                        });
+                        let purged = before_count.saturating_sub(history.len());
+                        save_threat_history(&history);
+                        let _ = proxy_for_ipc.send_event(CustomUserEvent::ThreatHistoryLoaded { history });
+                        let _ = proxy_for_ipc.send_event(CustomUserEvent::RealTimeAlert {
+                            title: "✔ Falsos Positivos Purgados".to_string(),
+                            details: format!("Se descartaron {} registros espurios de pseudo-archivos, librerías y cachés del sistema.", purged),
                         });
                     }
 

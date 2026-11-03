@@ -2173,7 +2173,9 @@
       if (ramEl && typeof hw.ram_mb === 'number') {
         ramEl.textContent = hw.ram_mb.toFixed(1) + ' MB';
         if (ramBar) {
-          const rPct = Math.max(6, Math.min(100, Math.round((hw.ram_mb / 512) * 100)));
+          const rPct = (typeof hw.system_ram_pct === 'number' && hw.system_ram_pct > 0)
+            ? Math.max(6, Math.min(100, Math.round(hw.system_ram_pct)))
+            : Math.max(6, Math.min(100, Math.round((hw.ram_mb / 512) * 100)));
           ramBar.style.width = rPct + '%';
         }
       }
@@ -2479,6 +2481,33 @@
 
       if (!isDone) {
         isRealScanActive = true;
+        if (!scanTimerInterval) {
+          startScanStopwatch();
+        }
+
+        // Si la tarjeta estaba en estado Finalizado o Limpio previo, restaurar a modo Activo
+        if (title && (title.textContent.includes('Finalizado') || title.textContent.includes('Detenido') || title.textContent.includes('Limpio') || card.classList.contains('border-emerald-500/25') || card.classList.contains('border-red-500/25'))) {
+          card.className = 'glass-card p-6 rounded-3xl relative overflow-hidden space-y-4 border border-blue-500/25 bg-blue-500/[0.04] transition-all duration-300';
+          if (icon) {
+            icon.className = 'w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-sm font-bold animate-pulse';
+            icon.textContent = '⚡';
+          }
+          if (badge) {
+            badge.className = 'text-[9px] uppercase font-mono px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30';
+            badge.textContent = 'ACTIVO';
+          }
+          if (title) title.textContent = 'Escaneo Profundo en Ejecución';
+          if (sub) sub.textContent = 'Analizando archivos en memoria y almacenamiento local con motor multi-hilo...';
+          if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+          if (pbar) pbar.className = 'h-full bg-gradient-to-r from-blue-500 via-teal-400 to-emerald-400 rounded-full transition-all duration-150';
+          if (btn) {
+            btn.disabled = false;
+            btn.className = 'px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold flex items-center gap-2 active:scale-95 transition-all shadow-sm';
+            btn.innerHTML = '<span>⏹️</span> <span>Detener Análisis</span>';
+          }
+          if (hint) hint.textContent = 'Interrupción segura e inmediata';
+        }
+
         const elapsedSec = (Date.now() - (scanStartTimeMs || Date.now())) / 1000;
         if (elapsedSec > 0.4 && speedMetric) {
           const speed = Math.round(filesScanned / elapsedSec);
@@ -2670,11 +2699,13 @@
     }
 
     function browseAndScanFiles() {
+      showScanProgressUI();
       showToast('Explorador de Archivos', 'Abriendo selector de archivos del sistema (KDialog / Zenity)...');
       sendIpc('browse_and_scan_files');
     }
 
     function browseAndScanFolder() {
+      showScanProgressUI();
       showToast('Explorador de Carpetas', 'Abriendo selector de carpetas del sistema...');
       sendIpc('browse_and_scan_folder');
     }
@@ -2689,6 +2720,7 @@
         }
       }
       if (paths.length > 0) {
+        showScanProgressUI();
         showToast('Analizando Archivos', `Enviando ${paths.length} archivo(s) al motor Multi-Engine...`);
         sendIpc('scan_custom_path', JSON.stringify(paths));
       }

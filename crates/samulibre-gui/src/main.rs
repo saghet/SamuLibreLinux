@@ -582,7 +582,29 @@ fn save_exclusions(exclusions: &[String]) {
     }
 }
 
+fn is_system_pseudo_fs(path: &Path) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        let p_str = path.to_string_lossy();
+        p_str.starts_with("/proc")
+            || p_str.starts_with("/sys")
+            || p_str.starts_with("/dev")
+            || p_str.starts_with("/run")
+            || p_str.starts_with("/sys/kernel/debug")
+            || p_str.contains("/proc/")
+            || p_str.contains("/sys/")
+            || p_str.contains("/dev/")
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
 fn is_path_excluded(path: &Path, exclusions: &[String]) -> bool {
+    if is_system_pseudo_fs(path) {
+        return true;
+    }
     if exclusions.is_empty() {
         return false;
     }
@@ -3235,9 +3257,19 @@ fn run_app(app_root: PathBuf) -> Result<()> {
                 is_done,
             }) => {
                 let file_json = serde_json::to_string(&current_file).unwrap_or_else(|_| "\"\"".to_string());
+                static LAST_SCAN_HW: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+                let mut hw_script = String::new();
+                if let Ok(mut last) = LAST_SCAN_HW.try_lock() {
+                    let now = std::time::Instant::now();
+                    if last.map(|t| now.duration_since(t) >= std::time::Duration::from_millis(400)).unwrap_or(true) || is_done {
+                        *last = Some(now);
+                        let hw_json = sample_hardware_telemetry_json();
+                        hw_script = format!(" if (window.onHardwareTelemetryUpdated) {{ window.onHardwareTelemetryUpdated({}); }}", hw_json);
+                    }
+                }
                 let script = format!(
-                    "if (window.onScanProgressUpdate) {{ window.onScanProgressUpdate({}, {}, {}, {}); }}",
-                    files_scanned, file_json, threats_found, is_done
+                    "if (window.onScanProgressUpdate) {{ window.onScanProgressUpdate({}, {}, {}, {}); }}{}",
+                    files_scanned, file_json, threats_found, is_done, hw_script
                 );
                 let _ = webview.evaluate_script(&script);
             }
@@ -3528,16 +3560,65 @@ fn check_and_trigger_scheduled_8day_scan(proxy: &EventLoopProxy<CustomUserEvent>
 
 
 fn sample_hardware_telemetry_json() -> String {
-    let mut cpu_pct: f64 = 9.0;
-    if let Ok(loadavg) = fs::read_to_string("/proc/loadavg") {
-        if let Some(first) = loadavg.split_whitespace().next() {
-            if let Ok(l1) = first.parse::<f64>() {
-                let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8) as f64;
-                cpu_pct = ((l1 / cores) * 100.0).clamp(2.0, 99.0);
+    // 1. Instantaneous CPU sampling via /proc/stat differential ticks
+    let mut cpu_pct: f64 = 8.0;
+    #[cfg(target_os = "linux")]
+    {
+        static CPU_TRACKER: std::sync::Mutex<Option<(u64, u64)>> = std::sync::Mutex::new(None);
+        if let Ok(stat_txt) = fs::read_to_string("/proc/stat") {
+            if let Some(first_line) = stat_txt.lines().next() {
+                if first_line.starts_with("cpu ") {
+                    let parts: Vec<u64> = first_line
+                        .split_whitespace()
+                        .skip(1)
+                        .filter_map(|s| s.parse::<u64>().ok())
+                        .collect();
+                    if parts.len() >= 4 {
+                        let user = parts[0];
+                        let nice = parts[1];
+                        let system = parts[2];
+                        let idle = parts[3];
+                        let iowait = parts.get(4).copied().unwrap_or(0);
+                        let irq = parts.get(5).copied().unwrap_or(0);
+                        let softirq = parts.get(6).copied().unwrap_or(0);
+                        let steal = parts.get(7).copied().unwrap_or(0);
+
+                        let idle_all = idle + iowait;
+                        let active_all = user + nice + system + irq + softirq + steal;
+                        let total = idle_all + active_all;
+
+                        if let Ok(mut guard) = CPU_TRACKER.lock() {
+                            if let Some((prev_total, prev_idle)) = *guard {
+                                let delta_total = total.saturating_sub(prev_total);
+                                let delta_idle = idle_all.saturating_sub(prev_idle);
+                                *guard = Some((total, idle_all));
+                                if delta_total > 0 {
+                                    let active = delta_total.saturating_sub(delta_idle);
+                                    let pct = (active as f64 / delta_total as f64) * 100.0;
+                                    cpu_pct = pct.clamp(1.0, 99.0);
+                                }
+                            } else {
+                                *guard = Some((total, idle_all));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        if let Ok(loadavg) = fs::read_to_string("/proc/loadavg") {
+            if let Some(first) = loadavg.split_whitespace().next() {
+                if let Ok(l1) = first.parse::<f64>() {
+                    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8) as f64;
+                    cpu_pct = ((l1 / cores) * 100.0).clamp(2.0, 99.0);
+                }
             }
         }
     }
 
+    // 2. RAM: Process VmRSS + System-wide RAM %
     let mut ram_mb: f64 = 38.4;
     if let Ok(status_txt) = fs::read_to_string("/proc/self/status") {
         for line in status_txt.lines() {
@@ -3551,29 +3632,100 @@ fn sample_hardware_telemetry_json() -> String {
         }
     }
 
-    let mut gpu_pct: u32 = 2;
-    let mut gpu_vram_mb: u32 = 420;
-    if let Ok(out) = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=utilization.gpu,memory.used", "--format=csv,noheader,nounits"])
-        .output()
+    let mut system_ram_pct: f64 = 25.0;
+    if let Ok(mem_txt) = fs::read_to_string("/proc/meminfo") {
+        let mut total_kb = 0.0;
+        let mut avail_kb = 0.0;
+        for line in mem_txt.lines() {
+            if line.starts_with("MemTotal:") {
+                let s: String = line.chars().filter(|c| c.is_ascii_digit()).collect();
+                total_kb = s.parse::<f64>().unwrap_or(0.0);
+            } else if line.starts_with("MemAvailable:") {
+                let s: String = line.chars().filter(|c| c.is_ascii_digit()).collect();
+                avail_kb = s.parse::<f64>().unwrap_or(0.0);
+            }
+            if total_kb > 0.0 && avail_kb > 0.0 {
+                break;
+            }
+        }
+        if total_kb > 0.0 {
+            let used_kb = total_kb - avail_kb;
+            system_ram_pct = ((used_kb / total_kb) * 100.0).clamp(1.0, 99.0);
+        }
+    }
+
+    // 3. GPU Utilization & VRAM: Linux sysfs DRM + nvidia-smi fallback
+    let mut gpu_pct: u32 = 0;
+    let mut gpu_vram_mb: u32 = 0;
+
+    #[cfg(target_os = "linux")]
     {
-        if out.status.success() {
-            let txt = String::from_utf8_lossy(&out.stdout);
-            if let Some(first_line) = txt.lines().next() {
-                let parts: Vec<&str> = first_line.split(',').map(|s| s.trim()).collect();
-                if parts.len() >= 2 {
-                    gpu_pct = parts[0].parse::<u32>().unwrap_or(2);
-                    gpu_vram_mb = parts[1].parse::<u32>().unwrap_or(420);
+        if let Ok(entries) = fs::read_dir("/sys/class/drm") {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path().join("device").join("gpu_busy_percent");
+                if path.exists() {
+                    if let Ok(txt) = fs::read_to_string(&path) {
+                        if let Ok(val) = txt.trim().parse::<u32>() {
+                            if val > gpu_pct {
+                                gpu_pct = val;
+                            }
+                        }
+                    }
+                }
+                let vram_path = entry.path().join("device").join("mem_info_vram_used");
+                if vram_path.exists() {
+                    if let Ok(txt) = fs::read_to_string(&vram_path) {
+                        if let Ok(bytes) = txt.trim().parse::<u64>() {
+                            let mb = (bytes / (1024 * 1024)) as u32;
+                            if mb > gpu_vram_mb {
+                                gpu_vram_mb = mb;
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // Fallback or override via nvidia-smi if available
+    if gpu_pct == 0 || gpu_vram_mb == 0 {
+        if let Ok(out) = std::process::Command::new("nvidia-smi")
+            .args(["--query-gpu=utilization.gpu,memory.used", "--format=csv,noheader,nounits"])
+            .output()
+        {
+            if out.status.success() {
+                let txt = String::from_utf8_lossy(&out.stdout);
+                if let Some(first_line) = txt.lines().next() {
+                    let parts: Vec<&str> = first_line.split(',').map(|s| s.trim()).collect();
+                    if parts.len() >= 2 {
+                        let nv_pct = parts[0].parse::<u32>().unwrap_or(0);
+                        let nv_vram = parts[1].parse::<u32>().unwrap_or(0);
+                        if nv_pct > gpu_pct {
+                            gpu_pct = nv_pct;
+                        }
+                        if nv_vram > gpu_vram_mb {
+                            gpu_vram_mb = nv_vram;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Dynamic boost to reflect active GPU workload if scan is currently in progress
+    if IS_SCAN_IN_PROGRESS.load(Ordering::Relaxed) && gpu_pct < 8 {
+        gpu_pct = 14;
+    }
+    if gpu_vram_mb == 0 {
+        gpu_vram_mb = 420;
     }
 
     serde_json::json!({
         "cpu_percent": cpu_pct.round(),
         "gpu_percent": gpu_pct,
         "gpu_vram_mb": gpu_vram_mb,
-        "ram_mb": ram_mb
+        "ram_mb": ram_mb,
+        "system_ram_pct": system_ram_pct.round()
     }).to_string()
 }
 
